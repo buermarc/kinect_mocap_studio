@@ -288,8 +288,9 @@ void push_body_data_to_json(nlohmann::json &body_result_json,
              body.skeleton.joints[index_joint].orientation.wxyz.y,
              body.skeleton.joints[index_joint].orientation.wxyz.z });
 
-          body_result_json["confidence_level"] =
-                    body.skeleton.joints[index_joint].confidence_level;
+          body_result_json["confidence_levels"].push_back(
+                body.skeleton.joints[index_joint].confidence_level
+          );
       }
 
   }
