@@ -3,3 +3,13 @@ build
 doc/html
 **/build
 CMakeLists.txt.user
+
+*.so
+*.a
+
+# Ignore CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
