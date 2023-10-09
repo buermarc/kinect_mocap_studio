@@ -1,6 +1,6 @@
 
 
-cmake_minimum_required(VERSION 3.9.0)
+cmake_minimum_required(VERSION 3.14.0)
 
 cmake_policy(SET CMP0048 NEW)
 
@@ -39,8 +39,30 @@ if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_C_COMPILER_ID}" STREQUAL
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--as-needed,-rpath-link=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 endif()
 
+include(FetchContent)
+include(ExternalProject)
+
+set(EIGEN_BUILD_DIR   ${CMAKE_BINARY_DIR}/eigen)
+set(EIGEN_INSTALL_DIR ${CMAKE_SOURCE_DIR}/include/eigen3)
+set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
+
+ExternalProject_Add(
+    eigen
+    URL https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+    PREFIX ${EIGEN_BUILD_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND
+      ${CMAKE_COMMAND} -E copy_directory ${EIGEN_BUILD_DIR}/src/eigen/Eigen ${EIGEN_INCLUDE_DIR}/Eigen 
+      && ${CMAKE_COMMAND} -E copy_directory ${EIGEN_BUILD_DIR}/src/eigen/unsupported ${EIGEN_INCLUDE_DIR}/unsupported
+    TEST_COMMAND ""
+)
+include_directories(SYSTEM ${EIGEN_INCLUDE_DIR})
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sample_helper_includes
                     ${CMAKE_CURRENT_SOURCE_DIR}/glfw/src/include
+                    ${CMAKE_CURRENT_SOURCE_DIR}/include
+                    ${CMAKE_CURRENT_SOURCE_DIR}/include/eigen
                     ${CMAKE_CURRENT_SOURCE_DIR}/floor_detector)
 add_subdirectory(glfw)
 add_subdirectory(window_controller_3d)
