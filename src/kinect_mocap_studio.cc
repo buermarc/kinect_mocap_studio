@@ -1,8 +1,8 @@
-﻿#include <k4a/k4atypes.h>
-#include <ctime>
+﻿#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <k4a/k4atypes.h>
 #include <k4abttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,7 +72,7 @@ bool s_visualizeJointFrame = false;
 
 std::vector<SkeletonFilter<double>> filters;
 
-//Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
+// Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 void PrintAppUsage()
 {
     printf("\n");
@@ -94,7 +94,7 @@ void PrintAppUsage()
     printf("\n");
 }
 
-//Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
+// Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 int64_t ProcessKey(void* /*context*/, int key)
 {
     // https://www.glfw.org/docs/latest/group__keys.html
@@ -117,14 +117,14 @@ int64_t ProcessKey(void* /*context*/, int key)
     return 1;
 }
 
-//Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
+// Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 int64_t CloseCallback(void* /*context*/)
 {
     s_isRunning = false;
     return 1;
 }
 
-//Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
+// Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
     int depthWidth, int depthHeight, SkeletonFilterBuilder<double> builder)
 {
@@ -214,8 +214,8 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
             lowConfidenceColor.a = 0.1f;
             auto [filtered_positions, filtered_velocities] = filter.step(joint_positions, timestamp);
             /**
-         * MatrixXd m
-         */
+             * MatrixXd m
+             */
             for (int joint = 0; joint < filter.joint_count(); ++joint) {
                 auto filtered_position = filtered_positions[joint];
                 k4a_float3_t pos;
@@ -359,10 +359,10 @@ void push_body_data_to_json(nlohmann::json& body_result_json,
 
         k4abt_body_t body;
 
-        //Get the skeleton
+        // Get the skeleton
         k4abt_frame_get_body_skeleton(body_frame, index_body,
             &body.skeleton);
-        //Get the body id
+        // Get the body id
         body.id = k4abt_frame_get_body_id(body_frame, index_body);
 
         body_result_json["body_id"] = body.id;
@@ -389,17 +389,17 @@ void push_body_data_to_json(nlohmann::json& body_result_json,
 int main(int argc, char** argv)
 {
 
-    //To-do's
-    //1. Include TCLAP to get command line arguments.
-    //2. Add arguments for the
-    //    - [required] number of seconds to record
-    //    - [required] name of the json file to write
-    //    - [optional] skeleton tracking smoothing parameter
-    //    - [optional] name of the mkv file to write
+    // To-do's
+    // 1. Include TCLAP to get command line arguments.
+    // 2. Add arguments for the
+    //     - [required] number of seconds to record
+    //     - [required] name of the json file to write
+    //     - [optional] skeleton tracking smoothing parameter
+    //     - [optional] name of the mkv file to write
 
     std::string output_file_name;
     double temporal_smoothing = 0.;
-    //bool save_camera_data = false;
+    // bool save_camera_data = false;
     int k4a_depth_mode = 0;
     std::string k4a_depth_mode_str;
     std::string input_sensor_file_str;
@@ -460,8 +460,8 @@ int main(int argc, char** argv)
 
         cmd.add(temporal_smoothing_arg);
 
-        //TCLAP::SwitchArg mkv_switch("m","mkv","Record rgb and depth camera data"
-        //                              " to an *.mkv file", cmd, false);
+        // TCLAP::SwitchArg mkv_switch("m","mkv","Record rgb and depth camera data"
+        //                               " to an *.mkv file", cmd, false);
 
         // Parse the argv array.
         cmd.parse(argc, argv);
@@ -558,12 +558,12 @@ int main(int argc, char** argv)
     PrintAppUsage();
 
     int frame_count = 0;
-    //int frame_count_max   = 100;
+    // int frame_count_max   = 100;
 
-    //It appears as though some of the configuration information is
-    //not written to the mkv files and so can become lost. Here I'm
-    //using an ugly but practical solution of embedding this meta data in
-    //the file name.
+    // It appears as though some of the configuration information is
+    // not written to the mkv files and so can become lost. Here I'm
+    // using an ugly but practical solution of embedding this meta data in
+    // the file name.
     if (!process_sensor_file) {
         std::stringstream output_file_name_ss;
         output_file_name_ss << output_file_name;
@@ -576,7 +576,7 @@ int main(int argc, char** argv)
     std::string output_json_file = output_file_name + ".json";
     std::string output_sensor_file = output_file_name + ".mkv";
 
-    //Check to make sure the file name is unique
+    // Check to make sure the file name is unique
     int counter = 0;
     bool name_collision = false;
     do {
@@ -602,11 +602,11 @@ int main(int argc, char** argv)
 
     } while (name_collision);
 
-    //int32_t short_timeout_in_ms
-    //    = int32_t(1000. / (3.*double(k4a_frames_per_second)) );
+    // int32_t short_timeout_in_ms
+    //     = int32_t(1000. / (3.*double(k4a_frames_per_second)) );
 
-    //int32_t long_timeout_in_ms
-    //    = int32_t(1000./ double(k4a_frames_per_second) );
+    // int32_t long_timeout_in_ms
+    //     = int32_t(1000./ double(k4a_frames_per_second) );
 
     //
     // Configure and start the device
@@ -680,13 +680,13 @@ int main(int argc, char** argv)
 
         k4a_frames_per_second = record_config.camera_fps;
 
-        //device_config.camera_fps = record_config.camera_fps;
-        //device_config.color_format = record_config.color_format;
-        //device_config.color_resolution = record_config.color_resolution;
-        //device_config.depth_delay_off_color_usec = record_config.depth_delay_off_color_usec;
-        //device_config.depth_mode = record_config.depth_mode;
-        //device_config.subordinate_delay_off_master_usec = record_config.subordinate_delay_off_master_usec;
-        //device_config.wired_sync_mode = record_config.wired_sync_mode;
+        // device_config.camera_fps = record_config.camera_fps;
+        // device_config.color_format = record_config.color_format;
+        // device_config.color_resolution = record_config.color_resolution;
+        // device_config.depth_delay_off_color_usec = record_config.depth_delay_off_color_usec;
+        // device_config.depth_mode = record_config.depth_mode;
+        // device_config.subordinate_delay_off_master_usec = record_config.subordinate_delay_off_master_usec;
+        // device_config.wired_sync_mode = record_config.wired_sync_mode;
 
     } else {
 
@@ -735,7 +735,7 @@ int main(int argc, char** argv)
         VERIFY(k4a_device_start_cameras(device, &device_config),
             "Start K4A cameras failed!");
 
-        //Get the sensor calibration information
+        // Get the sensor calibration information
         VERIFY(k4a_device_get_calibration(device, device_config.depth_mode,
                    device_config.color_resolution,
                    &sensor_calibration),
@@ -760,7 +760,7 @@ int main(int argc, char** argv)
     }
 
     //
-    //Initialize and start the body tracker
+    // Initialize and start the body tracker
     //
     k4abt_tracker_t tracker = NULL;
     // k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
@@ -769,7 +769,7 @@ int main(int argc, char** argv)
         "Body tracker initialization failed!");
     k4abt_tracker_set_temporal_smoothing(tracker, temporal_smoothing);
 
-    //Start the IMU
+    // Start the IMU
     if (!process_sensor_file) {
         VERIFY(k4a_device_start_imu(device), "Start K4A imu failed!");
     }
@@ -777,7 +777,7 @@ int main(int argc, char** argv)
     // JSON pre-amble
     //
 
-    //Store the json pre-amble data
+    // Store the json pre-amble data
     nlohmann::json json_output;
     nlohmann::json frames_json = nlohmann::json::array();
 
@@ -846,8 +846,8 @@ int main(int argc, char** argv)
     //
 
     /**
-   * Skeleton Filter setup
-   */
+     * Skeleton Filter setup
+     */
     std::string var_path("/home/d074052/repos/master/code/matlab/stand_b2_t1_NFOV_UNBINNED_720P_30fps.json");
     int joint_count = 32;
     SkeletonFilterBuilder<double> skeleton_filter_builder(var_path, joint_count, 2.0);
@@ -882,14 +882,14 @@ int main(int argc, char** argv)
                 capture_ready = true;
             } else if (get_capture_result == K4A_WAIT_RESULT_TIMEOUT) {
                 printf("error: k4a_device_get_capture() timed out \n");
-                //break;
+                // break;
             } else {
                 printf("error: k4a_device_get_capture(): %d\n", get_capture_result);
-                //break;
+                // break;
             }
         }
 
-        //Process the data
+        // Process the data
         if (capture_ready) {
 
             k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(tracker, sensor_capture,
@@ -937,16 +937,16 @@ int main(int argc, char** argv)
                 frame_result_json["bodies"] = nlohmann::json::array();
                 frame_result_json["floor"] = nlohmann::json::array();
 
-                //Question:
-                // Is it faster to access bodies or to call
-                // k4abt_frame_get_body_skeleton?
+                // Question:
+                //  Is it faster to access bodies or to call
+                //  k4abt_frame_get_body_skeleton?
 
-                //Fetch and save the skeleton tracking data to a json object
+                // Fetch and save the skeleton tracking data to a json object
                 nlohmann::json body_result_json;
                 push_body_data_to_json(body_result_json, body_frame, num_bodies);
                 frame_result_json["bodies"].push_back(body_result_json);
 
-                //Fetch and save the imu data to a json object
+                // Fetch and save the imu data to a json object
                 nlohmann::json imu_result_json;
                 k4a_imu_sample_t imu_sample;
                 bool imu_data_ready = false;
@@ -974,7 +974,7 @@ int main(int argc, char** argv)
                     if (K4A_FAILED(write_imu_sample)) {
                         std::cerr << "error: k4a_record_write_imu_sample() returned "
                                   << write_imu_sample << std::endl;
-                        //break;
+                        // break;
                     }
                 }
 
@@ -982,10 +982,10 @@ int main(int argc, char** argv)
                     push_imu_data_to_json(imu_result_json, imu_sample);
                     frame_result_json["imu"].push_back(imu_result_json);
                 }
-                //Fit a plane to the depth points that are furthest away from
-                //the camera in the direction of gravity (this will fail when the
-                //camera accelerates by 0.2 m/s2 in any direction)
-                //This uses code from teh floor_detector example code
+                // Fit a plane to the depth points that are furthest away from
+                // the camera in the direction of gravity (this will fail when the
+                // camera accelerates by 0.2 m/s2 in any direction)
+                // This uses code from teh floor_detector example code
 
                 if (imu_data_ready) {
                     // Update point cloud.
@@ -1028,7 +1028,7 @@ int main(int argc, char** argv)
                     }
                     frame_result_json["floor"].push_back(floor_result_json);
                 }
-                //Vizualize the tracked result
+                // Vizualize the tracked result
                 VisualizeResult(body_frame, window3d, depthWidth, depthHeight, skeleton_filter_builder);
                 window3d.SetLayout3d(s_layoutMode);
                 window3d.SetJointFrameVisualization(s_visualizeJointFrame);
@@ -1044,10 +1044,10 @@ int main(int argc, char** argv)
             } else if (pop_frame_result == K4A_WAIT_RESULT_TIMEOUT) {
                 //  It should never hit timeout when K4A_WAIT_INFINITE is set.
                 printf("error: timeout k4abt_tracker_pop_result()\n");
-                //break;
+                // break;
             } else {
                 printf("Pop body frame result failed!\n");
-                //break;
+                // break;
             }
         }
 
@@ -1055,14 +1055,14 @@ int main(int argc, char** argv)
 
     printf("Finished body tracking processing!\n");
 
-    //Write sensor data to file
+    // Write sensor data to file
     if (record_sensor_data) {
         k4a_record_flush(recording);
         k4a_record_close(recording);
         std::cout << "Sensor data written to " << output_sensor_file << std::endl;
     }
 
-    //Write the frame_data_time_series to file
+    // Write the frame_data_time_series to file
     now = time(0);
     dt = ctime(&now);
     json_output["end_time"] = dt;
