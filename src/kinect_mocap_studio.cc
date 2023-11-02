@@ -282,6 +282,9 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 jointPosition_x_com,
                 jointOrientation,
                 x_com_color);
+
+            auto [center, normal] = azure_kinect_bos(filtered_positions);
+            window3d.SetBosRendering(true, center.x, center.y, center.z, normal.x, normal.y, normal.z);
         }
 
         // Visualize bones

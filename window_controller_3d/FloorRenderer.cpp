@@ -19,6 +19,7 @@ FloorRenderer::FloorRenderer(float length, float width)
 {
     BuildVertices();
 
+    vec4_set(m_color, 1.f, 1.f, 1.f, 1.f);
     mat4x4_identity(m_model);
     mat4x4_identity(m_view);
     mat4x4_identity(m_projection);
@@ -96,6 +97,11 @@ void FloorRenderer::Create(GLFWwindow * window)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
+void FloorRenderer::setColor(linmath::vec4 color)
+{
+    vec4_set(m_color, color[0], color[1], color[2], color[3]);
+}
+
 void FloorRenderer::Delete()
 {
     if (!m_initialized)
@@ -114,16 +120,13 @@ void FloorRenderer::Delete()
 
 void FloorRenderer::Render()
 {
-    vec4 color;
-    vec4_set(color, 1.f, 1.f, 1.f, 1.f);
-
     glUseProgram(m_shaderProgram);
 
     // Update model/view/projective matrices in shader
     glUniformMatrix4fv(m_viewIndex, 1, GL_FALSE, (const GLfloat*)m_view);
     glUniformMatrix4fv(m_projectionIndex, 1, GL_FALSE, (const GLfloat*)m_projection);
     glUniformMatrix4fv(m_modelIndex, 1, GL_FALSE, (const GLfloat*)m_model);
-    glUniform4f(m_colorIndex, color[0], color[1], color[2], color[3]);
+    glUniform4f(m_colorIndex, m_color[0], m_color[1], m_color[2], m_color[3]);
 
     glBindVertexArray(m_vertexArrayObject); // Bind FloorRenderer VAO
     glDrawElements(GL_TRIANGLES, (GLsizei)m_indices.size(), GL_UNSIGNED_INT, NULL);

@@ -25,6 +25,8 @@ namespace Visualization
 
         void Render() override;
 
+        void setColor(linmath::vec4 color);
+
     private:
         void BuildVertices();
 
@@ -37,6 +39,7 @@ namespace Visualization
         // Settings
         float m_length = 0.f;
         float m_width = 0.f;
+        linmath::vec4 m_color;
 
         // Data buffers
         std::vector<MonoVertex> m_vertices;

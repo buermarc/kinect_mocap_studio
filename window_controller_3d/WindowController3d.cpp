@@ -432,6 +432,27 @@ void WindowController3d::SetFloorRendering(bool enableFloorRendering, linmath::v
     }
 }
 
+void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation)
+{
+    if (!m_enableBosRendering && enableBosRendering)
+    {
+        m_bosRenderer.Create(m_window);
+        vec4 color;
+        vec4_set(color, 1.f, 1.f, 0.f, 1.f);
+        m_bosRenderer.setColor(color);
+    }
+    else if (m_enableBosRendering && !enableBosRendering)
+    {
+        m_bosRenderer.Delete();
+    }
+    m_enableBosRendering = enableBosRendering;
+
+    if (m_enableBosRendering)
+    {
+        m_bosRenderer.SetFloorPlacement(bosPosition, bosOrientation);
+    }
+}
+
 void WindowController3d::SetCloseCallback(CloseCallbackType callback, void* context)
 {
     std::lock_guard<std::mutex> lock(m_mutex);

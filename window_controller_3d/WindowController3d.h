@@ -90,6 +90,7 @@ namespace Visualization
         void ChangePointCloudSize(float pointCloudSize);
 
         void SetFloorRendering(bool enableFloorRendering, linmath::vec3 floorPosition, linmath::quaternion floorOrientation);
+        void SetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation);
 
         // Methods to set external callback functions
         void SetCloseCallback(CloseCallbackType callback, void* context);
@@ -118,6 +119,7 @@ namespace Visualization
         Layout3d m_layout3d = Layout3d::OnlyMainView;
         SkeletonRenderMode m_skeletonRenderMode = SkeletonRenderMode::DefaultRender;
         bool m_enableFloorRendering = false;
+        bool m_enableBosRendering = false;
 
         // View Controls
         ViewControl m_viewControl;
@@ -130,6 +132,7 @@ namespace Visualization
         PointCloudRenderer m_pointCloudRenderer;
         SkeletonRenderer m_skeletonRenderer;
         FloorRenderer m_floorRenderer;
+        FloorRenderer m_bosRenderer;
 
         // Render time information
         double m_lastFrame = 0.;
