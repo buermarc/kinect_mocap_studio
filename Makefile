@@ -1,7 +1,7 @@
 FILES := $(shell find ./src -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.c' -o -name "*.cc")
 
 build:
-	cmake -S . -b build
+	cmake -S . -B build
 
 format:
 	echo ${FILES}
