@@ -54,6 +54,10 @@ public:
     void SetFloorRendering(bool enableFloorRendering, float floorPositionX, float floorPositionY, float floorPositionZ);
     void SetFloorRendering(bool enableFloorRendering, float floorPositionX, float floorPositionY, float floorPositionZ, float normalX, float normalY, float normalZ);
 
+    // Window Configuration Functions
+    void SetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ);
+    void SetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ, float normalX, float normalY, float normalZ);
+
     void SetWindowPosition(int xPos, int yPos);
 
     // Render Setting Functions

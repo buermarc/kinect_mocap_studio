@@ -283,7 +283,7 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 jointOrientation,
                 x_com_color);
 
-            auto [center, normal] = azure_kinect_bos(filtered_positions);
+            auto [center, normal] = azure_kinect_bos(filtered_positions).into_center_and_normal();
             window3d.SetBosRendering(true, center.x, center.y, center.z, normal.x, normal.y, normal.z);
         }
 
