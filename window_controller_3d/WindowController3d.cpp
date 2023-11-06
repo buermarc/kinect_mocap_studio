@@ -194,6 +194,12 @@ void WindowController3d::Delete()
         m_enableFloorRendering = false;
     }
 
+    if (m_enableBosRendering)
+    {
+        m_bosRenderer.Delete();
+        m_enableBosRendering = false;
+    }
+
     glfwDestroyWindow(m_window);
     m_window = nullptr;
 }
@@ -270,6 +276,11 @@ void WindowController3d::RenderScene(ViewControl& viewControl, Viewport viewport
     if (m_enableFloorRendering)
     {
         m_floorRenderer.Render();
+    }
+
+    if (m_enableBosRendering)
+    {
+        m_bosRenderer.Render();
     }
 
     if (m_skeletonRenderMode == SkeletonRenderMode::SkeletonOverlayWithJointFrame)
@@ -438,7 +449,7 @@ void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 
     {
         m_bosRenderer.Create(m_window);
         vec4 color;
-        vec4_set(color, 1.f, 1.f, 0.f, 1.f);
+        vec4_set(color, 0.5f, 0.5f, 0.5f, 0.5f);
         m_bosRenderer.setColor(color);
     }
     else if (m_enableBosRendering && !enableBosRendering)
@@ -505,6 +516,10 @@ void WindowController3d::UpdateRenderersViewProjection(linmath::mat4x4 view, lin
     if (m_enableFloorRendering)
     {
         m_floorRenderer.UpdateViewProjection(view, projection);
+    }
+    if (m_enableBosRendering)
+    {
+        m_bosRenderer.UpdateViewProjection(view, projection);
     }
 }
 
