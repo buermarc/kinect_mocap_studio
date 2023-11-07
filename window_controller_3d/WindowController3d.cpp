@@ -449,8 +449,9 @@ void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 
     {
         m_bosRenderer.Create(m_window);
         vec4 color;
-        vec4_set(color, 0.5f, 0.5f, 0.5f, 0.5f);
+        vec4_set(color, 0.0f, 1.f, 0.0f, 1.f);
         m_bosRenderer.setColor(color);
+        m_bosRenderer.setLength(0.5f, 4.f);
     }
     else if (m_enableBosRendering && !enableBosRendering)
     {

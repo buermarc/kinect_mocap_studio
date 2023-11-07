@@ -102,6 +102,14 @@ void FloorRenderer::setColor(linmath::vec4 color)
     vec4_set(m_color, color[0], color[1], color[2], color[3]);
 }
 
+void FloorRenderer::setLength(float length, float width)
+{
+    m_length = length;
+    m_width = width;
+    BuildVertices();
+    UpdateVAO();
+}
+
 void FloorRenderer::Delete()
 {
     if (!m_initialized)

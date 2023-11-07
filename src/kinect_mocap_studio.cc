@@ -285,6 +285,15 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
 
             auto [center, normal] = azure_kinect_bos(filtered_positions).into_center_and_normal();
             window3d.SetBosRendering(true, center.x, center.y, center.z, normal.x, normal.y, normal.z);
+            k4a_float3_t bos_pos;
+            bos_pos.v[0] = center.x * 1000;
+            bos_pos.v[1] = center.y * 1000;
+            bos_pos.v[2] = center.z * 1000;
+
+            window3d.AddJoint(
+                bos_pos,
+                jointOrientation,
+                com_color);
         }
 
         // Visualize bones

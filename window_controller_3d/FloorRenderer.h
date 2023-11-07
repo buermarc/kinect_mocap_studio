@@ -26,6 +26,7 @@ namespace Visualization
         void Render() override;
 
         void setColor(linmath::vec4 color);
+        void setLength(float length, float width);
 
     private:
         void BuildVertices();
