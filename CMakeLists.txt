@@ -44,6 +44,12 @@ endif()
 include(FetchContent)
 include(ExternalProject)
 
+FetchContent_Declare(
+    json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
+
 set(EIGEN_BUILD_DIR   ${CMAKE_BINARY_DIR}/eigen)
 set(EIGEN_INSTALL_DIR ${CMAKE_SOURCE_DIR}/include/eigen3)
 set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
@@ -70,17 +76,18 @@ add_subdirectory(glfw)
 add_subdirectory(window_controller_3d)
 
 
-add_executable(kinect_mocap_studio 
+add_executable(kinect_mocap_studio
 		src/kinect_mocap_studio.cc
 		floor_detector/FloorDetector.cpp
 		floor_detector/PointCloudGenerator.cpp)
 
 
 # Dependencies of this library
-target_link_libraries(kinect_mocap_studio PRIVATE 
+target_link_libraries(kinect_mocap_studio PRIVATE
     k4a
     k4abt
     window_controller_3d::window_controller_3d
     k4arecord
+    nlohmann_json::nlohmann_json
     )
 
