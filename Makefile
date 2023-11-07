@@ -4,6 +4,13 @@ build:
 	cmake -S . -B build
 	cmake --build build
 
+build-in-dockerfile: docker-build
+	docker run -it -v $(shell pwd):/tmp/project mocap-dev:latest make _build-in-dockerfile
+
+_build-in-dockerfile:
+	cmake -S . -B build-in-dockerfile
+	cmake --build build-in-dockerfile
+
 format:
 	echo ${FILES}
 	clang-format -i --style=WebKit ${FILES}

@@ -40,4 +40,4 @@ RUN echo "set editing-mode vi\nset keymap vi-command" > /root/.inputrc
 
 RUN apt-get install -y xorg-dev libglu1-mesa-dev libtclap-dev
 
-COPY . .
+# COPY . .

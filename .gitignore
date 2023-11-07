@@ -1,5 +1,6 @@
 debug
 build
+build-in-dockerfile
 doc/html
 **/build
 CMakeLists.txt.user
