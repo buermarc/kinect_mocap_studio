@@ -10,6 +10,9 @@
 // Shader Header
 #include "MonoObjectShaders.h"
 
+#include <iostream>
+#include <algorithm>
+
 using namespace linmath;
 using namespace Visualization;
 
@@ -150,6 +153,10 @@ void FloorRenderer::BuildVertices()
     m_vertices.push_back({ {-m_length / 2, 0, m_width / 2}, {0, 1.f, 0} });
     m_vertices.push_back({ {m_length / 2, 0, m_width / 2}, {0, 1.f, 0} });
     m_vertices.push_back({ {m_length / 2, 0, -m_width / 2}, {0, 1.f, 0} });
+
+    std::for_each(m_vertices.cbegin(), m_vertices.cend(), [](auto vet) {
+        std::cout << vet.Position << std::endl;
+    });
 
     AddIndices(0, 1, 2);
     AddIndices(2, 3, 0);
