@@ -1,4 +1,5 @@
 debug
+include
 build
 build-in-dockerfile
 doc/html

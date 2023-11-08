@@ -38,6 +38,6 @@ RUN apt-get install -y clang python3-dev python3-numpy python3-matplotlib python
 RUN python3 -m pip install cmake
 RUN echo "set editing-mode vi\nset keymap vi-command" > /root/.inputrc
 
-RUN apt-get install -y xorg-dev libglu1-mesa-dev libtclap-dev
+RUN apt-get install -y xorg-dev libglu1-mesa-dev libtclap-dev git
 
 # COPY . .
