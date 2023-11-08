@@ -79,10 +79,10 @@ FetchContent_MakeAvailable(filter)
 
 # Dependencies of this library
 target_link_libraries(kinect_mocap_studio
+    filter
     k4a
     k4abt
     window_controller_3d::window_controller_3d
     k4arecord
     nlohmann_json::nlohmann_json
-    filter
 )
