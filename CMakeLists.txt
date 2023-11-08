@@ -50,18 +50,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
-FetchContent_Declare(
-  filter
-  GIT_REPOSITORY https://github.com/buermarc/master-code.git
-  GIT_TAG HEAD
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-FetchContent_MakeAvailable(filter)
+
 set(EIGEN_BUILD_DIR   ${CMAKE_BINARY_DIR}/eigen)
 set(EIGEN_INSTALL_DIR ${CMAKE_SOURCE_DIR}/include/eigen3)
 set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
 include_directories(SYSTEM ${EIGEN_INCLUDE_DIR})
-
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sample_helper_includes
                     ${CMAKE_CURRENT_SOURCE_DIR}/glfw/src/include
@@ -76,14 +69,20 @@ add_executable(kinect_mocap_studio
 		floor_detector/FloorDetector.cpp
 		floor_detector/PointCloudGenerator.cpp)
 
+FetchContent_Declare(
+  filter
+  GIT_REPOSITORY https://github.com/buermarc/master-code.git
+  GIT_TAG HEAD
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+FetchContent_MakeAvailable(filter)
 
 # Dependencies of this library
-target_link_libraries(kinect_mocap_studio PRIVATE
+target_link_libraries(kinect_mocap_studio
     k4a
     k4abt
     window_controller_3d::window_controller_3d
     k4arecord
     nlohmann_json::nlohmann_json
     filter
-    )
-
+)
