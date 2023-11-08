@@ -5,3 +5,4 @@ build-in-dockerfile
 doc/html
 **/build
 CMakeLists.txt.user
+compile_commands.json

@@ -22,10 +22,11 @@
 #include "Utilities.h"
 #include <Window3dWrapper.h>
 
-#include "filter/SkeletonFilter.hpp"
-#include "filter/com.hpp"
 #include <nlohmann/json.hpp>
 #include <tclap/CmdLine.h>
+
+#include <filter/SkeletonFilter.hpp>
+#include <filter/com.hpp>
 
 using Eigen::MatrixXd;
 
