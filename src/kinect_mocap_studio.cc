@@ -25,8 +25,8 @@
 #include <nlohmann/json.hpp>
 #include <tclap/CmdLine.h>
 
-#include "filter/SkeletonFilter.hpp"
-#include "filter/com.hpp"
+#include <filter/com.hpp>
+#include <filter/SkeletonFilter.hpp>
 
 using Eigen::MatrixXd;
 
