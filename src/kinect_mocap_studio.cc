@@ -828,9 +828,8 @@ int main(int argc, char** argv)
     /**
      * Skeleton Filter setup
      */
-    std::string var_path("/home/d074052/repos/master/code/matlab/stand_b2_t1_NFOV_UNBINNED_720P_30fps.json");
     int joint_count = 32;
-    SkeletonFilterBuilder<double> skeleton_filter_builder(var_path, joint_count, 2.0);
+    SkeletonFilterBuilder<double> skeleton_filter_builder(joint_count, 2.0);
 
     do {
         k4a_capture_t sensor_capture = nullptr;
