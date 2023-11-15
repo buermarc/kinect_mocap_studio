@@ -1,4 +1,5 @@
-﻿#include <ctime>
+﻿#include <cstdint>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -128,7 +129,7 @@ int64_t CloseCallback(void* /*context*/)
 
 // Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
-    int depthWidth, int depthHeight, SkeletonFilterBuilder<double> builder)
+    int depthWidth, int depthHeight, SkeletonFilterBuilder<double> builder, uint64_t timestamp)
 {
 
     // Obtain original capture that generates the body tracking result
@@ -203,9 +204,6 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 (double)body.skeleton.joints[joint].position.xyz.z));
         }
 
-        uint64_t timestamp = k4abt_frame_get_device_timestamp_usec(bodyFrame);
-
-        std::cout << filter.is_initialized() << std::endl;
         if (!filter.is_initialized()) {
             filter.init(joint_positions, timestamp);
         } else {
@@ -226,9 +224,9 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 pos.v[2] = filtered_position.z;
                 const k4a_float3_t& jointPosition = pos;
                 const k4a_quaternion_t& jointOrientation = body.skeleton.joints[joint].orientation;
-                std::cout << "Diff x: " << filtered_position.x - body.skeleton.joints[joint].position.xyz.x << std::endl;
-                std::cout << "Diff y: " << filtered_position.y - body.skeleton.joints[joint].position.xyz.y << std::endl;
-                std::cout << "Diff z: " << filtered_position.z - body.skeleton.joints[joint].position.xyz.z << std::endl;
+                // std::cout << "Diff x: " << filtered_position.x - body.skeleton.joints[joint].position.xyz.x << std::endl;
+                // std::cout << "Diff y: " << filtered_position.y - body.skeleton.joints[joint].position.xyz.y << std::endl;
+                // std::cout << "Diff z: " << filtered_position.z - body.skeleton.joints[joint].position.xyz.z << std::endl;
 
                 window3d.AddJoint(
                     jointPosition,
@@ -1008,7 +1006,11 @@ int main(int argc, char** argv)
                     frame_result_json["floor"].push_back(floor_result_json);
                 }
                 // Vizualize the tracked result
-                VisualizeResult(body_frame, window3d, depthWidth, depthHeight, skeleton_filter_builder);
+                auto start = std::chrono::high_resolution_clock::now();
+                VisualizeResult(body_frame, window3d, depthWidth, depthHeight, skeleton_filter_builder, timestamp);
+                auto stop = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double, std::milli> time = stop - start;
+                std::cout << time.count() << "ms\n";
                 window3d.SetLayout3d(s_layoutMode);
                 window3d.SetJointFrameVisualization(s_visualizeJointFrame);
                 window3d.Render();
