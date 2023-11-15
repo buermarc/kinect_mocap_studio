@@ -238,7 +238,7 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
 
             // Add center of mass
             auto com = filter.calculate_com();
-            add_point(window3d, com, 10);
+            add_point(window3d, com);
 
             auto ankle_left = filtered_positions[ANKLE_LEFT];
             auto ankle_right = filtered_positions[ANKLE_RIGHT];
@@ -254,14 +254,14 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 std::pow(mean_ankle.x - com.x, 2) + std::pow(mean_ankle.y - com.y, 2) + std::pow(mean_ankle.z - com.z, 2));
 
             auto x_com = filter.calculate_x_com(ankle_com_norm);
-            add_point(window3d, x_com, 11);
+            add_point(window3d, x_com);
 
             auto [center, normal] = azure_kinect_bos(filtered_positions).into_center_and_normal();
             window3d.SetBosRendering(true, center.x, center.y, center.z, normal.x, normal.y, normal.z);
             center.x *= 1000;
             center.y *= 1000;
             center.z *= 1000;
-            add_point(window3d, center, 12);
+            add_point(window3d, center);
         }
 
         // Visualize bones

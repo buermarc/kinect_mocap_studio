@@ -4,8 +4,7 @@
 #include <filter/Point.hpp>
 
 template<typename Value>
-void add_point(Window3dWrapper& window3d, Point<Value> point, int color_index) {
-    Color color = g_bodyColors[color_index % g_bodyColors.size()];
+void add_point(Window3dWrapper& window3d, Point<Value> point, Color color = {1., 0., 0., 1.}) {
     k4a_float3_t pos;
 
     pos.v[0] = point.x;
