@@ -1050,6 +1050,9 @@ int main(int argc, char** argv)
     json_output["end_time"] = dt;
 
     json_output["frames"] = frames_json;
+
+    // Add the filters to the json
+    json_output["filters"] = filters;
     std::ofstream output_file(output_json_file.c_str());
     output_file << std::setw(4) << json_output << std::endl;
     std::cout << frame_count << " Frames written to "
