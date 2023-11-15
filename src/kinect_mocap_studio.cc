@@ -133,6 +133,7 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
 {
 
     // Obtain original capture that generates the body tracking result
+    /*
     k4a_capture_t originalCapture = k4abt_frame_get_capture(bodyFrame);
     k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
 
@@ -150,9 +151,10 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
         }
     }
     k4a_image_release(bodyIndexMap);
+    */
 
     // Visualize point cloud
-    window3d.UpdatePointClouds(depthImage, pointCloudColors);
+    //window3d.UpdatePointClouds(depthImage, pointCloudColors);
 
     // Visualize the skeleton data
     window3d.CleanJointsAndBones();
@@ -213,9 +215,6 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
             Color lowConfidenceColor = color;
             lowConfidenceColor.a = 0.1f;
             auto [filtered_positions, filtered_velocities] = filter.step(joint_positions, timestamp);
-            /**
-             * MatrixXd m
-             */
             for (int joint = 0; joint < filter.joint_count(); ++joint) {
                 auto filtered_position = filtered_positions[joint];
                 k4a_float3_t pos;
@@ -288,8 +287,8 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
         }
     }
 
-    k4a_capture_release(originalCapture);
-    k4a_image_release(depthImage);
+    // k4a_capture_release(originalCapture);
+    // k4a_image_release(depthImage);
 }
 
 /**
@@ -901,6 +900,7 @@ int main(int argc, char** argv)
                 K4A_WAIT_INFINITE);
 
             if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
+                // auto start = std::chrono::high_resolution_clock::now();
 
                 uint32_t num_bodies = k4abt_frame_get_num_bodies(body_frame);
                 uint64_t timestamp = k4abt_frame_get_device_timestamp_usec(
@@ -1006,11 +1006,7 @@ int main(int argc, char** argv)
                     frame_result_json["floor"].push_back(floor_result_json);
                 }
                 // Vizualize the tracked result
-                auto start = std::chrono::high_resolution_clock::now();
                 VisualizeResult(body_frame, window3d, depthWidth, depthHeight, skeleton_filter_builder, timestamp);
-                auto stop = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double, std::milli> time = stop - start;
-                std::cout << time.count() << "ms\n";
                 window3d.SetLayout3d(s_layoutMode);
                 window3d.SetJointFrameVisualization(s_visualizeJointFrame);
                 window3d.Render();
@@ -1021,6 +1017,9 @@ int main(int argc, char** argv)
                 // Remember to release the body frame once you finish using it
                 frames_json.push_back(frame_result_json);
                 frame_count++;
+                // auto stop = std::chrono::high_resolution_clock::now();
+                // std::chrono::duration<double, std::milli> time = stop - start;
+                // std::cout << time.count() << "ms\n";
 
             } else if (pop_frame_result == K4A_WAIT_RESULT_TIMEOUT) {
                 //  It should never hit timeout when K4A_WAIT_INFINITE is set.
@@ -1030,6 +1029,8 @@ int main(int argc, char** argv)
                 printf("Pop body frame result failed!\n");
                 // break;
             }
+        } else {
+            std::cout << "Capture was not ready." << std::endl;
         }
 
     } while (s_isRunning);
