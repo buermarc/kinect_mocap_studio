@@ -236,11 +236,10 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
             }
 
             // Add center of mass
-            MatrixXd MM = get_azure_kinect_com_matrix(AVERAGE);
-            auto com = filter.calculate_com(filtered_positions, MM);
+            auto com = filter.calculate_com();
 
             // com_dot can be calculated similar to com
-            auto com_dot = filter.calculate_com(filtered_velocities, MM);
+            auto com_dot = filter.calculate_com_dot();
 
             auto ankle_left = filtered_positions[ANKLE_LEFT];
             auto ankle_right = filtered_positions[ANKLE_RIGHT];
@@ -255,7 +254,7 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
             auto ankle_com_norm = std::sqrt(
                 std::pow(mean_ankle.x - com.x, 2) + std::pow(mean_ankle.y - com.y, 2) + std::pow(mean_ankle.z - com.z, 2));
 
-            auto x_com = filter.calculate_x_com(com, com_dot, ankle_com_norm);
+            auto x_com = filter.calculate_x_com(ankle_com_norm);
 
             k4a_float3_t pos;
             pos.v[0] = com.x;

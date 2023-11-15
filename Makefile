@@ -1,5 +1,6 @@
 FILES := $(shell find ./src -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.c' -o -name "*.cc")
 
+.PHONY: build
 build:
 	cmake -S . -B build
 	cmake --build build
@@ -19,3 +20,6 @@ build-in-dockerfile: docker-build
 _build-in-dockerfile:
 	cmake -S . -B build-in-dockerfile
 	cmake --build build-in-dockerfile
+
+clean:
+	rm -rf build
