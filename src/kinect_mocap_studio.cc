@@ -27,6 +27,7 @@
 
 #include <filter/com.hpp>
 #include <filter/SkeletonFilter.hpp>
+#include "utils.hpp"
 
 using Eigen::MatrixXd;
 
@@ -237,9 +238,7 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
 
             // Add center of mass
             auto com = filter.calculate_com();
-
-            // com_dot can be calculated similar to com
-            auto com_dot = filter.calculate_com_dot();
+            add_point(window3d, com, 10);
 
             auto ankle_left = filtered_positions[ANKLE_LEFT];
             auto ankle_right = filtered_positions[ANKLE_RIGHT];
@@ -255,45 +254,14 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 std::pow(mean_ankle.x - com.x, 2) + std::pow(mean_ankle.y - com.y, 2) + std::pow(mean_ankle.z - com.z, 2));
 
             auto x_com = filter.calculate_x_com(ankle_com_norm);
-
-            k4a_float3_t pos;
-            pos.v[0] = com.x;
-            pos.v[1] = com.y;
-            pos.v[2] = com.z;
-
-            const k4a_float3_t& jointPosition = pos;
-            const k4a_quaternion_t& jointOrientation = body.skeleton.joints[0].orientation; // Just add some orientation
-
-            Color com_color = g_bodyColors[g_bodyColors.size() - 1]; // Take last color for center of mass
-            window3d.AddJoint(
-                jointPosition,
-                jointOrientation,
-                com_color);
-
-            // Add x_com
-            k4a_float3_t pos_x_com;
-            pos_x_com.v[0] = com.x;
-            pos_x_com.v[1] = com.y;
-            pos_x_com.v[2] = com.z;
-
-            const k4a_float3_t& jointPosition_x_com = pos_x_com;
-            Color x_com_color = g_bodyColors[g_bodyColors.size() - 2]; // Take last color for center of mass
-            window3d.AddJoint(
-                jointPosition_x_com,
-                jointOrientation,
-                x_com_color);
+            add_point(window3d, x_com, 11);
 
             auto [center, normal] = azure_kinect_bos(filtered_positions).into_center_and_normal();
             window3d.SetBosRendering(true, center.x, center.y, center.z, normal.x, normal.y, normal.z);
-            k4a_float3_t bos_pos;
-            bos_pos.v[0] = center.x * 1000;
-            bos_pos.v[1] = center.y * 1000;
-            bos_pos.v[2] = center.z * 1000;
-
-            window3d.AddJoint(
-                bos_pos,
-                jointOrientation,
-                com_color);
+            center.x *= 1000;
+            center.y *= 1000;
+            center.z *= 1000;
+            add_point(window3d, center, 12);
         }
 
         // Visualize bones
