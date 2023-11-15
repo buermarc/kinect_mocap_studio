@@ -742,7 +742,7 @@ int main(int argc, char** argv)
     //
     k4abt_tracker_t tracker = NULL;
     // k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
-    k4abt_tracker_configuration_t tracker_config = { K4ABT_SENSOR_ORIENTATION_DEFAULT, K4ABT_TRACKER_PROCESSING_MODE_CPU, 0 };
+    k4abt_tracker_configuration_t tracker_config = { K4ABT_SENSOR_ORIENTATION_DEFAULT, K4ABT_TRACKER_PROCESSING_MODE_GPU, 0 };
     VERIFY(k4abt_tracker_create(&sensor_calibration, tracker_config, &tracker),
         "Body tracker initialization failed!");
     k4abt_tracker_set_temporal_smoothing(tracker, temporal_smoothing);
