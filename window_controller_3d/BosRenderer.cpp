@@ -33,6 +33,7 @@ void BosRenderer::SetBosPlacement(linmath::vec3 a, linmath::vec3 b, linmath::vec
     vec3_copy(m_b, b);
     vec3_copy(m_c, c);
     vec3_copy(m_d, d);
+    std::cout << "Building Verticies" << std::endl;
     BuildVertices();
     UpdateVAO();
     /*
@@ -152,6 +153,10 @@ void BosRenderer::BuildVertices()
     m_vertices.push_back({ { m_b[0], m_b[1], m_b[2] }, {0, 1.f, 0} });
     m_vertices.push_back({ { m_c[0] ,m_c[1], m_c[2] }, {0, 1.f, 0} });
     m_vertices.push_back({ { m_d[0] ,m_d[1], m_d[2] }, {0, 1.f, 0} });
+
+    std::for_each(m_vertices.cbegin(), m_vertices.cend(), [](auto ele) {
+        std::cout << ele << " " << std::endl;
+    });
 
     AddIndices(0, 1, 2);
     AddIndices(2, 3, 0);
