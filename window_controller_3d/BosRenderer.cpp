@@ -155,7 +155,7 @@ void BosRenderer::BuildVertices()
     m_vertices.push_back({ { m_d[0] ,m_d[1], m_d[2] }, {0, 1.f, 0} });
 
     std::for_each(m_vertices.cbegin(), m_vertices.cend(), [](auto ele) {
-        std::cout << ele << " " << std::endl;
+        std::cout << ele.Position << " " << std::endl;
     });
 
     AddIndices(0, 1, 2);
