@@ -255,24 +255,24 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
 
             Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
             linmath::vec3 a = {
-                bos_plane.a.x,
-                bos_plane.a.y,
-                bos_plane.a.z
+                bos_plane.a.x / 1000,
+                bos_plane.a.y / 1000,
+                bos_plane.a.z / 1000
             };
             linmath::vec3 b = {
-                bos_plane.b.x,
-                bos_plane.b.y,
-                bos_plane.b.z
+                bos_plane.b.x / 1000,
+                bos_plane.b.y / 1000,
+                bos_plane.b.z / 1000
             };
             linmath::vec3 c = {
-                bos_plane.c.x,
-                bos_plane.c.y,
-                bos_plane.c.z
+                bos_plane.c.x / 1000,
+                bos_plane.c.y / 1000,
+                bos_plane.c.z / 1000
             };
             linmath::vec3 d = {
-                bos_plane.d.x,
-                bos_plane.d.y,
-                bos_plane.d.z
+                bos_plane.d.x / 1000,
+                bos_plane.d.y / 1000,
+                bos_plane.d.z / 1000
             };
             auto [center, normal] = bos_plane.into_center_and_normal();
             window3d.SetBosRendering(true, a, b, c, d);
