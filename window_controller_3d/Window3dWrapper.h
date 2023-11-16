@@ -55,8 +55,10 @@ public:
     void SetFloorRendering(bool enableFloorRendering, float floorPositionX, float floorPositionY, float floorPositionZ, float normalX, float normalY, float normalZ);
 
     // Window Configuration Functions
-    void SetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ);
-    void SetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ, float normalX, float normalY, float normalZ);
+    void OldSetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ);
+    void OldSetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ, float normalX, float normalY, float normalZ);
+
+    void SetBosRendering(bool enableBosRendering, linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d);
 
     void SetWindowPosition(int xPos, int yPos);
 

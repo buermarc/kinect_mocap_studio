@@ -443,7 +443,7 @@ void WindowController3d::SetFloorRendering(bool enableFloorRendering, linmath::v
     }
 }
 
-void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation)
+void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d)
 {
     if (!m_enableBosRendering && enableBosRendering)
     {
@@ -451,7 +451,6 @@ void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 
         vec4 color;
         vec4_set(color, 0.0f, 1.f, 0.0f, 1.f);
         m_bosRenderer.setColor(color);
-        m_bosRenderer.setLength(0.5f, 4.f);
     }
     else if (m_enableBosRendering && !enableBosRendering)
     {
@@ -461,7 +460,29 @@ void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 
 
     if (m_enableBosRendering)
     {
-        m_bosRenderer.SetFloorPlacement(bosPosition, bosOrientation);
+        m_bosRenderer.SetBosPlacement(a, b, c, d);
+    }
+}
+
+void WindowController3d::OldSetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation)
+{
+    if (!m_enableBosRendering && enableBosRendering)
+    {
+        m_old_bosRenderer.Create(m_window);
+        vec4 color;
+        vec4_set(color, 0.0f, 1.f, 0.0f, 1.f);
+        m_old_bosRenderer.setColor(color);
+        m_old_bosRenderer.setLength(0.5f, 4.f);
+    }
+    else if (m_enableBosRendering && !enableBosRendering)
+    {
+        m_old_bosRenderer.Delete();
+    }
+    m_enableBosRendering = enableBosRendering;
+
+    if (m_enableBosRendering)
+    {
+        m_old_bosRenderer.SetFloorPlacement(bosPosition, bosOrientation);
     }
 }
 

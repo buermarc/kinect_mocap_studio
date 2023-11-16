@@ -260,13 +260,13 @@ void Window3dWrapper::SetFloorRendering(bool enableFloorRendering, float floorPo
     m_window3d.SetFloorRendering(enableFloorRendering, position, q);
 }
 
-void Window3dWrapper::SetBosRendering(bool enableFloorRendering, float bosPositionX, float bosPositionY, float bosPositionZ)
+void Window3dWrapper::OldSetBosRendering(bool enableFloorRendering, float bosPositionX, float bosPositionY, float bosPositionZ)
 {
     linmath::vec3 position = { bosPositionX, bosPositionY, bosPositionZ };
-    m_window3d.SetBosRendering(enableFloorRendering, position, {1.f, 0.f, 0.f, 0.f});
+    m_window3d.OldSetBosRendering(enableFloorRendering, position, {1.f, 0.f, 0.f, 0.f});
 }
 
-void Window3dWrapper::SetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ, float normalX, float normalY, float normalZ)
+void Window3dWrapper::OldSetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ, float normalX, float normalY, float normalZ)
 {
     linmath::vec3 position = { bosPositionX, bosPositionY, bosPositionZ };
     linmath::vec3 n = { normalX , normalY , normalZ };
@@ -280,7 +280,12 @@ void Window3dWrapper::SetBosRendering(bool enableBosRendering, float bosPosition
     float ang = acos(linmath::vec3_mul_inner(up, n));
     float hs = sin(ang / 2);
     linmath::quaternion q = { cos(ang / 2), hs * ax[0], hs * ax[1], hs * ax[2] };
-    m_window3d.SetBosRendering(enableBosRendering, position, q);
+    m_window3d.OldSetBosRendering(enableBosRendering, position, q);
+}
+
+void Window3dWrapper::SetBosRendering(bool enableBosRendering, linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d)
+{
+    m_window3d.SetBosRendering(enableBosRendering, a, b, c, d);
 }
 
 void Window3dWrapper::InitializeCalibration(const k4a_calibration_t& sensorCalibration)

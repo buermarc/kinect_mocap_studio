@@ -15,6 +15,7 @@
 #include "PointCloudRenderer.h"
 #include "SkeletonRenderer.h"
 #include "FloorRenderer.h"
+#include "BosRenderer.h"
 
 namespace Visualization
 {
@@ -90,7 +91,8 @@ namespace Visualization
         void ChangePointCloudSize(float pointCloudSize);
 
         void SetFloorRendering(bool enableFloorRendering, linmath::vec3 floorPosition, linmath::quaternion floorOrientation);
-        void SetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation);
+        void OldSetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation);
+        void SetBosRendering(bool enableBosRendering, linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d);
 
         // Methods to set external callback functions
         void SetCloseCallback(CloseCallbackType callback, void* context);
@@ -132,7 +134,8 @@ namespace Visualization
         PointCloudRenderer m_pointCloudRenderer;
         SkeletonRenderer m_skeletonRenderer;
         FloorRenderer m_floorRenderer;
-        FloorRenderer m_bosRenderer;
+        FloorRenderer m_old_bosRenderer;
+        BosRenderer m_bosRenderer;
 
         // Render time information
         double m_lastFrame = 0.;

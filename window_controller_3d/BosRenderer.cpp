@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "FloorRenderer.h"
+#include "BosRenderer.h"
 
 #include <cmath>
 
@@ -9,17 +9,16 @@
 
 // Shader Header
 #include "MonoObjectShaders.h"
+#include "linmath.h"
 
+#include <cstdio>
 #include <iostream>
 #include <algorithm>
 
 using namespace linmath;
 using namespace Visualization;
 
-FloorRenderer::FloorRenderer(float length, float width)
-    : m_length(length)
-    , m_width(width)
-{
+BosRenderer::BosRenderer() {
     BuildVertices();
 
     vec4_set(m_color, 1.f, 1.f, 1.f, 1.f);
@@ -28,15 +27,23 @@ FloorRenderer::FloorRenderer(float length, float width)
     mat4x4_identity(m_projection);
 }
 
-void FloorRenderer::SetFloorPlacement(const linmath::vec3 position, const linmath::quaternion orientation)
+void BosRenderer::SetBosPlacement(linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d)
 {
+    vec3_copy(m_a, a);
+    vec3_copy(m_b, b);
+    vec3_copy(m_c, c);
+    vec3_copy(m_d, d);
+    BuildVertices();
+    UpdateVAO();
+    /*
     mat4x4 translation, rotation;
     mat4x4_translate(translation, position[0], position[1], position[2]);
     quaternion_to_mat4x4(rotation, orientation);
     mat4x4_mul(m_model, translation, rotation);
+    */
 }
 
-void FloorRenderer::Create(GLFWwindow * window)
+void BosRenderer::Create(GLFWwindow * window)
 {
     CheckAssert(!m_initialized);
     m_initialized = true;
@@ -71,7 +78,7 @@ void FloorRenderer::Create(GLFWwindow * window)
     m_projectionIndex = glGetUniformLocation(m_shaderProgram, "projection");
     m_colorIndex = glGetUniformLocation(m_shaderProgram, "color");
 
-    // **************** Generate FloorRenderer VAO ****************
+    // **************** Generate BosRenderer VAO ****************
     glGenVertexArrays(1, &m_vertexArrayObject);
     glBindVertexArray(m_vertexArrayObject);
 
@@ -100,20 +107,12 @@ void FloorRenderer::Create(GLFWwindow * window)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void FloorRenderer::setColor(linmath::vec4 color)
+void BosRenderer::setColor(linmath::vec4 color)
 {
     vec4_set(m_color, color[0], color[1], color[2], color[3]);
 }
 
-void FloorRenderer::setLength(float length, float width)
-{
-    m_length = length;
-    m_width = width;
-    BuildVertices();
-    UpdateVAO();
-}
-
-void FloorRenderer::Delete()
+void BosRenderer::Delete()
 {
     if (!m_initialized)
     {
@@ -129,7 +128,7 @@ void FloorRenderer::Delete()
     glDeleteProgram(m_shaderProgram);
 }
 
-void FloorRenderer::Render()
+void BosRenderer::Render()
 {
     glUseProgram(m_shaderProgram);
 
@@ -139,26 +138,26 @@ void FloorRenderer::Render()
     glUniformMatrix4fv(m_modelIndex, 1, GL_FALSE, (const GLfloat*)m_model);
     glUniform4f(m_colorIndex, m_color[0], m_color[1], m_color[2], m_color[3]);
 
-    glBindVertexArray(m_vertexArrayObject); // Bind FloorRenderer VAO
+    glBindVertexArray(m_vertexArrayObject); // Bind BosRenderer VAO
     glDrawElements(GL_TRIANGLES, (GLsizei)m_indices.size(), GL_UNSIGNED_INT, NULL);
 }
 
-void FloorRenderer::BuildVertices()
+void BosRenderer::BuildVertices()
 {
     // clear memory of prev arrays
     m_vertices.clear();
     m_indices.clear();
 
-    m_vertices.push_back({ {-m_length / 2, 0, -m_width / 2}, {0, 1.f, 0} });
-    m_vertices.push_back({ {-m_length / 2, 0, m_width / 2}, {0, 1.f, 0} });
-    m_vertices.push_back({ {m_length / 2, 0, m_width / 2}, {0, 1.f, 0} });
-    m_vertices.push_back({ {m_length / 2, 0, -m_width / 2}, {0, 1.f, 0} });
+    m_vertices.push_back({ { m_a[0], m_a[1], m_a[2] }, {0, 1.f, 0} });
+    m_vertices.push_back({ { m_b[0], m_b[1], m_b[2] }, {0, 1.f, 0} });
+    m_vertices.push_back({ { m_c[0] ,m_c[1], m_c[2] }, {0, 1.f, 0} });
+    m_vertices.push_back({ { m_d[0] ,m_d[1], m_d[2] }, {0, 1.f, 0} });
 
     AddIndices(0, 1, 2);
     AddIndices(2, 3, 0);
 }
 
-void FloorRenderer::UpdateVAO()
+void BosRenderer::UpdateVAO()
 {
     glBindVertexArray(m_vertexArrayObject);
     // Create buffers and bind the geometry
@@ -170,7 +169,7 @@ void FloorRenderer::UpdateVAO()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_indices.size() * sizeof(uint32_t), m_indices.data(), GL_STATIC_DRAW);
 }
 
-void FloorRenderer::AddIndices(uint32_t i1, uint32_t i2, uint32_t i3)
+void BosRenderer::AddIndices(uint32_t i1, uint32_t i2, uint32_t i3)
 {
     m_indices.push_back(i1);
     m_indices.push_back(i2);

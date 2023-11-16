@@ -253,8 +253,29 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
             auto x_com = filter.calculate_x_com(ankle_com_norm);
             add_point(window3d, x_com);
 
-            auto [center, normal] = azure_kinect_bos(filtered_positions).into_center_and_normal();
-            window3d.SetBosRendering(true, center.x, center.y, center.z, normal.x, normal.y, normal.z);
+            Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
+            linmath::vec3 a = {
+                bos_plane.a.x,
+                bos_plane.a.y,
+                bos_plane.a.z
+            };
+            linmath::vec3 b = {
+                bos_plane.b.x,
+                bos_plane.b.y,
+                bos_plane.b.z
+            };
+            linmath::vec3 c = {
+                bos_plane.c.x,
+                bos_plane.c.y,
+                bos_plane.c.z
+            };
+            linmath::vec3 d = {
+                bos_plane.d.x,
+                bos_plane.d.y,
+                bos_plane.d.z
+            };
+            auto [center, normal] = bos_plane.into_center_and_normal();
+            window3d.SetBosRendering(true, a, b, c, d);
             center.x *= 1000;
             center.y *= 1000;
             center.z *= 1000;

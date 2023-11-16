@@ -5,6 +5,7 @@ add_library(window_controller_3d STATIC
             CoordinateAxes.cpp
             Cylinder.cpp
             FloorRenderer.cpp
+            BosRenderer.cpp
             Helpers.cpp
             packages.config
             PointCloudRenderer.cpp
