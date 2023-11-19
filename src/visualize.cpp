@@ -44,11 +44,11 @@ int64_t closeCallback(void* /*context*/)
 }
 
 
-void renderLogic(ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters) {
+void visualizeLogic(ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters) {
 
 }
 
-void renderThread(k4a_calibration_t sensor_calibration) {
+void visualizeThread(k4a_calibration_t sensor_calibration) {
     ProcessedFrame frame;
 
     Window3dWrapper window3d;
@@ -60,7 +60,7 @@ void renderThread(k4a_calibration_t sensor_calibration) {
 
     while (s_isRunning) {
         while (processed_queue.pop(frame)) {
-            renderLogic(frame, filters);
+            visualizeLogic(frame, filters);
         }
     }
 

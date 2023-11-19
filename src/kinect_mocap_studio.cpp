@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include <k4a/k4a.h>
 #include <k4abt.h>
@@ -35,6 +36,8 @@
 #include <kinect_mocap_studio/utils.hpp>
 #include <kinect_mocap_studio/cli.hpp>
 #include <kinect_mocap_studio/queues.hpp>
+#include <kinect_mocap_studio/process.hpp>
+#include <kinect_mocap_studio/visualize.hpp>
 
 using Eigen::MatrixXd;
 
@@ -81,13 +84,14 @@ int main(int argc, char** argv)
 
     config.openDeviceOrRecording(device, playback_handle, sensor_calibration, device_config);
 
-    int depthWidth
-        = sensor_calibration.depth_camera_calibration.resolution_width;
-    int depthHeight
-        = sensor_calibration.depth_camera_calibration.resolution_height;
+    int depthWidth = sensor_calibration.depth_camera_calibration.resolution_width;
+    int depthHeight = sensor_calibration.depth_camera_calibration.resolution_height;
 
     // Echo the configuration to the command terminal
     config.printConfig();
+
+    std::thread process_thread(processThread, sensor_calibration);
+    std::thread visualize_thread(visualizeThread, sensor_calibration);
 
     //
     // Initialize and start the body tracker
@@ -137,15 +141,6 @@ int main(int argc, char** argv)
                 g_jointNames.find(g_boneList[i].second)->second });
     }
 
-    //
-    // PointCloudGenerator for floor estimation.
-    //
-    Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
-    Samples::FloorDetector floorDetector;
-
-    //
-    // Visualization Window
-    //
 
     k4a_record_t recording;
 

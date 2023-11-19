@@ -66,7 +66,7 @@ ProcessedFrame processLogic(MeasuredFrame frame, k4a_calibration_t sensor_calibr
     return ProcessedFrame { {{1.}}, frame.depth_image};
 }
 
-void processThead(k4a_calibration_t sensor_calibration) {
+void processThread(k4a_calibration_t sensor_calibration) {
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
