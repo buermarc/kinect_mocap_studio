@@ -88,6 +88,8 @@ add_executable(kinect_mocap_studio
 		src/kinect_mocap_studio.cpp
 		src/utils.cpp
 		src/cli.cpp
+		src/process.cpp
+		src/visualize.cpp
 		floor_detector/FloorDetector.cpp
 		floor_detector/PointCloudGenerator.cpp)
 
