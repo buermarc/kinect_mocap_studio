@@ -28,34 +28,19 @@
 
 #include <filter/com.hpp>
 #include <filter/SkeletonFilter.hpp>
-#include "utils.hpp"
+
+
+#include <boost/lockfree/queue.hpp>
+#include <boost/atomic.hpp>
+
+#include <kinect_mocap_studio/filter_utils.hpp>
+#include <kinect_mocap_studio/utils.hpp>
+#include <kinect_mocap_studio/cli.hpp>
 
 using Eigen::MatrixXd;
 
-#define VERIFY(result, error)                                  \
-    if (result != K4A_RESULT_SUCCEEDED) {                      \
-        printf("%s \n - (File: %s, Function: %s, Line: %d)\n", \
-            error, __FILE__, __FUNCTION__, __LINE__);          \
-        exit(1);                                               \
-    }
+using queue = boost::lockfree::queue<k4abt_frame_t>;
 
-#define VERIFY_WAIT(result, error)                             \
-    if (result != K4A_WAIT_RESULT_SUCCEEDED) {                 \
-        printf("%s \n - (File: %s, Function: %s, Line: %d)\n", \
-            error, __FILE__, __FUNCTION__, __LINE__);          \
-        exit(1);                                               \
-    }
-
-bool check_depth_image_exists(k4a_capture_t capture)
-{
-    k4a_image_t depth = k4a_capture_get_depth_image(capture);
-    if (depth != nullptr) {
-        k4a_image_release(depth);
-        return true;
-    } else {
-        return false;
-    }
-}
 
 /*
 To do:
@@ -69,34 +54,18 @@ To do:
 */
 
 // Global State and Key Process Function
-bool s_isRunning = true;
-Visualization::Layout3d s_layoutMode = Visualization::Layout3d::OnlyMainView;
-bool s_visualizeJointFrame = false;
+// bool s_isRunning = true; // TODO: remove
+boost::atomic<bool> s_isRunning (true);
+boost::atomic<bool> s_visualizeJointFrame (false);
+// bool s_visualizeJointFrame = false; // TODO: remove
+
+// Visualization::Layout3d s_layoutMode = Visualization::Layout3d::OnlyMainView;
+// Visualization::Layout3d s_layoutMode = Visualization::Layout3d::OnlyMainView;
+boost::atomic<int> s_layoutMode ((int) Visualization::Layout3d::OnlyMainView);
 
 std::vector<SkeletonFilter<double>> filters;
 
 // Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
-void PrintAppUsage()
-{
-    printf("\n");
-    printf(" Basic Navigation:\n\n");
-    printf(" Rotate: Rotate the camera by moving the mouse while holding mouse"
-           " left button\n");
-    printf(" Pan: Translate the scene by holding Ctrl key and drag the scene "
-           "with mouse left button\n");
-    printf(" Zoom in/out: Move closer/farther away from the scene center by "
-           "scrolling the mouse scroll wheel\n");
-    printf(" Select Center: Center the scene based on a detected joint by "
-           "right clicking the joint with mouse\n");
-    printf("\n");
-    printf(" Key Shortcuts\n\n");
-    printf(" ESC: quit\n");
-    printf(" h: help\n");
-    printf(" b: body visualization mode\n");
-    printf(" k: 3d window layout\n");
-    printf("\n");
-}
-
 // Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 int64_t ProcessKey(void* /*context*/, int key)
 {
@@ -107,14 +76,13 @@ int64_t ProcessKey(void* /*context*/, int key)
         s_isRunning = false;
         break;
     case GLFW_KEY_K:
-        s_layoutMode = (Visualization::Layout3d)(((int)s_layoutMode + 1)
-            % (int)Visualization::Layout3d::Count);
+        s_layoutMode = ((int)s_layoutMode + 1) % (int)Visualization::Layout3d::Count;
         break;
     case GLFW_KEY_B:
         s_visualizeJointFrame = !s_visualizeJointFrame;
         break;
     case GLFW_KEY_H:
-        PrintAppUsage();
+        CliConfig::printAppUsage();
         break;
     }
     return 1;
@@ -223,9 +191,9 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
                 pos.v[2] = filtered_position.z;
                 const k4a_float3_t& jointPosition = pos;
                 const k4a_quaternion_t& jointOrientation = body.skeleton.joints[joint].orientation;
-                // std::cout << "Diff x: " << filtered_position.x - body.skeleton.joints[joint].position.xyz.x << std::endl;
-                // std::cout << "Diff y: " << filtered_position.y - body.skeleton.joints[joint].position.xyz.y << std::endl;
-                // std::cout << "Diff z: " << filtered_position.z - body.skeleton.joints[joint].position.xyz.z << std::endl;
+                // //std::cout << "Diff x: " << filtered_position.x - body.skeleton.joints[joint].position.xyz.x << std::endl;
+                // //std::cout << "Diff y: " << filtered_position.y - body.skeleton.joints[joint].position.xyz.y << std::endl;
+                // //std::cout << "Diff z: " << filtered_position.z - body.skeleton.joints[joint].position.xyz.z << std::endl;
 
                 window3d.AddJoint(
                     jointPosition,
@@ -312,78 +280,6 @@ void VisualizeResult(k4abt_frame_t bodyFrame, Window3dWrapper& window3d,
     // k4a_image_release(depthImage);
 }
 
-/**
-Inspired by the code in
-Azure-Kinect-Samples/body-tracking-samples/offline_processor
-
-@param imu_result_json an empty json object to populate
-@param imu_sample a sample from the imu
-
-*/
-void push_imu_data_to_json(nlohmann::json& imu_result_json,
-    k4a_imu_sample_t& imu_sample)
-{
-
-    imu_result_json["temperature"] = imu_sample.temperature;
-
-    imu_result_json["acc_sample"].push_back(
-        { imu_sample.acc_sample.xyz.x,
-            imu_sample.acc_sample.xyz.y,
-            imu_sample.acc_sample.xyz.z });
-
-    imu_result_json["acc_timestamp_usec"] = imu_sample.acc_timestamp_usec;
-
-    imu_result_json["gyro_sample"].push_back(
-        { imu_sample.gyro_sample.xyz.x,
-            imu_sample.gyro_sample.xyz.y,
-            imu_sample.gyro_sample.xyz.z });
-
-    imu_result_json["gyro_timestamp_usec"] = imu_sample.gyro_timestamp_usec;
-}
-
-/**
-Inspired by the code in
-Azure-Kinect-Samples/body-tracking-samples/offline_processor
-
-@param body_result_json an empty json object to populate
-@param body_frame a sample of the tracked bodies
-
-*/
-void push_body_data_to_json(nlohmann::json& body_result_json,
-    k4abt_frame_t& body_frame,
-    uint32_t num_bodies)
-{
-    for (size_t index_body = 0; index_body < num_bodies; ++index_body) {
-
-        k4abt_body_t body;
-
-        // Get the skeleton
-        k4abt_frame_get_body_skeleton(body_frame, index_body,
-            &body.skeleton);
-        // Get the body id
-        body.id = k4abt_frame_get_body_id(body_frame, index_body);
-
-        body_result_json["body_id"] = body.id;
-
-        for (int index_joint = 0;
-             index_joint < (int)K4ABT_JOINT_COUNT; ++index_joint) {
-            body_result_json["joint_positions"].push_back(
-                { body.skeleton.joints[index_joint].position.xyz.x,
-                    body.skeleton.joints[index_joint].position.xyz.y,
-                    body.skeleton.joints[index_joint].position.xyz.z });
-
-            body_result_json["joint_orientations"].push_back(
-                { body.skeleton.joints[index_joint].orientation.wxyz.w,
-                    body.skeleton.joints[index_joint].orientation.wxyz.x,
-                    body.skeleton.joints[index_joint].orientation.wxyz.y,
-                    body.skeleton.joints[index_joint].orientation.wxyz.z });
-
-            body_result_json["confidence_levels"].push_back(
-                body.skeleton.joints[index_joint].confidence_level);
-        }
-    }
-}
-
 int main(int argc, char** argv)
 {
 
@@ -395,367 +291,24 @@ int main(int argc, char** argv)
     //     - [optional] skeleton tracking smoothing parameter
     //     - [optional] name of the mkv file to write
 
-    std::string output_file_name;
-    double temporal_smoothing = 0.;
-    // bool save_camera_data = false;
-    int k4a_depth_mode = 0;
-    std::string k4a_depth_mode_str;
-    std::string input_sensor_file_str;
-    bool process_sensor_file = false;
-    int k4a_frames_per_second = 0;
-    std::string k4a_color_resolution_str;
-    int k4a_color_resolution = 0;
-    bool record_sensor_data = false;
-    try {
+    auto config = CliConfig(argc, argv);
 
-        TCLAP::CmdLine cmd("kinect_mocap_studio is a command-line tool to record"
-                           "video and skeletal data from the Azure-Kinect",
-            ' ', "0.0");
-
-        TCLAP::ValueArg<std::string> input_sensor_file_arg("i", "infile",
-            "Input sensor file of type *.mkv to process", false, "",
-            "string");
-
-        cmd.add(input_sensor_file_arg);
-
-        TCLAP::ValueArg<bool> record_sensor_data_arg("w", "write",
-            "Write sensor data to *.mkv file", false, false,
-            "bool");
-
-        cmd.add(record_sensor_data_arg);
-
-        TCLAP::ValueArg<std::string> output_name_arg("o", "outfile",
-            "Name of output file excluding the file extension", false, "output",
-            "string");
-
-        cmd.add(output_name_arg);
-
-        TCLAP::ValueArg<std::string> depth_mode_arg("d", "depth_mode",
-            "Depth mode: OFF, NFOV_2X2BINNED, NFOV_UNBINNED, "
-            "WFOV_2X2BINNED, WFOV_UNBINNED, PASSIVE_IR",
-            false,
-            "NFOV_UNBINNED", "string");
-
-        cmd.add(depth_mode_arg);
-
-        TCLAP::ValueArg<std::string> k4a_color_resolution_arg("c", "color_mode",
-            "Color resolution: OFF, 720P, 1080P, "
-            "1440P, 1536P, 2160P, 3072P",
-            false,
-            "OFF", "string");
-
-        cmd.add(k4a_color_resolution_arg);
-
-        TCLAP::ValueArg<int> k4a_frames_per_second_arg("f", "fps",
-            "Frames per second: 5, 15, 30", false,
-            30, "int");
-
-        cmd.add(k4a_frames_per_second_arg);
-
-        TCLAP::ValueArg<double> temporal_smoothing_arg("s", "smoothing",
-            "Amount of temporal smoothing in the skeleton tracker (0-1)", false,
-            K4ABT_DEFAULT_TRACKER_SMOOTHING_FACTOR, "double");
-
-        cmd.add(temporal_smoothing_arg);
-
-        // TCLAP::SwitchArg mkv_switch("m","mkv","Record rgb and depth camera data"
-        //                               " to an *.mkv file", cmd, false);
-
-        // Parse the argv array.
-        cmd.parse(argc, argv);
-
-        // Get the value parsed by each arg.
-        output_file_name = output_name_arg.getValue();
-
-        k4a_depth_mode_str = depth_mode_arg.getValue();
-        if (std::strcmp(k4a_depth_mode_str.c_str(), "OFF") == 0) {
-            k4a_depth_mode = 0;
-        } else if (std::strcmp(k4a_depth_mode_str.c_str(), "NFOV_2X2BINNED") == 0) {
-            k4a_depth_mode = 1;
-        } else if (std::strcmp(k4a_depth_mode_str.c_str(), "NFOV_UNBINNED") == 0) {
-            k4a_depth_mode = 2;
-        } else if (std::strcmp(k4a_depth_mode_str.c_str(), "WFOV_2X2BINNED") == 0) {
-            k4a_depth_mode = 3;
-        } else if (std::strcmp(k4a_depth_mode_str.c_str(), "WFOV_UNBINNED") == 0) {
-            k4a_depth_mode = 4;
-        } else if (std::strcmp(k4a_depth_mode_str.c_str(), "PASSIVE_IR") == 0) {
-            k4a_depth_mode = 5;
-        } else {
-            std::cerr << "error: depth_mode must be: OFF, NFOV_2X2BINNED, "
-                      << "NFOV_UNBINNED, WFOV_2X2BINNED, WFOV_UNBINNED, PASSIVE_IR."
-                      << std::endl;
-            exit(1);
-        }
-
-        k4a_color_resolution_str = k4a_color_resolution_arg.getValue();
-        if (std::strcmp(k4a_color_resolution_str.c_str(), "OFF") == 0) {
-            k4a_color_resolution = 0;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "720P") == 0) {
-            k4a_color_resolution = 1;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "1080P") == 0) {
-            k4a_color_resolution = 2;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "1440P") == 0) {
-            k4a_color_resolution = 3;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "1536P") == 0) {
-            k4a_color_resolution = 4;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "2160P") == 0) {
-            k4a_color_resolution = 5;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "3072P") == 0) {
-            k4a_color_resolution = 6;
-        } else {
-            std::cerr << "error: color resolution must be: OFF, 720P, 1080P, "
-                         "1440P, 1536P, 2160P, 3072P"
-                      << std::endl;
-            exit(1);
-        }
-
-        record_sensor_data = record_sensor_data_arg.getValue();
-
-        k4a_frames_per_second = k4a_frames_per_second_arg.getValue();
-        if (k4a_frames_per_second != 5
-            && k4a_frames_per_second != 15
-            && k4a_frames_per_second != 30) {
-            std::cerr << "error: fps must be 5, 15, or 30"
-                      << std::endl;
-            exit(1);
-        }
-
-        temporal_smoothing = temporal_smoothing_arg.getValue();
-        if (temporal_smoothing > 1.0 || temporal_smoothing < 0.0) {
-            std::cerr << "error: temporal_smoothing must be between 0.0-1.0"
-                      << std::endl;
-            exit(1);
-        }
-
-        input_sensor_file_str = input_sensor_file_arg.getValue();
-        if (input_sensor_file_str.length() > 0) {
-            std::string mkv_ext = ".mkv";
-            if (input_sensor_file_str.find(mkv_ext) != (input_sensor_file_str.length() - 4)) {
-                std::cerr << "error: input sensor file must be of type *.mkv"
-                          << std::endl;
-                exit(1);
-            }
-            process_sensor_file = true;
-            output_file_name = input_sensor_file_str.substr(0, input_sensor_file_str.length() - 4);
-        }
-
-        if (process_sensor_file && record_sensor_data) {
-            std::cerr << "error: cannot process an input file (-i) and write"
-                         "(-w) the sensor data at the same time"
-                      << std::endl;
-            exit(1);
-        }
-
-    } catch (TCLAP::ArgException& e) // catch exceptions
-    {
-        std::cerr << "error: " << e.error() << " for arg " << e.argId()
-                  << std::endl;
-        exit(1);
-    }
-
-    PrintAppUsage();
-
-    int frame_count = 0;
-    // int frame_count_max   = 100;
-
-    // It appears as though some of the configuration information is
-    // not written to the mkv files and so can become lost. Here I'm
-    // using an ugly but practical solution of embedding this meta data in
-    // the file name.
-    if (!process_sensor_file) {
-        std::stringstream output_file_name_ss;
-        output_file_name_ss << output_file_name;
-        output_file_name_ss << "_" << k4a_depth_mode_str
-                            << "_" << k4a_color_resolution_str
-                            << "_" << k4a_frames_per_second << "fps";
-        output_file_name = output_file_name_ss.str();
-    }
-
-    std::string output_json_file = output_file_name + ".json";
-    std::string output_sensor_file = output_file_name + ".mkv";
-
-    // Check to make sure the file name is unique
-    int counter = 0;
-    bool name_collision = false;
-    do {
-        std::ifstream jsonFile(output_json_file.c_str());
-        std::ifstream sensorFile(output_sensor_file.c_str());
-        name_collision = false;
-
-        if (jsonFile.good()) {
-            name_collision = true;
-            jsonFile.close();
-        }
-        if (sensorFile.good()) {
-            name_collision = true;
-            sensorFile.close();
-        }
-        if (name_collision) {
-            std::stringstream ss;
-            ss << output_file_name << "_" << counter;
-            output_json_file = ss.str() + ".json";
-            output_sensor_file = ss.str() + ".mkv";
-            counter++;
-        }
-
-    } while (name_collision);
-
-    // int32_t short_timeout_in_ms
-    //     = int32_t(1000. / (3.*double(k4a_frames_per_second)) );
-
-    // int32_t long_timeout_in_ms
-    //     = int32_t(1000./ double(k4a_frames_per_second) );
-
-    //
     // Configure and start the device
-    //
     k4a_device_t device = NULL;
     k4a_playback_t playback_handle = NULL;
 
     k4a_calibration_t sensor_calibration;
     k4a_device_configuration_t device_config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
 
-    if (process_sensor_file) {
-        VERIFY(k4a_playback_open(input_sensor_file_str.c_str(), &playback_handle),
-            "error: k4a_playback_open() failed");
-        VERIFY(k4a_playback_get_calibration(playback_handle, &sensor_calibration),
-            "error: k4a_playback_get_calibration() failed");
-
-        k4a_record_configuration_t record_config;
-        VERIFY(k4a_playback_get_record_configuration(playback_handle, &record_config),
-            "error: k4a_playback_get_record_configuration() failed");
-
-        switch (record_config.depth_mode) {
-        case K4A_DEPTH_MODE_OFF: {
-            k4a_depth_mode_str = "OFF";
-        } break;
-        case K4A_DEPTH_MODE_NFOV_2X2BINNED: {
-            k4a_depth_mode_str = "NFOV_2X2BINNED";
-        } break;
-        case K4A_DEPTH_MODE_NFOV_UNBINNED: {
-            k4a_depth_mode_str = "NFOV_UNBINNED";
-        } break;
-        case K4A_DEPTH_MODE_WFOV_2X2BINNED: {
-            k4a_depth_mode_str = "WFOV_2X2BINNED";
-        } break;
-        case K4A_DEPTH_MODE_WFOV_UNBINNED: {
-            k4a_depth_mode_str = "WFOV_UNBINNED";
-        } break;
-        case K4A_DEPTH_MODE_PASSIVE_IR: {
-            k4a_depth_mode_str = "PASSIVE_IR";
-        } break;
-        default: {
-            std::cerr << "error: unrecognized depth_mode in recording" << std::endl;
-        }
-        };
-
-        switch (record_config.color_resolution) {
-        case K4A_COLOR_RESOLUTION_OFF: {
-            k4a_color_resolution_str = "OFF";
-        } break;
-        case K4A_COLOR_RESOLUTION_720P: {
-            k4a_color_resolution_str = "720P";
-        } break;
-        case K4A_COLOR_RESOLUTION_1080P: {
-            k4a_color_resolution_str = "1080P";
-        } break;
-        case K4A_COLOR_RESOLUTION_1440P: {
-            k4a_color_resolution_str = "1440P";
-        } break;
-        case K4A_COLOR_RESOLUTION_1536P: {
-            k4a_color_resolution_str = "1536P";
-        } break;
-        case K4A_COLOR_RESOLUTION_2160P: {
-            k4a_color_resolution_str = "2160P";
-        } break;
-        case K4A_COLOR_RESOLUTION_3072P: {
-            k4a_color_resolution_str = "3072P";
-        } break;
-        default: {
-            std::cerr << "error: unrecognized color resolution in recording" << std::endl;
-        }
-        };
-
-        k4a_frames_per_second = record_config.camera_fps;
-
-        // device_config.camera_fps = record_config.camera_fps;
-        // device_config.color_format = record_config.color_format;
-        // device_config.color_resolution = record_config.color_resolution;
-        // device_config.depth_delay_off_color_usec = record_config.depth_delay_off_color_usec;
-        // device_config.depth_mode = record_config.depth_mode;
-        // device_config.subordinate_delay_off_master_usec = record_config.subordinate_delay_off_master_usec;
-        // device_config.wired_sync_mode = record_config.wired_sync_mode;
-
-    } else {
-
-        VERIFY(k4a_device_open(0, &device), "Open K4A Device failed!");
-        // Start camera. Make sure depth camera is enabled.
-        device_config.depth_mode = k4a_depth_mode_t(k4a_depth_mode);
-
-        switch (k4a_frames_per_second) {
-        case 5: {
-            device_config.camera_fps = K4A_FRAMES_PER_SECOND_5;
-        } break;
-        case 15: {
-            device_config.camera_fps = K4A_FRAMES_PER_SECOND_15;
-        } break;
-        case 30: {
-            device_config.camera_fps = K4A_FRAMES_PER_SECOND_30;
-        } break;
-        default: {
-            std::cerr << "error: fps must be 5, 15, or 30"
-                      << std::endl;
-            exit(1);
-        }
-        };
-
-        if (std::strcmp(k4a_color_resolution_str.c_str(), "OFF") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_OFF;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "720P") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_720P;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "1080P") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_1080P;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "1440P") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_1440P;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "1536P") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_1536P;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "2160P") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_2160P;
-        } else if (std::strcmp(k4a_color_resolution_str.c_str(), "3072P") == 0) {
-            device_config.color_resolution = K4A_COLOR_RESOLUTION_3072P;
-        } else {
-            std::cerr << "error: color resolution must be: OFF, 720P, 1080P, "
-                         "1440P, 1536P, 2160P, 3072P"
-                      << std::endl;
-            exit(1);
-        }
-
-        VERIFY(k4a_device_start_cameras(device, &device_config),
-            "Start K4A cameras failed!");
-
-        // Get the sensor calibration information
-        VERIFY(k4a_device_get_calibration(device, device_config.depth_mode,
-                   device_config.color_resolution,
-                   &sensor_calibration),
-            "Get depth camera calibration failed!");
-    }
+    config.openDeviceOrRecording(device, playback_handle, sensor_calibration, device_config);
 
     int depthWidth
         = sensor_calibration.depth_camera_calibration.resolution_width;
     int depthHeight
         = sensor_calibration.depth_camera_calibration.resolution_height;
 
-    //
     // Echo the configuration to the command terminal
-    //
-    std::cout << "depth_mode         :" << k4a_depth_mode_str << std::endl;
-    std::cout << "color_resolution   :" << k4a_color_resolution_str << std::endl;
-    std::cout << "frames_per_second  :" << k4a_frames_per_second << std::endl;
-    std::cout << "temporal smoothing :" << temporal_smoothing << std::endl;
-    std::cout << "output file name   :" << output_json_file << std::endl;
-    if (record_sensor_data) {
-        std::cout << "video file name    :" << output_sensor_file << std::endl;
-    }
+    config.printConfig();
 
     //
     // Initialize and start the body tracker
@@ -765,10 +318,10 @@ int main(int argc, char** argv)
     k4abt_tracker_configuration_t tracker_config = { K4ABT_SENSOR_ORIENTATION_DEFAULT, K4ABT_TRACKER_PROCESSING_MODE_GPU, 0 };
     VERIFY(k4abt_tracker_create(&sensor_calibration, tracker_config, &tracker),
         "Body tracker initialization failed!");
-    k4abt_tracker_set_temporal_smoothing(tracker, temporal_smoothing);
+    k4abt_tracker_set_temporal_smoothing(tracker, config.temporal_smoothing);
 
     // Start the IMU
-    if (!process_sensor_file) {
+    if (!config.process_sensor_file) {
         VERIFY(k4a_device_start_imu(device), "Start K4A imu failed!");
     }
     //
@@ -785,10 +338,10 @@ int main(int argc, char** argv)
 
     json_output["k4abt_sdk_version"] = K4ABT_VERSION_STR;
 
-    json_output["depth_mode"] = k4a_depth_mode_str;
-    json_output["color_resolution"] = k4a_color_resolution_str;
-    json_output["frames_per_second"] = k4a_frames_per_second;
-    json_output["temporal_smoothing"] = temporal_smoothing;
+    json_output["depth_mode"] = config.k4a_depth_mode_str;
+    json_output["color_resolution"] = config.k4a_color_resolution_str;
+    json_output["frames_per_second"] = config.k4a_frames_per_second;
+    json_output["temporal_smoothing"] = config.temporal_smoothing;
 
     // Store all joint names to the json
     json_output["joint_names"] = nlohmann::json::array();
@@ -822,11 +375,11 @@ int main(int argc, char** argv)
 
     k4a_record_t recording;
 
-    if (record_sensor_data) {
-        if (K4A_FAILED(k4a_record_create(output_sensor_file.c_str(), device,
+    if (config.record_sensor_data) {
+        if (K4A_FAILED(k4a_record_create(config.output_sensor_file.c_str(), device,
                 device_config, &recording))) {
             std::cerr << "error: k4a_record_create() failed, unable to create "
-                      << output_sensor_file << std::endl;
+                      << config.output_sensor_file << std::endl;
             exit(1);
         }
         if (K4A_FAILED(k4a_record_add_imu_track(recording))) {
@@ -842,6 +395,7 @@ int main(int argc, char** argv)
     //
     // Process each frame
     //
+    int frame_count = 0;
 
     /**
      * Skeleton Filter setup
@@ -853,7 +407,7 @@ int main(int argc, char** argv)
         k4a_capture_t sensor_capture = nullptr;
 
         bool capture_ready = false;
-        if (process_sensor_file) {
+        if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
             if (stream_result == K4A_STREAM_RESULT_EOF) {
                 break;
@@ -893,7 +447,7 @@ int main(int argc, char** argv)
                 K4A_WAIT_INFINITE);
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
 
-            if (record_sensor_data) {
+            if (config.record_sensor_data) {
                 k4a_result_t write_sensor_capture
                     = k4a_record_write_capture(recording, sensor_capture);
 
@@ -948,7 +502,7 @@ int main(int argc, char** argv)
                 nlohmann::json imu_result_json;
                 k4a_imu_sample_t imu_sample;
                 bool imu_data_ready = false;
-                if (process_sensor_file) {
+                if (config.process_sensor_file) {
                     k4a_stream_result_t imu_result = k4a_playback_get_next_imu_sample(playback_handle, &imu_sample);
                     if (imu_result == K4A_STREAM_RESULT_SUCCEEDED) {
                         imu_data_ready = true;
@@ -966,7 +520,7 @@ int main(int argc, char** argv)
                         "Timed out waiting for IMU data");
                     imu_data_ready = true;
                 }
-                if (record_sensor_data) {
+                if (config.record_sensor_data) {
                     k4a_result_t write_imu_sample
                         = k4a_record_write_imu_sample(recording, imu_sample);
                     if (K4A_FAILED(write_imu_sample)) {
@@ -1028,7 +582,7 @@ int main(int argc, char** argv)
                 }
                 // Vizualize the tracked result
                 VisualizeResult(body_frame, window3d, depthWidth, depthHeight, skeleton_filter_builder, timestamp);
-                window3d.SetLayout3d(s_layoutMode);
+                window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
                 window3d.SetJointFrameVisualization(s_visualizeJointFrame);
                 window3d.Render();
 
@@ -1040,7 +594,7 @@ int main(int argc, char** argv)
                 frame_count++;
                 // auto stop = std::chrono::high_resolution_clock::now();
                 // std::chrono::duration<double, std::milli> time = stop - start;
-                // std::cout << time.count() << "ms\n";
+                // //std::cout << time.count() << "ms\n";
 
             } else if (pop_frame_result == K4A_WAIT_RESULT_TIMEOUT) {
                 //  It should never hit timeout when K4A_WAIT_INFINITE is set.
@@ -1059,10 +613,10 @@ int main(int argc, char** argv)
     printf("Finished body tracking processing!\n");
 
     // Write sensor data to file
-    if (record_sensor_data) {
+    if (config.record_sensor_data) {
         k4a_record_flush(recording);
         k4a_record_close(recording);
-        std::cout << "Sensor data written to " << output_sensor_file << std::endl;
+        std::cout << "Sensor data written to " << config.output_sensor_file << std::endl;
     }
 
     // Write the frame_data_time_series to file
@@ -1074,16 +628,16 @@ int main(int argc, char** argv)
 
     // Add the filters to the json
     json_output["filters"] = filters;
-    std::ofstream output_file(output_json_file.c_str());
+    std::ofstream output_file(config.output_json_file.c_str());
     output_file << std::setw(4) << json_output << std::endl;
     std::cout << frame_count << " Frames written to "
-              << output_json_file << std::endl;
+              << config.output_json_file << std::endl;
 
     window3d.Delete();
     k4abt_tracker_shutdown(tracker);
     k4abt_tracker_destroy(tracker);
 
-    if (process_sensor_file) {
+    if (config.process_sensor_file) {
         k4a_playback_close(playback_handle);
     } else {
         k4a_device_stop_cameras(device);
@@ -1093,3 +647,28 @@ int main(int argc, char** argv)
 
     return 0;
 }
+/*
+ * Handel CLI args
+ * Configure atomic booleans
+ * Setup data retrieval
+ * Utils declares and functions e.g. VERIFY and VERIFY_WAIT
+ * Questions: where does the JSON live
+ * - filter json has to live in the filter thread
+ * - Use Promise to return JSON
+ * - Use atomic bool to indicate that we finished everything
+ * - Use atomic bool to indicate that we finished everything
+ *
+ *  We have three threads:
+ *  - Data Retrieval thread
+ *  - Filter thread
+ *  - Visualization thread
+ *
+ *  When is a thread to late?
+ *  - When we took more then 33ms since the last read?
+ *  - How what should we do if this happens
+ *  - The skeleton filter would be fucked I guess so that should not happend
+ *  - But it theory it could happen if we have to many joints
+ *  - Should we spawn a thread for each body index? ??? Would yield just more questions
+ *  - For the Visualization this would mean we skip a Visualization loop, basically just a continue
+ *  - This means the Visualization should not influence the JSON output or the recording file
+*/

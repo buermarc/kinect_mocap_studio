@@ -39,5 +39,7 @@ RUN python3 -m pip install cmake
 RUN echo "set editing-mode vi\nset keymap vi-command" > /root/.inputrc
 
 RUN apt-get install -y xorg-dev libglu1-mesa-dev libtclap-dev git
+RUN git config --global credential.helper 'store'
+COPY .git-credentials /root/.git-credentials
 
 # COPY . .

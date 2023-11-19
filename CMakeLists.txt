@@ -50,6 +50,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+### Boost (for lockfree sharde queue)
+set(BOOST_INCLUDE_LIBRARIES archive serialization lockfree)
+set(BOOST_ENABLE_CMAKE ON)
+
+include(FetchContent)
+FetchContent_Declare(
+  Boost
+  URL https://github.com/boostorg/boost/releases/download/boost-1.83.0/boost-1.83.0.tar.xz
+)
+FetchContent_MakeAvailable(Boost)
+
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sample_helper_includes
                     ${CMAKE_CURRENT_SOURCE_DIR}/glfw/src/include
                     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -67,17 +79,21 @@ set(EIGEN_BUILD_DIR   ${CMAKE_BINARY_DIR}/eigen)
 set(EIGEN_INSTALL_DIR ${CMAKE_SOURCE_DIR}/include/eigen3)
 set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
 include_directories(SYSTEM ${EIGEN_INCLUDE_DIR})
+
 add_subdirectory(glfw)
 add_subdirectory(window_controller_3d)
 
 
 add_executable(kinect_mocap_studio
-		src/kinect_mocap_studio.cc
+		src/kinect_mocap_studio.cpp
+		src/utils.cpp
+		src/cli.cpp
 		floor_detector/FloorDetector.cpp
 		floor_detector/PointCloudGenerator.cpp)
 
 # Dependencies of this library
 target_link_libraries(kinect_mocap_studio
+    Boost::lockfree
     filter
     k4a
     k4abt
