@@ -102,6 +102,7 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
         while (processed_queue.pop(frame)) {
             std::cout << "Get element from processed queue" << std::endl;
             visualizeLogic(window3d, frame, filters, frame_result_json);
+            window3d.Render();
             k4a_image_release(frame.depth_image);
         }
     }
