@@ -5,6 +5,7 @@
 #include <kinect_mocap_studio/cli.hpp>
 
 #include <optional>
+#include <iostream>
 
 #include <k4abt.h>
 #include <k4a/k4a.h>
@@ -99,6 +100,7 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
 
     while (s_isRunning) {
         while (processed_queue.pop(frame)) {
+            std::cout << "Get element from processed queue" << std::endl;
             visualizeLogic(window3d, frame, filters, frame_result_json);
             k4a_image_release(frame.depth_image);
         }

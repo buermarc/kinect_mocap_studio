@@ -408,6 +408,8 @@ int main(int argc, char** argv)
         k4a_record_close(recording);
         std::cout << "Sensor data written to " << config.output_sensor_file << std::endl;
     }
+    process_thread.join();
+    visualize_thread.join();
 
     // Write the frame_data_time_series to file
     now = time(0);

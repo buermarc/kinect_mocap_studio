@@ -1,5 +1,6 @@
 #include <kinect_mocap_studio/process.hpp>
 #include <optional>
+#include <iostream>
 
 #include <k4abt.h>
 
@@ -47,7 +48,9 @@ void processThread(k4a_calibration_t sensor_calibration) {
 
     while (s_isRunning) {
         while (measurement_queue.pop(frame)) {
+            std::cout << "Get element from measurement queue" << std::endl;
             ProcessedFrame result = processLogic(frame, sensor_calibration, pointCloudGenerator, floorDetector, frame_result_json);
+            std::cout << "Put element on processed queue" << std::endl;
             processed_queue.push(result);
 
             // Make sure to relase the body frame
