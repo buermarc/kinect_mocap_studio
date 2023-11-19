@@ -4,10 +4,14 @@
 #include <kinect_mocap_studio/utils.hpp>
 #include <kinect_mocap_studio/cli.hpp>
 
+#include <optional>
+
 #include <k4abt.h>
+#include <k4a/k4a.h>
 #include <k4a/k4atypes.h>
 #include <k4abttypes.h>
 
+#include "FloorDetector.h"
 #include <Window3dWrapper.h>
 
 #include <filter/com.hpp>
@@ -43,9 +47,43 @@ int64_t closeCallback(void* /*context*/)
     return 1;
 }
 
+void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
+}
 
-void visualizeLogic(ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters) {
+void visualizeFloor(Window3dWrapper& window3d, std::optional<Samples::Plane> floor, nlohmann::json& frame_result_json) {
+    nlohmann::json floor_result_json;
+    if (floor.has_value()) {
+        // For visualization purposes, make floor origin the projection of a point 1.5m in front of the camera.
+        Samples::Vector cameraOrigin = { 0, 0, 0 };
+        Samples::Vector cameraForward = { 0, 0, 1 };
 
+        auto p = floor->ProjectPoint(cameraOrigin)
+            + floor->ProjectVector(cameraForward) * 1.5f;
+
+        auto n = floor->Normal;
+
+        window3d.SetFloorRendering(true, p.X, p.Y, p.Z, n.X, n.Y, n.Z);
+        floor_result_json["point"].push_back(
+            { p.X * 1000.f, p.Y * 1000.f, p.Z * 1000.f });
+        floor_result_json["normal"].push_back({ n.X, n.Y, n.Z });
+        floor_result_json["valid"] = true;
+    } else {
+        window3d.SetFloorRendering(false, 0, 0, 0);
+        floor_result_json["point"].push_back({ 0., 0., 0. });
+        floor_result_json["normal"].push_back({ 0., 0., 0. });
+        floor_result_json["valid"] = false;
+    }
+    frame_result_json["floor"].push_back(floor_result_json);
+}
+
+void visualizePointCloud(Window3dWrapper& window3d, k4a_image_t depth_image) {
+    window3d.UpdatePointClouds(depth_image);
+}
+
+void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters, nlohmann::json& frame_result_json) {
+    visualizeFloor(window3d, frame.floor, frame_result_json);
+    visualizePointCloud(window3d, frame.depth_image);
+    visualizeSkeleton(window3d, frame);
 }
 
 void visualizeThread(k4a_calibration_t sensor_calibration) {
@@ -57,10 +95,12 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
     window3d.SetKeyCallback(processKey);
 
     std::vector<SkeletonFilter<double>> filters;
+    nlohmann::json frame_result_json;
 
     while (s_isRunning) {
         while (processed_queue.pop(frame)) {
-            visualizeLogic(frame, filters);
+            visualizeLogic(window3d, frame, filters, frame_result_json);
+            k4a_image_release(frame.depth_image);
         }
     }
 

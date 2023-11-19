@@ -2,8 +2,12 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
 
+#include <optional>
+
 #include <k4a/k4atypes.h>
 #include <k4abttypes.h>
+
+#include "FloorDetector.h"
 
 
 extern boost::atomic<bool> s_isRunning;
@@ -21,6 +25,7 @@ struct MeasuredFrame {
 struct ProcessedFrame {
     double skeleton_data[32][3];
     k4a_image_t depth_image;
+    std::optional<Samples::Plane> floor;
 
 };
 
