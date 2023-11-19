@@ -372,11 +372,12 @@ int main(int argc, char** argv)
                 window3d.Render();
                 */
 
+                std::cout << "Adding element to queue" << std::endl;
                 measurement_queue.push(MeasuredFrame { body_frame, imu_sample, depth_image });
 
                 // TODO: if we do not release them here, release them in the different queues
-                k4abt_frame_release(body_frame);
-                k4a_image_release(depth_image);
+                // k4abt_frame_release(body_frame);
+                // k4a_image_release(depth_image);
 
                 // Remember to release the body frame once you finish using it
                 frames_json.push_back(frame_result_json);
