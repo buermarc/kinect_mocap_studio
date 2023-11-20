@@ -102,7 +102,8 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
     nlohmann::json frame_result_json;
 
     while (s_isRunning) {
-        while (processed_queue.Consume(frame)) {
+        bool retrieved =  processed_queue.Consume(frame);
+        if (retrieved) {
             std::cout << "Get element from processed queue" << std::endl;
             visualizeLogic(window3d, frame, filters, frame_result_json);
             std::cout << "Render call" << std::endl;
@@ -110,11 +111,12 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
             std::cout << "Finished render call" << std::endl;
             k4a_image_release(frame.depth_image);
             std::cout << "Released the depth image" << std::endl;
+        } else {
+            std::this_thread::yield();
+            std::cout << ".";
         }
-        std::this_thread::yield();
-        std::cout << "";
     }
-
+    std::cout << "Finish visualize thread" << std::endl;
 }
 
 // Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
