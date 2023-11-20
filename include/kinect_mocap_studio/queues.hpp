@@ -2,6 +2,8 @@
 #include <boost/lockfree/spsc_queue.hpp>
 #include <boost/atomic.hpp>
 
+#include <kinect_mocap_studio/SafeQueue.hpp>
+
 #include <optional>
 
 #include <k4a/k4atypes.h>
@@ -29,8 +31,11 @@ struct ProcessedFrame {
 
 };
 
-typedef boost::lockfree::spsc_queue<MeasuredFrame> MeasurementQueue;
-extern MeasurementQueue measurement_queue;
+// Typedef boost::lockfree::spsc_queue<MeasuredFrame> MeasurementQueue;
+// Typedef boost::lockfree::spsc_queue<ProcessedFrame> ProcessedQueue;
 
-typedef boost::lockfree::spsc_queue<ProcessedFrame> ProcessedQueue;
+typedef SafeQueue<MeasuredFrame> MeasurementQueue;
+typedef SafeQueue<ProcessedFrame> ProcessedQueue;
+
+extern MeasurementQueue measurement_queue;
 extern ProcessedQueue processed_queue;

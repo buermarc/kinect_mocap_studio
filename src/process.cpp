@@ -48,11 +48,11 @@ void processThread(k4a_calibration_t sensor_calibration) {
     nlohmann::json frame_result_json;
 
     while (s_isRunning) {
-        while (measurement_queue.pop(frame)) {
+        while (measurement_queue.Consume(frame)) {
             std::cout << "Get element from measurement queue" << std::endl;
             ProcessedFrame result = processLogic(frame, sensor_calibration, pointCloudGenerator, floorDetector, frame_result_json);
             std::cout << "Put element on processed queue" << std::endl;
-            processed_queue.push(result);
+            processed_queue.Produce(std::move(result));
 
             // Make sure to relase the body frame
             k4abt_frame_release(frame.body_frame);

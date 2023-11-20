@@ -102,7 +102,7 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
     nlohmann::json frame_result_json;
 
     while (s_isRunning) {
-        while (processed_queue.pop(frame)) {
+        while (processed_queue.Consume(frame)) {
             std::cout << "Get element from processed queue" << std::endl;
             visualizeLogic(window3d, frame, filters, frame_result_json);
             std::cout << "Render call" << std::endl;

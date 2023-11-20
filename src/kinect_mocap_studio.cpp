@@ -41,8 +41,8 @@
 
 using Eigen::MatrixXd;
 
-MeasurementQueue measurement_queue(1);
-ProcessedQueue processed_queue(1);
+MeasurementQueue measurement_queue;
+ProcessedQueue processed_queue;
 
 boost::atomic<bool> s_isRunning (true);
 boost::atomic<bool> s_visualizeJointFrame (false);
@@ -376,9 +376,8 @@ int main(int argc, char** argv)
                 window3d.Render();
                 */
 
-                std::cout << "Queue is lockfree: " << measurement_queue.is_lock_free() << std::endl;
                 std::cout << "Adding element to queue" << std::endl;
-                measurement_queue.push(MeasuredFrame { body_frame, imu_sample, depth_image });
+                measurement_queue.Produce(std::move(MeasuredFrame { body_frame, imu_sample, depth_image }));
 
                 // TODO: if we do not release them here, release them in the different queues
                 // k4abt_frame_release(body_frame);
