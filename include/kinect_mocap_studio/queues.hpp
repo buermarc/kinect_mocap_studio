@@ -28,7 +28,6 @@ struct ProcessedFrame {
     double skeleton_data[32][3];
     k4a_image_t depth_image;
     std::optional<Samples::Plane> floor;
-
 };
 
 // Typedef boost::lockfree::spsc_queue<MeasuredFrame> MeasurementQueue;

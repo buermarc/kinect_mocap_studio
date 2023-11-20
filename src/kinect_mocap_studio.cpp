@@ -44,6 +44,8 @@ using Eigen::MatrixXd;
 MeasurementQueue measurement_queue;
 ProcessedQueue processed_queue;
 
+#define WAIT_10_MS
+
 boost::atomic<bool> s_isRunning (true);
 boost::atomic<bool> s_visualizeJointFrame (false);
 boost::atomic<int> s_layoutMode ((int) Visualization::Layout3d::OnlyMainView);
@@ -202,7 +204,7 @@ int main(int argc, char** argv)
         } else {
             std::cout << "wait1" << std::endl;
             k4a_wait_result_t get_capture_result
-                = k4a_device_get_capture(device, &sensor_capture, K4A_WAIT_INFINITE);
+                = k4a_device_get_capture(device, &sensor_capture, WAIT_10_MS);
 
             if (get_capture_result == K4A_WAIT_RESULT_SUCCEEDED) {
                 capture_ready = true;
@@ -220,7 +222,7 @@ int main(int argc, char** argv)
 
             std::cout << "wait2" << std::endl;
             k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(tracker, sensor_capture,
-                K4A_WAIT_INFINITE);
+                WAIT_10_MS);
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
 
             if (config.record_sensor_data) {
@@ -249,7 +251,7 @@ int main(int argc, char** argv)
             k4abt_frame_t body_frame = NULL;
             std::cout << "Popping tracker." << std::endl;
             k4a_wait_result_t pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame,
-                K4A_WAIT_INFINITE);
+                WAIT_10_MS);
             std::cout << "Popped tracker." << std::endl;
 
             // Maybe we just put it onto the queue here, and everything below
@@ -275,7 +277,7 @@ int main(int argc, char** argv)
                 } else {
                     // Maybe move this out into the front? Is there any advantage of having it in here?
                     VERIFY_WAIT(k4a_device_get_imu_sample(device, &imu_sample,
-                                    K4A_WAIT_INFINITE),
+                                    WAIT_10_MS),
                         "Timed out waiting for IMU data");
                     imu_data_ready = true;
                 }
