@@ -1,5 +1,5 @@
 #pragma once
-#include <boost/lockfree/queue.hpp>
+#include <boost/lockfree/spsc_queue.hpp>
 #include <boost/atomic.hpp>
 
 #include <optional>
@@ -29,8 +29,8 @@ struct ProcessedFrame {
 
 };
 
-typedef boost::lockfree::queue<MeasuredFrame> MeasurementQueue;
+typedef boost::lockfree::spsc_queue<MeasuredFrame> MeasurementQueue;
 extern MeasurementQueue measurement_queue;
 
-typedef boost::lockfree::queue<ProcessedFrame> ProcessedQueue;
+typedef boost::lockfree::spsc_queue<ProcessedFrame> ProcessedQueue;
 extern ProcessedQueue processed_queue;

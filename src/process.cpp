@@ -1,6 +1,7 @@
 #include <kinect_mocap_studio/process.hpp>
 #include <optional>
 #include <iostream>
+#include <thread>
 
 #include <k4abt.h>
 
@@ -56,5 +57,7 @@ void processThread(k4a_calibration_t sensor_calibration) {
             // Make sure to relase the body frame
             k4abt_frame_release(frame.body_frame);
         }
+        std::this_thread::yield();
+        // std::cout << "Measurement pop failed." << std::endl;
     }
 }
