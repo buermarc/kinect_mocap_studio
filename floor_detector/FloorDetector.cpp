@@ -125,6 +125,18 @@ std::optional<Samples::Plane> FitPlaneToInlierPoints(const std::vector<k4a_float
     return Samples::Plane::Create(normal.Normalized(), centroid);
 }
 
+std::vector<k4a_float3_t> Samples::ConvertPointCloud(std::vector<Visualization::PointCloudVertex> pointCloud) {
+    std::vector<k4a_float3_t> transformed_point_clouds(pointCloud.size());
+    std::transform(pointCloud.cbegin(), pointCloud.cend(), transformed_point_clouds.begin(), [](auto element) {
+        k4a_float3_t float3;
+        float3.v[0] = element.Position[0];
+        float3.v[1] = element.Position[1];
+        float3.v[2] = element.Position[2];
+        return float3;
+    });
+    return transformed_point_clouds;
+}
+
 std::optional<Samples::Plane> Samples::FloorDetector::TryDetectFloorPlane(
     const std::vector<k4a_float3_t>& cloudPoints,
     const k4a_imu_sample_t& imuSample,

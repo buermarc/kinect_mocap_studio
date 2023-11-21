@@ -85,6 +85,11 @@ void Window3dWrapper::Delete()
     }
 }
 
+void Window3dWrapper::UpdatePointClouds(std::vector<Visualization::PointCloudVertex> cloudPoints, std::vector<uint16_t> depthBuffer) {
+    m_pointClouds = cloudPoints;
+    m_depthBuffer = depthBuffer;
+}
+
 void Window3dWrapper::UpdatePointClouds(k4a_image_t depthImage, std::vector<Color> pointCloudColors)
 {
     m_pointCloudUpdated = true;

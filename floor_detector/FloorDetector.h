@@ -4,6 +4,7 @@
 #pragma once
 
 #include "SampleMathTypes.h"
+#include "WindowController3dTypes.h"
 
 #include <optional>
 #include <vector>
@@ -14,6 +15,7 @@ namespace Samples
         const k4a_imu_sample_t& imuSample,
         const k4a_calibration_t& sensorCalibration);
 
+    std::vector<k4a_float3_t> ConvertPointCloud(std::vector<Visualization::PointCloudVertex> pointCloud);
     class FloorDetector
     {
     public:

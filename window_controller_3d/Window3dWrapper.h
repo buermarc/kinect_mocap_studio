@@ -8,6 +8,7 @@
 
 #include "WindowController3d.h"
 
+void ConvertMillimeterToMeter(k4a_float3_t positionInMM, linmath::vec3 outPositionInMeter);
 
 // This is a wrapper library that convert the types from the k4abt types to the window3d visualization library types
 class Window3dWrapper
@@ -38,6 +39,7 @@ public:
     void Delete();
 
     void UpdatePointClouds(k4a_image_t depthImage, std::vector<Color> pointCloudColors = std::vector<Color>());
+    void UpdatePointClouds(std::vector<Visualization::PointCloudVertex> cloudPoints, std::vector<uint16_t> depthBuffer);
 
     void CleanJointsAndBones();
 

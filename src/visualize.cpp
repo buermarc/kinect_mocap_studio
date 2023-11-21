@@ -78,14 +78,14 @@ void visualizeFloor(Window3dWrapper& window3d, std::optional<Samples::Plane> flo
     frame_result_json["floor"].push_back(floor_result_json);
 }
 
-void visualizePointCloud(Window3dWrapper& window3d, k4a_image_t depth_image) {
-    window3d.UpdatePointClouds(depth_image);
+void visualizePointCloud(Window3dWrapper& window3d, ProcessedFrame frame) {
+    window3d.UpdatePointClouds(frame.cloudPoints, frame.depthBuffer);
 }
 
 void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters, nlohmann::json& frame_result_json) {
     std::cout << "logic" << std::endl;
     visualizeFloor(window3d, frame.floor, frame_result_json);
-    visualizePointCloud(window3d, frame.depth_image);
+    visualizePointCloud(window3d, frame);
     visualizeSkeleton(window3d, frame);
     std::cout << "end logic" << std::endl;
 }
@@ -109,8 +109,6 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
             std::cout << "Render call" << std::endl;
             window3d.Render();
             std::cout << "Finished render call" << std::endl;
-            k4a_image_release(frame.depth_image);
-            std::cout << "Released the depth image" << std::endl;
         } else {
             std::this_thread::yield();
             std::cout << ".";

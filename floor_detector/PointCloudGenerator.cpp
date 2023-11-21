@@ -4,8 +4,10 @@
 #include "PointCloudGenerator.h"
 #include "Utilities.h"
 
-#include <k4a/k4a.h>
+#include "linmath.h"
+#include "Window3dWrapper.h"
 
+#include <k4a/k4a.h>
 
 // K4A SDK is currently missing a point cloud pixel type returned
 // by k4a_transformation_depth_image_to_point_cloud().
@@ -20,7 +22,6 @@ typedef union
     } xyz;         /**< X, Y, Z representation of a vector. */
     int16_t v[3];    /**< Array representation of a vector. */
 } PointCloudPixel_int16x3_t;
-
 
 Samples::PointCloudGenerator::PointCloudGenerator(const k4a_calibration_t& sensorCalibration)
 {
@@ -96,4 +97,60 @@ const std::vector<k4a_float3_t>& Samples::PointCloudGenerator::GetCloudPoints(in
     m_cloudPoints.resize(cloudPointsIndex);
 
     return m_cloudPoints;
+}
+
+std::vector<uint16_t> Samples::PointCloudGenerator::UpdateDepthBuffer(k4a_image_t depthFrame)
+{
+    int width = k4a_image_get_width_pixels(depthFrame);
+    int height = k4a_image_get_height_pixels(depthFrame);
+    uint16_t* depthFrameBuffer = (uint16_t*)k4a_image_get_buffer(depthFrame);
+    m_depthBuffer.assign(depthFrameBuffer, depthFrameBuffer + width * height);
+    return m_depthBuffer;
+}
+
+std::tuple<std::vector<Visualization::PointCloudVertex>, std::vector<uint16_t>> Samples::PointCloudGenerator::GetRenderCapableCloudPoints(k4a_image_t depthImage)
+{
+    VERIFY(k4a_transformation_depth_image_to_point_cloud(m_transformationHandle,
+        depthImage,
+        K4A_CALIBRATION_TYPE_DEPTH,
+        m_pointCloudImage_int16x3), "Transform depth image to point clouds failed!");
+
+    int width = k4a_image_get_width_pixels(m_pointCloudImage_int16x3);
+    int height = k4a_image_get_height_pixels(m_pointCloudImage_int16x3);
+
+    int16_t* pointCloudImageBuffer = (int16_t*)k4a_image_get_buffer(m_pointCloudImage_int16x3);
+
+    for (int h = 0; h < height; h++)
+    {
+        for (int w = 0; w < width; w++)
+        {
+            int pixelIndex = h * width + w;
+            const float MillimeterToMeter = 0.001f;
+            k4a_float3_t position = {
+                static_cast<float>(pointCloudImageBuffer[3 * pixelIndex + 0]),
+                static_cast<float>(pointCloudImageBuffer[3 * pixelIndex + 1]),
+                static_cast<float>(pointCloudImageBuffer[3 * pixelIndex + 2])};
+
+            // When the point cloud is invalid, the z-depth value is 0.
+            if (position.v[2] == 0)
+            {
+                continue;
+            }
+
+            linmath::vec4 color = { 0.8f, 0.8f, 0.8f, 0.6f };
+            linmath::ivec2 pixelLocation = { w, h };
+
+            linmath::vec3 positionInMeter;
+            ConvertMillimeterToMeter(position, positionInMeter);
+            Visualization::PointCloudVertex pointCloud;
+            linmath::vec3_copy(pointCloud.Position, positionInMeter);
+            linmath::vec4_copy(pointCloud.Color, color);
+            pointCloud.PixelLocation[0] = pixelLocation[0];
+            pointCloud.PixelLocation[1] = pixelLocation[1];
+
+            m_pointClouds.push_back(pointCloud);
+        }
+    }
+
+    return std::make_tuple(m_pointClouds, UpdateDepthBuffer(depthImage));
 }

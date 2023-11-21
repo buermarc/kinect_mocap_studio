@@ -11,6 +11,8 @@
 
 #include "FloorDetector.h"
 
+#include <filter/Point.hpp>
+
 
 extern boost::atomic<bool> s_isRunning;
 extern boost::atomic<bool> s_visualizeJointFrame;
@@ -18,15 +20,20 @@ extern boost::atomic<int> s_layoutMode;
 
 
 struct MeasuredFrame {
-    k4abt_frame_t body_frame;
+    // k4abt_frame_t body_frame;
+    // k4a_image_t depth_image;
     k4a_imu_sample_t imu_sample;
-    k4a_image_t depth_image;
+    std::vector<Visualization::PointCloudVertex> cloudPoints;
+    std::vector<uint16_t> depthBuffer;
+    std::vector<Point<double>> joints;
+    // std::optional<Samples::Plane> floor; // Can be calculated during processing via imu_sample which should be a safe struct
 
 };
 
 struct ProcessedFrame {
-    double skeleton_data[32][3];
-    k4a_image_t depth_image;
+    std::vector<Visualization::PointCloudVertex> cloudPoints;
+    std::vector<uint16_t> depthBuffer;
+    std::vector<Point<double>> joints;
     std::optional<Samples::Plane> floor;
 };
 
