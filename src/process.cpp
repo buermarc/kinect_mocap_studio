@@ -20,8 +20,8 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
     // Detect floor plane based on latest visual and inertial observations.
     const size_t minimumFloorPointCount = 1024 / (downsampleStep * downsampleStep);
 
-    auto pointCloud = Samples::ConvertPointCloud(frame.cloudPoints);
-    const auto& maybeFloorPlane = floorDetector.TryDetectFloorPlane(pointCloud, frame.imu_sample,
+    // auto pointCloud = Samples::ConvertPointCloud(frame.cloudPoints);
+    const auto& maybeFloorPlane = floorDetector.TryDetectFloorPlane(frame.cloudPoints, frame.imu_sample,
         sensor_calibration, minimumFloorPointCount);
 
     return maybeFloorPlane;
@@ -35,7 +35,7 @@ ProcessedFrame processLogic(MeasuredFrame frame, k4a_calibration_t sensor_calibr
     auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json);
     apply_filter(frame);
 
-    return ProcessedFrame { frame.cloudPoints, frame.depthBuffer, frame.joints, optional_point };
+    return ProcessedFrame { frame.cloudPoints, frame.joints, optional_point };
 }
 
 void processThread(k4a_calibration_t sensor_calibration) {

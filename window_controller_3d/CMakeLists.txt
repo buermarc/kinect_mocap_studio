@@ -9,6 +9,7 @@ add_library(window_controller_3d STATIC
             Helpers.cpp
             packages.config
             PointCloudRenderer.cpp
+            SimplePointCloudRenderer.cpp
             RendererBase.cpp
             SkeletonRenderer.cpp
             Sphere.cpp

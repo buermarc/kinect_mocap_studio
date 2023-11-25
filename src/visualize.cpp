@@ -79,7 +79,7 @@ void visualizeFloor(Window3dWrapper& window3d, std::optional<Samples::Plane> flo
 }
 
 void visualizePointCloud(Window3dWrapper& window3d, ProcessedFrame frame) {
-    window3d.UpdatePointClouds(frame.cloudPoints, frame.depthBuffer);
+    window3d.UpdatePointClouds(frame.cloudPoints);
 }
 
 void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters, nlohmann::json& frame_result_json) {

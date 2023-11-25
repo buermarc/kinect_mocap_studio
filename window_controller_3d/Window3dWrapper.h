@@ -38,7 +38,7 @@ public:
 
     void Delete();
 
-    void UpdatePointClouds(k4a_image_t depthImage, std::vector<Color> pointCloudColors = std::vector<Color>());
+    void UpdatePointClouds(std::vector<k4a_float3_t>& cloudPoints);
     void UpdatePointClouds(std::vector<Visualization::PointCloudVertex> cloudPoints, std::vector<uint16_t> depthBuffer);
 
     void CleanJointsAndBones();
@@ -82,7 +82,7 @@ private:
 
     bool m_pointCloudUpdated = false;
     std::vector<uint16_t> m_depthBuffer;
-    std::vector<Visualization::PointCloudVertex> m_pointClouds;
+    std::vector<k4a_float3_t> m_pointClouds;
 
     struct XY
     {

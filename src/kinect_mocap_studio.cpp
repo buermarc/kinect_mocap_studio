@@ -380,12 +380,13 @@ int main(int argc, char** argv)
                 window3d.Render();
                 */
 
-                const auto [cloudPoints, depthBuffer]  = pointCloudGenerator.GetRenderCapableCloudPoints(depth_image);
+                pointCloudGenerator.Update(depth_image);
+                const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
                 std::vector<Point<double>> joints;
 
                 std::cout << "Adding element to queue" << std::endl;
                 measurement_queue.Produce(std::move(MeasuredFrame {
-                    imu_sample, cloudPoints, depthBuffer, joints
+                    imu_sample, cloudPoints, joints
                 }));
 
                 k4abt_frame_release(body_frame);

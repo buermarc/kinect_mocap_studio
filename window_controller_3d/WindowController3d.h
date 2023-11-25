@@ -12,10 +12,12 @@
 #include "linmath.h"
 
 #include "ViewControl.h"
-#include "PointCloudRenderer.h"
+#include "SimplePointCloudRenderer.hpp"
 #include "SkeletonRenderer.h"
 #include "FloorRenderer.h"
 #include "BosRenderer.h"
+
+#include <k4a/k4atypes.h>
 
 namespace Visualization
 {
@@ -61,9 +63,8 @@ namespace Visualization
             int width, int height);
 
         void UpdatePointClouds(
-            const Visualization::PointCloudVertex* point3d,
+            const k4a_float3_t* point3d,
             uint32_t numPoints,
-            const uint16_t* depthFrame,
             uint32_t width, uint32_t height,
             bool useTestPointClouds = false);
 
@@ -131,7 +132,7 @@ namespace Visualization
         std::array<ViewControl*,4> m_allViewControls = { &m_viewControl, &m_leftViewControl, &m_rightViewControl, &m_topViewControl };
 
         // Object renderers
-        PointCloudRenderer m_pointCloudRenderer;
+        SimplePointCloudRenderer m_pointCloudRenderer;
         SkeletonRenderer m_skeletonRenderer;
         FloorRenderer m_floorRenderer;
         FloorRenderer m_old_bosRenderer;

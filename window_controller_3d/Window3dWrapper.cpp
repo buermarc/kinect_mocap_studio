@@ -51,7 +51,8 @@ void Window3dWrapper::Create(
     const k4a_calibration_t& sensorCalibration)
 {
     Create(name, sensorCalibration.depth_mode);
-    InitializeCalibration(sensorCalibration);
+    // only stuff that we do not use anymore is created in here
+    // InitializeCalibration(sensorCalibration);
 }
 
 void Window3dWrapper::SetCloseCallback(
@@ -85,11 +86,12 @@ void Window3dWrapper::Delete()
     }
 }
 
-void Window3dWrapper::UpdatePointClouds(std::vector<Visualization::PointCloudVertex> cloudPoints, std::vector<uint16_t> depthBuffer) {
+void Window3dWrapper::UpdatePointClouds(std::vector<k4a_float3_t>& cloudPoints) {
+    m_pointCloudUpdated = true;
     m_pointClouds = cloudPoints;
-    m_depthBuffer = depthBuffer;
 }
 
+/*
 void Window3dWrapper::UpdatePointClouds(k4a_image_t depthImage, std::vector<Color> pointCloudColors)
 {
     m_pointCloudUpdated = true;
@@ -141,6 +143,7 @@ void Window3dWrapper::UpdatePointClouds(k4a_image_t depthImage, std::vector<Colo
 
     UpdateDepthBuffer(depthImage);
 }
+*/
 
 void Window3dWrapper::CleanJointsAndBones()
 {
@@ -215,7 +218,7 @@ void Window3dWrapper::Render()
 {
     if (m_pointCloudUpdated || m_pointClouds.size() != 0)
     {
-        m_window3d.UpdatePointClouds(m_pointClouds.data(), (uint32_t)m_pointClouds.size(), m_depthBuffer.data(), m_depthWidth, m_depthHeight);
+        m_window3d.UpdatePointClouds(m_pointClouds.data(), (uint32_t)m_pointClouds.size(), m_depthWidth, m_depthHeight);
         m_pointClouds.clear();
         m_pointCloudUpdated = false;
     }

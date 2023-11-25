@@ -217,7 +217,7 @@ bool WindowController3d::InitializePointCloudRenderer(
     const float* depthXyTableInterleaved,
     int width, int height)
 {
-    m_pointCloudRenderer.SetShading(enableShading);
+    // m_pointCloudRenderer.SetShading(enableShading);
     if (enableShading)
     {
         if (depthXyTableInterleaved == nullptr)
@@ -225,20 +225,19 @@ bool WindowController3d::InitializePointCloudRenderer(
             return false;
         }
 
-        m_pointCloudRenderer.InitializeDepthXYTable(depthXyTableInterleaved, width, height);
+        // m_pointCloudRenderer.InitializeDepthXYTable(depthXyTableInterleaved, width, height);
     }
 
     return true;
 }
 
 void WindowController3d::UpdatePointClouds(
-    const PointCloudVertex* point3d,
+    const k4a_float3_t* point3d,
     uint32_t numPoints,
-    const uint16_t* depthFrame,
     uint32_t width, uint32_t height,
     bool useTestPointClouds)
 {
-    m_pointCloudRenderer.UpdatePointClouds(m_window, point3d, numPoints, depthFrame, width, height, useTestPointClouds);
+    m_pointCloudRenderer.UpdatePointClouds(m_window, point3d, numPoints, width, height, useTestPointClouds);
 }
 
 void WindowController3d::CleanJointsAndBones()
@@ -385,7 +384,7 @@ void WindowController3d::SetPointCloudShading(bool enableShading)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    m_pointCloudRenderer.SetShading(enableShading);
+    // m_pointCloudRenderer.SetShading(enableShading);
 }
 
 void WindowController3d::SetDefaultVerticalFOV(float degrees)
