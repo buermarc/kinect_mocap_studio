@@ -48,17 +48,12 @@ void processThread(k4a_calibration_t sensor_calibration) {
     while (s_isRunning) {
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
-            std::cout << "Get element from measurement queue" << std::endl;
             ProcessedFrame result = processLogic(frame, sensor_calibration, floorDetector, frame_result_json);
-            std::cout << "Put element on processed queue" << std::endl;
             processed_queue.Produce(std::move(result));
-            std::cout << "Finished putting element on processed queue" << std::endl;
 
             // Make sure to relase the body frame
-            std::cout << "Released body frame" << std::endl;
         } else {
             std::this_thread::yield();
-            std::cout << ":";
         }
     }
 }

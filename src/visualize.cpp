@@ -83,11 +83,9 @@ void visualizePointCloud(Window3dWrapper& window3d, ProcessedFrame frame) {
 }
 
 void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, std::vector<SkeletonFilter<double>>& filters, nlohmann::json& frame_result_json) {
-    std::cout << "logic" << std::endl;
     visualizeFloor(window3d, frame.floor, frame_result_json);
     visualizePointCloud(window3d, frame);
     visualizeSkeleton(window3d, frame);
-    std::cout << "end logic" << std::endl;
 }
 
 void visualizeThread(k4a_calibration_t sensor_calibration) {
@@ -104,14 +102,10 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
     while (s_isRunning) {
         bool retrieved =  processed_queue.Consume(frame);
         if (retrieved) {
-            std::cout << "Get element from processed queue" << std::endl;
             visualizeLogic(window3d, frame, filters, frame_result_json);
-            std::cout << "Render call" << std::endl;
             window3d.Render();
-            std::cout << "Finished render call" << std::endl;
         } else {
             std::this_thread::yield();
-            std::cout << ".";
         }
     }
     std::cout << "Finish visualize thread" << std::endl;

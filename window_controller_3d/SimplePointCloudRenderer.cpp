@@ -172,7 +172,7 @@ void SimplePointCloudRenderer::Render(int width, int height)
     glUniformMatrix4fv(m_projectionIndex, 1, GL_FALSE, (const GLfloat*)m_projection);
 
     // Update render settings in shader
-    glUniform4fv(m_vertexColorIndex, 4, (GLfloat*)m_vertexColorObject);
+    glUniform4fv(m_vertexColorIndex, 1, (GLfloat*)m_vertexColorObject);
 
     // Render point cloud
     glBindVertexArray(m_vertexArrayObject);
