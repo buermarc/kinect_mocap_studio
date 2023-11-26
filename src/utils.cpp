@@ -80,7 +80,11 @@ std::vector<std::vector<Point<double>>> push_body_data_to_json(nlohmann::json& b
                     body.skeleton.joints[index_joint].position.xyz.y,
                     body.skeleton.joints[index_joint].position.xyz.z });
 
-            body_joints.push_back(Point<double>((double*)body.skeleton.joints[index_joint].position.v));
+            body_joints.push_back(Point<double>(
+                (double)body.skeleton.joints[index_joint].position.v[0],
+                (double)body.skeleton.joints[index_joint].position.v[1],
+                (double)body.skeleton.joints[index_joint].position.v[2]
+            ));
             body_result_json["joint_orientations"].push_back(
                 { body.skeleton.joints[index_joint].orientation.wxyz.w,
                     body.skeleton.joints[index_joint].orientation.wxyz.x,

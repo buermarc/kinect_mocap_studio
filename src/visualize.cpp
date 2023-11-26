@@ -51,6 +51,7 @@ int64_t closeCallback(void* /*context*/)
 }
 
 void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
+    window3d.CleanJointsAndBones();
     int offset = 7;
     // visualize joints
     for (int body_id = 0; body_id < frame.joints.size(); ++body_id) {
@@ -115,6 +116,8 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
         bool retrieved =  processed_queue.Consume(frame);
         if (retrieved) {
             visualizeLogic(window3d, frame, frame_result_json);
+            window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
+            window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
         } else {
             std::this_thread::yield();

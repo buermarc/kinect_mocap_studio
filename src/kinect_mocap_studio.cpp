@@ -385,7 +385,7 @@ int main(int argc, char** argv)
 
                 std::cout << "Adding element to queue" << std::endl;
                 measurement_queue.Produce(std::move(MeasuredFrame {
-                    imu_sample, cloudPoints, joints
+                    imu_sample, cloudPoints, joints, timestamp
                 }));
 
                 k4abt_frame_release(body_frame);
