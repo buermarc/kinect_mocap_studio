@@ -24,14 +24,15 @@ struct MeasuredFrame {
     // k4a_image_t depth_image;
     k4a_imu_sample_t imu_sample;
     std::vector<k4a_float3_t> cloudPoints;
-    std::vector<Point<double>> joints;
+    std::vector<std::vector<Point<double>>> joints;
+    double timestamp;
     // std::optional<Samples::Plane> floor; // Can be calculated during processing via imu_sample which should be a safe struct
 
 };
 
 struct ProcessedFrame {
     std::vector<k4a_float3_t> cloudPoints;
-    std::vector<Point<double>> joints;
+    std::vector<std::vector<Point<double>>> joints;
     std::optional<Samples::Plane> floor;
 };
 

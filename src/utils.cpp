@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <k4abt.h>
 #include <k4a/k4a.h>
+#include <vector>
+#include <filter/Point.hpp>
 
 bool check_depth_image_exists(k4a_capture_t capture)
 {
@@ -51,10 +53,11 @@ Azure-Kinect-Samples/body-tracking-samples/offline_processor
 @param body_frame a sample of the tracked bodies
 
 */
-void push_body_data_to_json(nlohmann::json& body_result_json,
+std::vector<std::vector<Point<double>>> push_body_data_to_json(nlohmann::json& body_result_json,
     k4abt_frame_t& body_frame,
     uint32_t num_bodies)
 {
+    std::vector<std::vector<Point<double>>> points;
     for (size_t index_body = 0; index_body < num_bodies; ++index_body) {
 
         k4abt_body_t body;
@@ -67,6 +70,9 @@ void push_body_data_to_json(nlohmann::json& body_result_json,
 
         body_result_json["body_id"] = body.id;
 
+        std::vector<Point<double>> body_joints;
+        body_joints.reserve(K4ABT_JOINT_COUNT);
+
         for (int index_joint = 0;
              index_joint < (int)K4ABT_JOINT_COUNT; ++index_joint) {
             body_result_json["joint_positions"].push_back(
@@ -74,6 +80,7 @@ void push_body_data_to_json(nlohmann::json& body_result_json,
                     body.skeleton.joints[index_joint].position.xyz.y,
                     body.skeleton.joints[index_joint].position.xyz.z });
 
+            body_joints.push_back(Point<double>((double*)body.skeleton.joints[index_joint].position.v));
             body_result_json["joint_orientations"].push_back(
                 { body.skeleton.joints[index_joint].orientation.wxyz.w,
                     body.skeleton.joints[index_joint].orientation.wxyz.x,
@@ -83,5 +90,7 @@ void push_body_data_to_json(nlohmann::json& body_result_json,
             body_result_json["confidence_levels"].push_back(
                 body.skeleton.joints[index_joint].confidence_level);
         }
+        points.push_back(body_joints);
     }
+    return points;
 }

@@ -9,6 +9,9 @@
 #include "FloorDetector.h"
 
 #include <nlohmann/json.hpp>
+#include <filter/SkeletonFilter.hpp>
+
+SkeletonFilterBuilder<double> builder(32, 2.0);
 
 // We read from the frames queue
 //
@@ -27,13 +30,31 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
     return maybeFloorPlane;
 }
 
-void apply_filter(MeasuredFrame frame) {
+void apply_filter(MeasuredFrame& frame, std::vector<SkeletonFilter<double>>& filters) {
+    for (int i = 0; i < frame.joints.size(); ++i)
+    {
+        if (filters.empty() or filters.size() <= frame.joints.size()) {
+            filters.push_back(builder.build());
+        }
+
+        auto& filter = filters.at(i);
+        auto [filtered_positions, _ ] = filter.step(frame.joints.at(1), frame.timestamp);
+        frame.joints.at(i) = std::move(filtered_positions);
+    }
+
 }
 
-ProcessedFrame processLogic(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
+ProcessedFrame processLogic(
+    MeasuredFrame frame,
+    k4a_calibration_t sensor_calibration,
+    Samples::FloorDetector& floorDetector,
+    std::vector<SkeletonFilter<double>>& filters,
+    nlohmann::json& frame_result_json
+) {
     // Can we detect the floor
     auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json);
-    apply_filter(frame);
+    // Mutates joints
+    apply_filter(frame, filters);
 
     return ProcessedFrame { frame.cloudPoints, frame.joints, optional_point };
 }
@@ -42,13 +63,14 @@ void processThread(k4a_calibration_t sensor_calibration) {
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
+    std::vector<SkeletonFilter<double>> filters;
 
     nlohmann::json frame_result_json;
 
     while (s_isRunning) {
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
-            ProcessedFrame result = processLogic(frame, sensor_calibration, floorDetector, frame_result_json);
+            ProcessedFrame result = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json);
             processed_queue.Produce(std::move(result));
 
             // Make sure to relase the body frame
