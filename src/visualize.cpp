@@ -53,16 +53,26 @@ int64_t closeCallback(void* /*context*/)
 void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
     window3d.CleanJointsAndBones();
     int offset = 7;
-    // visualize joints
+    // visualize Joints
     for (int body_id = 0; body_id < frame.joints.size(); ++body_id) {
         auto body_joints = frame.joints.at(body_id);
         Color color = g_bodyColors[body_id + offset % g_bodyColors.size()];
         for (auto point : body_joints) {
             add_point(window3d, point, color);
         }
-    }
 
-    // TODO: visualize bones
+        // TODO: visualize bones
+        for (size_t boneIdx = 0; boneIdx < g_boneList.size(); boneIdx++)
+        {
+            int joint1 = (int)g_boneList[boneIdx].first;
+            int joint2 = (int)g_boneList[boneIdx].second;
+
+            Point<double>& joint1Position = frame.joints.at(body_id).at(joint1);
+            Point<double>& joint2Position = frame.joints.at(body_id).at(joint2);
+
+            add_bone(window3d, joint1Position, joint2Position, color);
+        }
+    }
 
 }
 

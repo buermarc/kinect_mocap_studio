@@ -23,3 +23,19 @@ void add_point(Window3dWrapper& window3d, Point<Value> point, Color color = {1.,
         orientation,
         color);
 }
+
+template<typename Value>
+void add_bone(Window3dWrapper& window3d, Point<Value> point_a, Point<Value> point_b, Color color = {1., 0., 0., 1.}) {
+    k4a_float3_t pos_a;
+
+    pos_a.v[0] = point_a.x;
+    pos_a.v[1] = point_a.y;
+    pos_a.v[2] = point_a.z;
+
+    k4a_float3_t pos_b;
+
+    pos_b.v[0] = point_b.x;
+    pos_b.v[1] = point_b.y;
+    pos_b.v[2] = point_b.z;
+    window3d.AddBone(pos_a, pos_b, color);
+}
