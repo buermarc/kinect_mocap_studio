@@ -38,7 +38,7 @@ void apply_filter(MeasuredFrame& frame, std::vector<SkeletonFilter<double>>& fil
         }
 
         auto& filter = filters.at(i);
-        auto [filtered_positions, _ ] = filter.step(frame.joints.at(1), frame.timestamp);
+        auto [filtered_positions, _ ] = filter.step(frame.joints.at(i), frame.timestamp);
         frame.joints.at(i) = std::move(filtered_positions);
     }
 
