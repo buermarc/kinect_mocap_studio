@@ -61,6 +61,7 @@ public:
     void OldSetBosRendering(bool enableBosRendering, float bosPositionX, float bosPositionY, float bosPositionZ, float normalX, float normalY, float normalZ);
 
     void SetBosRendering(bool enableBosRendering, linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d);
+    void DisableBosRendering();
 
     void SetWindowPosition(int xPos, int yPos);
 

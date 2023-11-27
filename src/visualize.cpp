@@ -66,7 +66,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
             add_point(window3d, point, color);
         }
 
-        // TODO: visualize bones
+        // visualize bones
         for (size_t boneIdx = 0; boneIdx < g_boneList.size(); boneIdx++)
         {
             int joint1 = (int)g_boneList[boneIdx].first;
@@ -77,7 +77,42 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
 
             add_bone(window3d, joint1Position, joint2Position, color);
         }
+
+        if (frame.stability_properties.size() > 0) {
+            // visualize stability properties
+            auto [com, xcom, bos] = frame.stability_properties.at(body_id);
+            add_point(window3d, com);
+            add_point(window3d, xcom);
+
+            auto [center, _] = bos.into_center_and_normal();
+            add_point(window3d, center);
+
+            linmath::vec3 a = {
+                (float) bos.a.x / 1000,
+                (float) bos.a.y / 1000,
+                (float) bos.a.z / 1000
+            };
+            linmath::vec3 b = {
+                (float) bos.b.x / 1000,
+                (float) bos.b.y / 1000,
+                (float) bos.b.z / 1000
+            };
+            linmath::vec3 c = {
+                (float) bos.c.x / 1000,
+                (float) bos.c.y / 1000,
+                (float) bos.c.z / 1000
+            };
+            linmath::vec3 d = {
+                (float) bos.d.x / 1000,
+                (float) bos.d.y / 1000,
+                (float) bos.d.z / 1000
+            };
+            window3d.SetBosRendering(true, a, b, c, d);
+        }
     }
+
+    if (frame.joints.size() == 0)
+        window3d.DisableBosRendering();
 
 }
 

@@ -94,6 +94,7 @@ namespace Visualization
         void SetFloorRendering(bool enableFloorRendering, linmath::vec3 floorPosition, linmath::quaternion floorOrientation);
         void OldSetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation);
         void SetBosRendering(bool enableBosRendering, linmath::vec3 a, linmath::vec3 b, linmath::vec3 c, linmath::vec3 d);
+        void DisableBosRendering();
 
         // Methods to set external callback functions
         void SetCloseCallback(CloseCallbackType callback, void* context);

@@ -12,6 +12,7 @@
 #include "FloorDetector.h"
 
 #include <filter/Point.hpp>
+#include <filter/com.hpp>
 
 
 extern boost::atomic<bool> s_isRunning;
@@ -33,6 +34,7 @@ struct MeasuredFrame {
 struct ProcessedFrame {
     std::vector<k4a_float3_t> cloudPoints;
     std::vector<std::vector<Point<double>>> joints;
+    std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     std::optional<Samples::Plane> floor;
 };
 

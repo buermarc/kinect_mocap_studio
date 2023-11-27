@@ -296,6 +296,11 @@ void Window3dWrapper::SetBosRendering(bool enableBosRendering, linmath::vec3 a, 
     m_window3d.SetBosRendering(enableBosRendering, a, b, c, d);
 }
 
+void Window3dWrapper::DisableBosRendering()
+{
+    m_window3d.DisableBosRendering();
+}
+
 void Window3dWrapper::InitializeCalibration(const k4a_calibration_t& sensorCalibration)
 {
 

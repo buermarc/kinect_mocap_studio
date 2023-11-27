@@ -9,6 +9,8 @@
 #include "FloorDetector.h"
 
 #include <nlohmann/json.hpp>
+#include <filter/com.hpp>
+#include <filter/Point.hpp>
 #include <filter/SkeletonFilter.hpp>
 
 #ifndef BENCH_PROCESS
@@ -34,7 +36,12 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
     return maybeFloorPlane;
 }
 
-void apply_filter(MeasuredFrame& frame, std::vector<SkeletonFilter<double>>& filters) {
+std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>>
+apply_filter(
+    MeasuredFrame& frame,
+    std::vector<SkeletonFilter<double>>& filters
+) {
+    std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     for (int i = 0; i < frame.joints.size(); ++i)
     {
         if (filters.empty() or filters.size() <= frame.joints.size()) {
@@ -42,10 +49,34 @@ void apply_filter(MeasuredFrame& frame, std::vector<SkeletonFilter<double>>& fil
         }
 
         auto& filter = filters.at(i);
+        if (!filter.is_initialized()) {
+            filter.init(frame.joints.at(i), frame.timestamp);
+            continue;
+        }
+
         auto [filtered_positions, _ ] = filter.step(frame.joints.at(i), frame.timestamp);
+
+        auto com = filter.calculate_com();
+        auto ankle_left = filtered_positions[ANKLE_LEFT];
+        auto ankle_right = filtered_positions[ANKLE_RIGHT];
+
+        // Take point in the middle of both ankles
+        Point<double> mean_ankle;
+        mean_ankle.x = (ankle_left.x + ankle_right.x) / 2;
+        mean_ankle.y = (ankle_left.y + ankle_right.y) / 2;
+        mean_ankle.z = (ankle_left.z + ankle_right.z) / 2;
+
+        // Calc euclidean norm from mean to com
+        auto ankle_com_norm = std::sqrt(
+            std::pow(mean_ankle.x - com.x, 2) + std::pow(mean_ankle.y - com.y, 2) + std::pow(mean_ankle.z - com.z, 2));
+
+        auto xcom = filter.calculate_x_com(ankle_com_norm);
+        Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
+        stability_properties.push_back(std::make_tuple(com, xcom, bos_plane));
+
         frame.joints.at(i) = std::move(filtered_positions);
     }
-
+    return stability_properties;
 }
 
 ProcessedFrame processLogic(
@@ -58,9 +89,9 @@ ProcessedFrame processLogic(
     // Can we detect the floor
     auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json);
     // Mutates joints
-    apply_filter(frame, filters);
+    auto stability_properties = apply_filter(frame, filters);
 
-    return ProcessedFrame { frame.cloudPoints, frame.joints, optional_point };
+    return ProcessedFrame { frame.cloudPoints, frame.joints, stability_properties, optional_point };
 }
 
 void processThread(k4a_calibration_t sensor_calibration) {
