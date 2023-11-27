@@ -20,6 +20,11 @@
 
 #include <filter/com.hpp>
 
+const std::chrono::duration<double, std::milli> TIME_PER_FRAME(32);
+
+#ifndef BENCH_VIZ
+#define BENCH_VIZ 1
+#endif
 
 // Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 int64_t processKey(void* /*context*/, int key)
@@ -122,13 +127,25 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
 
     nlohmann::json frame_result_json;
 
+    bool skip = false;
     while (s_isRunning) {
+        auto start = std::chrono::high_resolution_clock::now();
         bool retrieved =  processed_queue.Consume(frame);
-        if (retrieved) {
+        if (retrieved and !skip) {
+            skip = false;
             visualizeLogic(window3d, frame, frame_result_json);
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
+            auto stop = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> time = stop - start;
+            if (time > TIME_PER_FRAME) {
+                skip = true;
+                std::cerr <<"Viz took to long. Will skip a frame next time." << std::endl;
+            }
+#ifdef BENCH_VIZ
+            std::cerr << "Viz Duration: " << time.count() << "ms\n";
+#endif
         } else {
             std::this_thread::yield();
         }

@@ -1,9 +1,9 @@
 #pragma once
-#include <boost/lockfree/spsc_queue.hpp>
 #include <boost/atomic.hpp>
 
 #include <kinect_mocap_studio/SafeQueue.hpp>
 
+#include <vector>
 #include <optional>
 
 #include <k4a/k4atypes.h>

@@ -11,6 +11,10 @@
 #include <nlohmann/json.hpp>
 #include <filter/SkeletonFilter.hpp>
 
+#ifndef BENCH_PROCESS
+#define BENCH_PROCESS 1
+#endif
+
 SkeletonFilterBuilder<double> builder(32, 2.0);
 
 // We read from the frames queue
@@ -68,12 +72,20 @@ void processThread(k4a_calibration_t sensor_calibration) {
     nlohmann::json frame_result_json;
 
     while (s_isRunning) {
+#ifdef BENCH_PROCESS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
+            auto start = std::chrono::high_resolution_clock::now();
             ProcessedFrame result = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json);
             processed_queue.Produce(std::move(result));
 
-            // Make sure to relase the body frame
+#ifdef BENCH_PROCESS
+            auto stop = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> time = stop - start;
+            std::cout << "Process Duration: " << time.count() << "ms\n";
+#endif
         } else {
             std::this_thread::yield();
         }

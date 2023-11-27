@@ -46,6 +46,10 @@ ProcessedQueue processed_queue;
 
 #define WAIT_MS 100
 
+#ifndef BENCH_MEASUREMENT
+#define BENCH_MEASUREMENT 1
+#endif
+
 boost::atomic<bool> s_isRunning (true);
 boost::atomic<bool> s_visualizeJointFrame (false);
 boost::atomic<int> s_layoutMode ((int) Visualization::Layout3d::OnlyMainView);
@@ -177,7 +181,9 @@ int main(int argc, char** argv)
     SkeletonFilterBuilder<double> skeleton_filter_builder(joint_count, 2.0);
 
     do {
-        std::cout << "Top" << std::endl;
+#ifdef BENCH_MEASUREMENT
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
         k4a_capture_t sensor_capture = nullptr;
 
         bool capture_ready = false;
@@ -204,7 +210,6 @@ int main(int argc, char** argv)
             }
 
         } else {
-            std::cout << "wait1" << std::endl;
             k4a_wait_result_t get_capture_result
                 = k4a_device_get_capture(device, &sensor_capture, WAIT_MS);
 
@@ -222,7 +227,6 @@ int main(int argc, char** argv)
         // Process the data
         if (capture_ready) {
 
-            std::cout << "wait2" << std::endl;
             k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(tracker, sensor_capture,
                 WAIT_MS);
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
@@ -244,17 +248,15 @@ int main(int argc, char** argv)
             if (queue_capture_result == K4A_WAIT_RESULT_TIMEOUT) {
                 // It should never hit timeout when K4A_WAIT_INFINITE is set.
                 printf("Error! Add capture to tracker process queue timeout!\n");
-                break;
+                continue;
             } else if (queue_capture_result == K4A_WAIT_RESULT_FAILED) {
                 printf("Error! Add capture to tracker process queue failed!\n");
                 break;
             }
 
             k4abt_frame_t body_frame = NULL;
-            std::cout << "Popping tracker." << std::endl;
             k4a_wait_result_t pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame,
                 WAIT_MS);
-            std::cout << "Popped tracker." << std::endl;
 
             // Maybe we just put it onto the queue here, and everything below
             // will move somewhere else
@@ -383,9 +385,8 @@ int main(int argc, char** argv)
                 pointCloudGenerator.Update(depth_image);
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
 
-                std::cout << "Adding element to queue" << std::endl;
                 measurement_queue.Produce(std::move(MeasuredFrame {
-                    imu_sample, cloudPoints, joints, timestamp
+                    imu_sample, cloudPoints, joints, (double) timestamp
                 }));
 
                 k4abt_frame_release(body_frame);
@@ -394,10 +395,11 @@ int main(int argc, char** argv)
                 // Remember to release the body frame once you finish using it
                 frames_json.push_back(frame_result_json);
                 frame_count++;
-                // auto stop = std::chrono::high_resolution_clock::now();
-                // std::chrono::duration<double, std::milli> time = stop - start;
-                // //std::cout << time.count() << "ms\n";
-                std::cout << "End of measurement retrieval loop" << std::endl;
+#ifdef BENCH_MEASUREMENT
+                auto stop = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double, std::milli> time = stop - start;
+                std::cerr << "Measurement: " << time.count() << "ms\n";
+#endif
 
             } else if (pop_frame_result == K4A_WAIT_RESULT_TIMEOUT) {
                 //  It should never hit timeout when K4A_WAIT_INFINITE is set.

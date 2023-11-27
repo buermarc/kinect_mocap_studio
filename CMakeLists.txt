@@ -16,6 +16,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(BENCH_MEASUREMENT 0)
+set(BENCH_PROCESS 0)
+set(BENCH_VIZ 0)
+
 find_package(k4a REQUIRED)
 find_package(k4abt REQUIRED)
 find_package(k4arecord REQUIRED)
