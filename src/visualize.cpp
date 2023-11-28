@@ -61,9 +61,13 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
     // visualize Joints
     for (int body_id = 0; body_id < frame.joints.size(); ++body_id) {
         auto body_joints = frame.joints.at(body_id);
-        Color color = g_bodyColors[body_id + offset % g_bodyColors.size()];
-        for (auto point : body_joints) {
-            add_point(window3d, point, color);
+        auto confidence_level = frame.confidence_levels.at(body_id);
+        for (int i=0; i < body_joints.size(); ++i) {
+            Color color = g_bodyColors[body_id + offset % g_bodyColors.size()];
+            if (confidence_level.at(i) <= K4ABT_JOINT_CONFIDENCE_MEDIUM) {
+                color.a = 0.1f;
+            }
+            add_point(window3d, body_joints.at(i), color);
         }
 
         // visualize bones
@@ -72,8 +76,18 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
             int joint1 = (int)g_boneList[boneIdx].first;
             int joint2 = (int)g_boneList[boneIdx].second;
 
-            Point<double>& joint1Position = frame.joints.at(body_id).at(joint1);
-            Point<double>& joint2Position = frame.joints.at(body_id).at(joint2);
+            if (confidence_level.at(joint1) < K4ABT_JOINT_CONFIDENCE_LOW && confidence_level.at(joint2) < K4ABT_JOINT_CONFIDENCE_LOW) {
+                continue;
+            }
+
+            Color color = g_bodyColors[body_id + offset % g_bodyColors.size()];
+
+            Point<double>& joint1Position = body_joints.at(joint1);
+            Point<double>& joint2Position = body_joints.at(joint2);
+
+            if (confidence_level.at(joint1) < K4ABT_JOINT_CONFIDENCE_MEDIUM && confidence_level.at(joint2) < K4ABT_JOINT_CONFIDENCE_MEDIUM) {
+                color.a = 0.1f;
+            }
 
             add_bone(window3d, joint1Position, joint2Position, color);
         }

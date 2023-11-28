@@ -91,7 +91,7 @@ ProcessedFrame processLogic(
     // Mutates joints
     auto stability_properties = apply_filter(frame, filters);
 
-    return ProcessedFrame { frame.cloudPoints, frame.joints, stability_properties, optional_point };
+    return ProcessedFrame { frame.cloudPoints, frame.joints, frame.confidence_levels, stability_properties, optional_point };
 }
 
 void processThread(k4a_calibration_t sensor_calibration) {

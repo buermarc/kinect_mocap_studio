@@ -306,7 +306,7 @@ int main(int argc, char** argv)
 
                 // Fetch and save the skeleton tracking data to a json object
                 nlohmann::json body_result_json;
-                auto joints = push_body_data_to_json(body_result_json, body_frame, num_bodies);
+                auto [joints, confidence_levels] = push_body_data_to_json(body_result_json, body_frame, num_bodies);
                 frame_result_json["bodies"].push_back(body_result_json);
                 // END
 
@@ -386,7 +386,7 @@ int main(int argc, char** argv)
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
 
                 measurement_queue.Produce(std::move(MeasuredFrame {
-                    imu_sample, cloudPoints, joints, (double) timestamp
+                    imu_sample, cloudPoints, joints, confidence_levels, (double) timestamp
                 }));
 
                 k4abt_frame_release(body_frame);

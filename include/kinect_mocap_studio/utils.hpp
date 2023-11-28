@@ -22,4 +22,5 @@ bool check_depth_image_exists(k4a_capture_t capture);
 
 void push_imu_data_to_json(nlohmann::json& imu_result_json, k4a_imu_sample_t& imu_sample);
 
-std::vector<std::vector<Point<double>>> push_body_data_to_json(nlohmann::json& body_result_json, k4abt_frame_t& body_frame, uint32_t num_bodies);
+std::tuple<std::vector<std::vector<Point<double>>>, std::vector<std::vector<int>>>
+push_body_data_to_json(nlohmann::json& body_result_json, k4abt_frame_t& body_frame, uint32_t num_bodies);

@@ -53,11 +53,13 @@ Azure-Kinect-Samples/body-tracking-samples/offline_processor
 @param body_frame a sample of the tracked bodies
 
 */
-std::vector<std::vector<Point<double>>> push_body_data_to_json(nlohmann::json& body_result_json,
+std::tuple<std::vector<std::vector<Point<double>>>, std::vector<std::vector<int>>>
+push_body_data_to_json(nlohmann::json& body_result_json,
     k4abt_frame_t& body_frame,
     uint32_t num_bodies)
 {
     std::vector<std::vector<Point<double>>> points;
+    std::vector<std::vector<int>> confidence_levels;
     for (size_t index_body = 0; index_body < num_bodies; ++index_body) {
 
         k4abt_body_t body;
@@ -71,6 +73,7 @@ std::vector<std::vector<Point<double>>> push_body_data_to_json(nlohmann::json& b
         body_result_json["body_id"] = body.id;
 
         std::vector<Point<double>> body_joints;
+        std::vector<int> confidence_level;
         body_joints.reserve(K4ABT_JOINT_COUNT);
 
         for (int index_joint = 0;
@@ -93,8 +96,10 @@ std::vector<std::vector<Point<double>>> push_body_data_to_json(nlohmann::json& b
 
             body_result_json["confidence_levels"].push_back(
                 body.skeleton.joints[index_joint].confidence_level);
+            confidence_level.push_back(body.skeleton.joints[index_joint].confidence_level);
         }
         points.push_back(body_joints);
+        confidence_levels.push_back(confidence_level);
     }
-    return points;
+    return std::make_tuple(points, confidence_levels);
 }
