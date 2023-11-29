@@ -466,6 +466,7 @@ void WindowController3d::SetBosRendering(bool enableBosRendering, linmath::vec3 
 void WindowController3d::DisableBosRendering()
 {
     m_enableBosRendering = false;
+    m_bosRenderer.Delete();
 }
 
 void WindowController3d::OldSetBosRendering(bool enableBosRendering, linmath::vec3 bosPosition, linmath::quaternion bosOrientation)
