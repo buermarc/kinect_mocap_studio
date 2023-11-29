@@ -115,7 +115,7 @@ ProcessedFrame processLogic(
     // Mutates joints
     auto stability_properties = apply_filter(frame, filters);
 
-    return ProcessedFrame { frame.cloudPoints, frame.joints, frame.confidence_levels, stability_properties, optional_point };
+    return ProcessedFrame { frame.imu_sample, frame.cloudPoints, frame.joints, frame.confidence_levels, stability_properties, optional_point };
 }
 
 void processThread(

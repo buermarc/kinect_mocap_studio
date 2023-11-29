@@ -17,6 +17,7 @@
 #include "BodyTrackingHelpers.h"
 
 #include "FloorDetector.h"
+#include "linmath.h"
 #include <Window3dWrapper.h>
 
 #include <filter/com.hpp>
@@ -56,7 +57,7 @@ int64_t closeCallback(void* /*context*/)
     return 1;
 }
 
-void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
+void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_calibration_t sensor_calibration) {
     window3d.CleanJointsAndBones();
     int offset = 7;
     // visualize Joints
@@ -122,6 +123,54 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
                 (float) bos.d.y / 1000,
                 (float) bos.d.z / 1000
             };
+
+            auto gravity_vector = Samples::TryEstimateGravityVectorForDepthCamera(frame.imu_sample, sensor_calibration);
+            if (gravity_vector.has_value()) {
+                if (frame.floor.has_value()) {
+                    linmath::vec3 g = {
+                        (float) gravity_vector->X,
+                        (float) gravity_vector->Y,
+                        (float) gravity_vector->Z,
+                    };
+                    Samples::Vector cameraOrigin = { 0, 0, 0 };
+                    Samples::Vector cameraForward = { 0, 0, 1 };
+                    auto p = frame.floor->ProjectPoint(cameraOrigin) + frame.floor->ProjectVector(cameraForward) * 1.5f;
+
+                    linmath::vec3 f = {
+                        (float) p.X,
+                        (float) p.Y,
+                        (float) p.Z,
+                    };
+
+                    std::cout << f[0] << " " << f[1] << " " << f[2] << std::endl;
+
+                    linmath::vec3 g_norm;
+                    linmath::vec3_norm(g_norm, g);
+
+                    linmath::vec3 n;
+                    n[0] = g[0] / g_norm[0];
+                    n[1] = g[1] / g_norm[1];
+                    n[2] = g[2] / g_norm[2];
+
+                    // Project points onto the plane
+                    a[0] = a[0] + ((f[0]-a[0])*n[0])*n[0];
+                    a[1] = a[1] + ((f[1]-a[1])*n[1])*n[1];
+                    a[2] = a[2] + ((f[2]-a[2])*n[2])*n[2];
+
+                    b[0] = b[0] + ((f[0]-b[0])*n[0])*n[0];
+                    b[1] = b[1] + ((f[1]-b[1])*n[1])*n[1];
+                    b[2] = b[2] + ((f[2]-b[2])*n[2])*n[2];
+
+                    c[0] = c[0] + ((f[0]-c[0])*n[0])*n[0];
+                    c[1] = c[1] + ((f[1]-c[1])*n[1])*n[1];
+                    c[2] = c[2] + ((f[2]-c[2])*n[2])*n[2];
+
+                    d[0] = d[0] + ((f[0]-d[0])*n[0])*n[0];
+                    d[1] = d[1] + ((f[1]-d[1])*n[1])*n[1];
+                    d[2] = d[2] + ((f[2]-d[2])*n[2])*n[2];
+                }
+            }
+
             window3d.SetBosRendering(true, a, b, c, d);
         }
     }
@@ -153,10 +202,10 @@ void visualizePointCloud(Window3dWrapper& window3d, ProcessedFrame frame) {
     window3d.UpdatePointClouds(frame.cloudPoints);
 }
 
-void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame) {
+void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, k4a_calibration_t sensor_calibration) {
     visualizeFloor(window3d, frame.floor);
     visualizePointCloud(window3d, frame);
-    visualizeSkeleton(window3d, frame);
+    visualizeSkeleton(window3d, frame, sensor_calibration);
 }
 
 void visualizeThread(
@@ -176,7 +225,7 @@ void visualizeThread(
         bool retrieved =  processed_queue.Consume(frame);
         if (retrieved and !skip) {
             skip = false;
-            visualizeLogic(window3d, frame);
+            visualizeLogic(window3d, frame, sensor_calibration);
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();

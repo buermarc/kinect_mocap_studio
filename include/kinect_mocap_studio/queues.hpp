@@ -33,6 +33,7 @@ struct MeasuredFrame {
 };
 
 struct ProcessedFrame {
+    k4a_imu_sample_t imu_sample;
     std::vector<k4a_float3_t> cloudPoints;
     std::vector<std::vector<Point<double>>> joints;
     std::vector<std::vector<int>> confidence_levels;
