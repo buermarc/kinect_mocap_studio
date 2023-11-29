@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <future>
 
 #include <k4a/k4a.h>
 #include <k4abt.h>
@@ -96,8 +97,14 @@ int main(int argc, char** argv)
     // Echo the configuration to the command terminal
     config.printConfig();
 
-    std::thread process_thread(processThread, sensor_calibration);
-    std::thread visualize_thread(visualizeThread, sensor_calibration);
+    std::promise<nlohmann::json> process_json_promise;
+    std::future<nlohmann::json> process_json_future = process_json_promise.get_future();
+
+    std::promise<nlohmann::json> visualize_json_promise;
+    std::future<nlohmann::json> visualize_json_future = visualize_json_promise.get_future();
+
+    std::thread process_thread(processThread, sensor_calibration, std::move(process_json_promise));
+    std::thread visualize_thread(visualizeThread, sensor_calibration, std::move(visualize_json_promise));
 
     //
     // Initialize and start the body tracker
@@ -426,6 +433,8 @@ int main(int argc, char** argv)
     process_thread.join();
     visualize_thread.join();
 
+    auto process_json = process_json_future.get();
+
     // Write the frame_data_time_series to file
     now = time(0);
     dt = ctime(&now);
@@ -433,8 +442,9 @@ int main(int argc, char** argv)
 
     json_output["frames"] = frames_json;
 
-    // Add the filters to the json
-    json_output["filters"] = filters;
+    json_output["floor"] = process_json["floor"];
+    json_output["filters"] = process_json["filters"];
+
     std::ofstream output_file(config.output_json_file.c_str());
     output_file << std::setw(4) << json_output << std::endl;
     std::cout << frame_count << " Frames written to "

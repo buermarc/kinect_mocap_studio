@@ -2,6 +2,7 @@
 #include <optional>
 #include <iostream>
 #include <thread>
+#include <future>
 
 #include <k4abt.h>
 
@@ -32,6 +33,29 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
     // auto pointCloud = Samples::ConvertPointCloud(frame.cloudPoints);
     const auto& maybeFloorPlane = floorDetector.TryDetectFloorPlane(frame.cloudPoints, frame.imu_sample,
         sensor_calibration, minimumFloorPointCount);
+
+
+    nlohmann::json floor_result_json;
+    if (maybeFloorPlane.has_value()) {
+        // For visualization purposes, make floor origin the projection of a point 1.5m in front of the camera.
+        Samples::Vector cameraOrigin = { 0, 0, 0 };
+        Samples::Vector cameraForward = { 0, 0, 1 };
+
+        auto p = maybeFloorPlane->ProjectPoint(cameraOrigin)
+            + maybeFloorPlane->ProjectVector(cameraForward) * 1.5f;
+
+        auto n = maybeFloorPlane->Normal;
+
+        floor_result_json["point"].push_back(
+            { p.X * 1000.f, p.Y * 1000.f, p.Z * 1000.f });
+        floor_result_json["normal"].push_back({ n.X, n.Y, n.Z });
+        floor_result_json["valid"] = true;
+    } else {
+        floor_result_json["point"].push_back({ 0., 0., 0. });
+        floor_result_json["normal"].push_back({ 0., 0., 0. });
+        floor_result_json["valid"] = false;
+    }
+    frame_result_json["floor"].push_back(floor_result_json);
 
     return maybeFloorPlane;
 }
@@ -94,7 +118,10 @@ ProcessedFrame processLogic(
     return ProcessedFrame { frame.cloudPoints, frame.joints, frame.confidence_levels, stability_properties, optional_point };
 }
 
-void processThread(k4a_calibration_t sensor_calibration) {
+void processThread(
+    k4a_calibration_t sensor_calibration,
+    std::promise<nlohmann::json> process_json_promise
+) {
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
@@ -121,4 +148,7 @@ void processThread(k4a_calibration_t sensor_calibration) {
             std::this_thread::yield();
         }
     }
+
+    frame_result_json["filters"] = filters;
+    process_json_promise.set_value(frame_result_json);
 }

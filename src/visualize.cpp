@@ -7,6 +7,7 @@
 #include <optional>
 #include <thread>
 #include <iostream>
+#include <future>
 
 #include <k4abt.h>
 #include <k4a/k4a.h>
@@ -64,7 +65,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
         auto confidence_level = frame.confidence_levels.at(body_id);
         for (int i=0; i < body_joints.size(); ++i) {
             Color color = g_bodyColors[body_id + offset % g_bodyColors.size()];
-            if (confidence_level.at(i) <= K4ABT_JOINT_CONFIDENCE_MEDIUM) {
+            if (confidence_level.at(i) < K4ABT_JOINT_CONFIDENCE_MEDIUM) {
                 color.a = 0.1f;
             }
             add_point(window3d, body_joints.at(i), color);
@@ -130,7 +131,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame) {
 
 }
 
-void visualizeFloor(Window3dWrapper& window3d, std::optional<Samples::Plane> floor, nlohmann::json& frame_result_json) {
+void visualizeFloor(Window3dWrapper& window3d, std::optional<Samples::Plane> floor) {
     nlohmann::json floor_result_json;
     if (floor.has_value()) {
         // For visualization purposes, make floor origin the projection of a point 1.5m in front of the camera.
@@ -143,30 +144,25 @@ void visualizeFloor(Window3dWrapper& window3d, std::optional<Samples::Plane> flo
         auto n = floor->Normal;
 
         window3d.SetFloorRendering(true, p.X, p.Y, p.Z, n.X, n.Y, n.Z);
-        floor_result_json["point"].push_back(
-            { p.X * 1000.f, p.Y * 1000.f, p.Z * 1000.f });
-        floor_result_json["normal"].push_back({ n.X, n.Y, n.Z });
-        floor_result_json["valid"] = true;
     } else {
         window3d.SetFloorRendering(false, 0, 0, 0);
-        floor_result_json["point"].push_back({ 0., 0., 0. });
-        floor_result_json["normal"].push_back({ 0., 0., 0. });
-        floor_result_json["valid"] = false;
     }
-    frame_result_json["floor"].push_back(floor_result_json);
 }
 
 void visualizePointCloud(Window3dWrapper& window3d, ProcessedFrame frame) {
     window3d.UpdatePointClouds(frame.cloudPoints);
 }
 
-void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, nlohmann::json& frame_result_json) {
-    visualizeFloor(window3d, frame.floor, frame_result_json);
+void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame) {
+    visualizeFloor(window3d, frame.floor);
     visualizePointCloud(window3d, frame);
     visualizeSkeleton(window3d, frame);
 }
 
-void visualizeThread(k4a_calibration_t sensor_calibration) {
+void visualizeThread(
+    k4a_calibration_t sensor_calibration,
+    std::promise<nlohmann::json> filter_json_promise
+) {
     ProcessedFrame frame;
 
     Window3dWrapper window3d;
@@ -174,15 +170,13 @@ void visualizeThread(k4a_calibration_t sensor_calibration) {
     window3d.SetCloseCallback(closeCallback);
     window3d.SetKeyCallback(processKey);
 
-    nlohmann::json frame_result_json;
-
     bool skip = false;
     while (s_isRunning) {
         auto start = std::chrono::high_resolution_clock::now();
         bool retrieved =  processed_queue.Consume(frame);
         if (retrieved and !skip) {
             skip = false;
-            visualizeLogic(window3d, frame, frame_result_json);
+            visualizeLogic(window3d, frame);
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
