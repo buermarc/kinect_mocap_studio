@@ -334,60 +334,6 @@ int main(int argc, char** argv)
                     push_imu_data_to_json(imu_result_json, imu_sample);
                     frame_result_json["imu"].push_back(imu_result_json);
                 }
-                // Fit a plane to the depth points that are furthest away from
-                // the camera in the direction of gravity (this will fail when the
-                // camera accelerates by 0.2 m/s2 in any direction)
-                // This uses code from teh floor_detector example code
-
-                /*
-                if (imu_data_ready) {
-                    // Update point cloud.
-
-                    pointCloudGenerator.Update(depth_image);
-
-                    // Get down-sampled cloud points.
-                    const int downsampleStep = 2;
-                    const auto& cloudPoints = pointCloudGenerator.GetCloudPoints(downsampleStep);
-
-                    // Detect floor plane based on latest visual and inertial observations.
-                    const size_t minimumFloorPointCount = 1024 / (downsampleStep * downsampleStep);
-                    const auto& maybeFloorPlane = floorDetector.TryDetectFloorPlane(cloudPoints, imu_sample,
-                        sensor_calibration, minimumFloorPointCount);
-
-                    // Visualize point cloud.
-                    window3d.UpdatePointClouds(depth_image);
-
-                    // Visualize the floor plane.
-                    nlohmann::json floor_result_json;
-                    if (maybeFloorPlane.has_value()) {
-                        // For visualization purposes, make floor origin the projection of a point 1.5m in front of the camera.
-                        Samples::Vector cameraOrigin = { 0, 0, 0 };
-                        Samples::Vector cameraForward = { 0, 0, 1 };
-
-                        auto p = maybeFloorPlane->ProjectPoint(cameraOrigin)
-                            + maybeFloorPlane->ProjectVector(cameraForward) * 1.5f;
-
-                        auto n = maybeFloorPlane->Normal;
-
-                        window3d.SetFloorRendering(true, p.X, p.Y, p.Z, n.X, n.Y, n.Z);
-                        floor_result_json["point"].push_back(
-                            { p.X * 1000.f, p.Y * 1000.f, p.Z * 1000.f });
-                        floor_result_json["normal"].push_back({ n.X, n.Y, n.Z });
-                        floor_result_json["valid"] = true;
-                    } else {
-                        window3d.SetFloorRendering(false, 0, 0, 0);
-                        floor_result_json["point"].push_back({ 0., 0., 0. });
-                        floor_result_json["normal"].push_back({ 0., 0., 0. });
-                        floor_result_json["valid"] = false;
-                    }
-                    frame_result_json["floor"].push_back(floor_result_json);
-                }
-                // Vizualize the tracked result
-                visualizeResult(body_frame, window3d, depthWidth, depthHeight, skeleton_filter_builder, timestamp);
-                window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
-                window3d.SetJointFrameVisualization(s_visualizeJointFrame);
-                window3d.Render();
-                */
 
                 pointCloudGenerator.Update(depth_image);
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);

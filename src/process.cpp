@@ -18,11 +18,15 @@
 #define BENCH_PROCESS 1
 #endif
 
-SkeletonFilterBuilder<double> builder(32, 2.0);
+/*
+ * For the FloorDetector:
+ * Fit a plane to the depth points that are furthest away from
+ * the camera in the direction of gravity (this will fail when the
+ * camera accelerates by 0.2 m/s2 in any direction)
+ * This uses code from teh floor_detector example code
+ */
 
-// We read from the frames queue
-//
-// Needs to fill the render queue with depth images, and skeleton data
+SkeletonFilterBuilder<double> builder(32, 2.0);
 
 std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
     // Get down-sampled cloud points.
@@ -30,7 +34,6 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
     // Detect floor plane based on latest visual and inertial observations.
     const size_t minimumFloorPointCount = 1024 / (downsampleStep * downsampleStep);
 
-    // auto pointCloud = Samples::ConvertPointCloud(frame.cloudPoints);
     const auto& maybeFloorPlane = floorDetector.TryDetectFloorPlane(frame.cloudPoints, frame.imu_sample,
         sensor_calibration, minimumFloorPointCount);
 
