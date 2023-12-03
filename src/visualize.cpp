@@ -134,79 +134,12 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                         (float) gravity_vector->Y,
                         (float) gravity_vector->Z,
                     };
-                    Samples::Vector cameraOrigin = { 0, 0, 0 };
-                    Samples::Vector cameraForward = { 0, 0, 1 };
-                    // auto p = frame.floor->ProjectPoint(cameraOrigin) + frame.floor->ProjectVector(cameraForward) * 1.5f;
 
                     auto point = Point(
                         frame.floor->Origin.X * 1000,
                         frame.floor->Origin.Y * 1000,
                         frame.floor->Origin.Z * 1000
                     );
-                    /*
-                    linmath::vec3 n {
-                        frame.floor->Normal.X * 1000,
-                        frame.floor->Normal.Y * 1000,
-                        frame.floor->Normal.Z * 1000
-                    };
-                    linmath::vec3 orig {
-                        frame.floor->Origin.X * 1000,
-                        frame.floor->Origin.Y * 1000,
-                        frame.floor->Origin.Z * 1000
-                    };
-                    linmath::vec3 n_norm;
-                    linmath::vec3_norm(n_norm, n);
-                    std::cout << "Length: " << linmath::vec3_len(n_norm) << std::endl;
-
-                    n[0] = n_norm[0];
-                    n[1] = n_norm[1];
-                    n[2] = n_norm[2];
-
-                    float distance_a = (a[0] - orig[0]) * n[0] + (a[1] - orig[1]) * n[1] + (a[2] - orig[2]) * n[2];
-
-                    a[0] = (a[0] - distance_a * n[0]) / 1000;
-                    a[1] = (a[1] - distance_a * n[1]) / 1000;
-                    a[2] = (a[2] - distance_a * n[2]) / 100;
-
-                    float distance_b = (b[0] - orig[0]) * n[0] + (b[1] - orig[1]) * n[1] + (b[2] - orig[2]) * n[2];
-
-                    b[0] = (b[0] - distance_b * n[0]) / 1000;
-                    b[1] = (b[1] - distance_b * n[1]) / 1000;
-                    b[2] = (b[2] - distance_b * n[2]) / 100;
-
-                    float distance_c = (c[0] - orig[0]) * n[0] + (c[1] - orig[1]) * n[1] + (c[2] - orig[2]) * n[2];
-
-                    c[0] = (c[0] - distance_c * n[0]) / 1000;
-                    c[1] = (c[1] - distance_c * n[1]) / 1000;
-                    c[2] = (c[2] - distance_c * n[2]) / 100;
-
-                    float distance_d = (d[0] - orig[0]) * n[0] + (d[1] - orig[1]) * n[1] + (d[2] - orig[2]) * n[2];
-
-                    d[0] = (d[0] - distance_d * n[0]) / 1000;
-                    d[1] = (d[1] - distance_d * n[1]) / 1000;
-                    d[2] = (d[2] - distance_d * n[2]) / 100;
-
-                    std::cout << "distance_a: " << distance_a << std::endl;
-                    std::cout << "distance_b: " << distance_b << std::endl;
-                    std::cout << "distance_c: " << distance_c << std::endl;
-                    std::cout << "distance_d: " << distance_d << std::endl;
-                    std::cout << "a: "
-                        << a[0] << " "
-                        << a[1] << " "
-                        << a[2] << std::endl;
-                    std::cout << "b: "
-                        << b[0] << " "
-                        << b[1] << " "
-                        << b[2] << std::endl;
-                    std::cout << "c: "
-                        << c[0] << " "
-                        << c[1] << " "
-                        << c[2] << std::endl;
-                    std::cout << "d: "
-                        << d[0] << " "
-                        << d[1] << " "
-                        << d[2] << std::endl;
-                    */
 
 
                     std::cout << "Floor: " << point << std::endl;
@@ -218,15 +151,9 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                         (float) frame.floor->Origin.Z
                     };
 
-                    std::cout << f[0] << " " << f[1] << " " << f[2] << std::endl;
-
                     linmath::vec3 g_norm;
                     linmath::vec3 n;
                     linmath::vec3_norm(n, g);
-
-                    // n[0] = g[0] / g_norm[0];
-                    // n[1] = g[1] / g_norm[1];
-                    // n[2] = g[2] / g_norm[2];
 
                     // Project points onto the plane
                     a[0] = a[0] + ((f[0]-a[0])*n[0])*n[0];
@@ -244,40 +171,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                     d[0] = d[0] + ((f[0]-d[0])*n[0])*n[0];
                     d[1] = d[1] + ((f[1]-d[1])*n[1])*n[1];
                     d[2] = d[2] + ((f[2]-d[2])*n[2])*n[2];
-                    std::cout << "a: "
-                        << a[0] << " "
-                        << a[1] << " "
-                        << a[2] << std::endl;
-                    std::cout << "b: "
-                        << b[0] << " "
-                        << b[1] << " "
-                        << b[2] << std::endl;
-                    std::cout << "c: "
-                        << c[0] << " "
-                        << c[1] << " "
-                        << c[2] << std::endl;
-                    std::cout << "d: "
-                        << d[0] << " "
-                        << d[1] << " "
-                        << d[2] << std::endl;
                 }
-            } else {
-                std::cout << "aorig: "
-                    << a[0] << " "
-                    << a[1] << " "
-                    << a[2] << std::endl;
-                std::cout << "borig: "
-                    << b[0] << " "
-                    << b[1] << " "
-                    << b[2] << std::endl;
-                std::cout << "corig: "
-                    << c[0] << " "
-                    << c[1] << " "
-                    << c[2] << std::endl;
-                std::cout << "dorig: "
-                    << d[0] << " "
-                    << d[1] << " "
-                    << d[2] << std::endl;
             }
 
             window3d.SetBosRendering(true, a, b, c, d);
