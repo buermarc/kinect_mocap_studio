@@ -13,11 +13,18 @@
 #include <filter/com.hpp>
 #include <filter/Point.hpp>
 #include <filter/SkeletonFilter.hpp>
+#include <filter/adaptive/AdaptiveConstrainedSkeletonFilter.hpp>
+#include <filter/adaptive/AdaptivePointFilter3D.hpp>
+#include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
 
 #ifndef BENCH_PROCESS
 #define BENCH_PROCESS 1
 #endif
 
+typedef std::chrono::high_resolution_clock hc;
+typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
+// typedef SkeletonFilter<double> CurrentFilterType;
+typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
  * Fit a plane to the depth points that are furthest away from
@@ -26,7 +33,8 @@
  * This uses code from teh floor_detector example code
  */
 
-SkeletonFilterBuilder<double> builder(32, 2.0);
+// SkeletonFilterBuilder<double> builder(32, 2.0);
+AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
 std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
     // Get down-sampled cloud points.
@@ -66,7 +74,7 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
 std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>>
 apply_filter(
     MeasuredFrame& frame,
-    std::vector<SkeletonFilter<double>>& filters
+    std::vector<CurrentFilterType>& filters
 ) {
     std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     for (int i = 0; i < frame.joints.size(); ++i)
@@ -110,7 +118,7 @@ ProcessedFrame processLogic(
     MeasuredFrame frame,
     k4a_calibration_t sensor_calibration,
     Samples::FloorDetector& floorDetector,
-    std::vector<SkeletonFilter<double>>& filters,
+    std::vector<CurrentFilterType>& filters,
     nlohmann::json& frame_result_json
 ) {
     // Can we detect the floor
@@ -128,24 +136,27 @@ void processThread(
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
-    std::vector<SkeletonFilter<double>> filters;
+    std::vector<CurrentFilterType> filters;
 
     nlohmann::json frame_result_json;
 
     while (s_isRunning) {
 #ifdef BENCH_PROCESS
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start = hc::now();
+        auto latency = hc::now();
 #endif
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
-            auto start = std::chrono::high_resolution_clock::now();
+            auto start = hc::now();
             ProcessedFrame result = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json);
             processed_queue.Produce(std::move(result));
 
 #ifdef BENCH_PROCESS
-            auto stop = std::chrono::high_resolution_clock::now();
+            auto stop = hc::now();
             std::chrono::duration<double, std::milli> time = stop - start;
+            std::chrono::duration<double, std::milli> latency_duration = stop - latency;
             std::cout << "Process Duration: " << time.count() << "ms\n";
+            std::cout << "Latency Process: " << latency_duration.count() << "ms\n";
 #endif
         } else {
             std::this_thread::yield();

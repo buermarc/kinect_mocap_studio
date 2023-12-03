@@ -23,6 +23,7 @@
 #include <filter/com.hpp>
 
 const std::chrono::duration<double, std::milli> TIME_PER_FRAME(32);
+typedef std::chrono::high_resolution_clock hc;
 
 #ifndef BENCH_VIZ
 #define BENCH_VIZ 1
@@ -320,7 +321,7 @@ void visualizeThread(
     k4a_calibration_t sensor_calibration,
     std::promise<nlohmann::json> filter_json_promise
 ) {
-    auto latency = std::chrono::high_resolution_clock::now();
+    auto latency = hc::now();
     ProcessedFrame frame;
 
     Window3dWrapper window3d;
@@ -330,7 +331,7 @@ void visualizeThread(
 
     bool skip = false;
     while (s_isRunning) {
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start = hc::now();
         bool retrieved =  processed_queue.Consume(frame);
         if (retrieved and !skip) {
             skip = false;
@@ -338,7 +339,7 @@ void visualizeThread(
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
-            auto stop = std::chrono::high_resolution_clock::now();
+            auto stop = hc::now();
             std::chrono::duration<double, std::milli> latency_duration = stop - latency;
             latency = stop;
             std::chrono::duration<double, std::milli> time = stop - start;

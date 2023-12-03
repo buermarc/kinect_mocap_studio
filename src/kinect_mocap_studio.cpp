@@ -1,4 +1,5 @@
-﻿#include <cstdint>
+﻿#include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -7,6 +8,7 @@
 #include <k4abttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <thread>
@@ -41,11 +43,12 @@
 #include <kinect_mocap_studio/visualize.hpp>
 
 using Eigen::MatrixXd;
+typedef std::chrono::high_resolution_clock hc;
 
 MeasurementQueue measurement_queue;
 ProcessedQueue processed_queue;
 
-#define WAIT_MS 100
+#define WAIT_MS 0
 
 #ifndef BENCH_MEASUREMENT
 #define BENCH_MEASUREMENT 1
@@ -189,7 +192,7 @@ int main(int argc, char** argv)
 
     do {
 #ifdef BENCH_MEASUREMENT
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start = hc::now();
 #endif
         k4a_capture_t sensor_capture = nullptr;
 
@@ -218,7 +221,7 @@ int main(int argc, char** argv)
 
         } else {
             k4a_wait_result_t get_capture_result
-                = k4a_device_get_capture(device, &sensor_capture, WAIT_MS);
+                = k4a_device_get_capture(device, &sensor_capture, 0);
 
             if (get_capture_result == K4A_WAIT_RESULT_SUCCEEDED) {
                 capture_ready = true;
@@ -234,8 +237,13 @@ int main(int argc, char** argv)
         // Process the data
         if (capture_ready) {
 
-            k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(tracker, sensor_capture,
-                WAIT_MS);
+
+            auto sa = hc::now();
+            k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(
+                tracker,
+                sensor_capture,
+                std::max(1.0, 32. - (hc::now() - start).count())
+            );
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
 
             if (config.record_sensor_data) {
@@ -263,8 +271,11 @@ int main(int argc, char** argv)
 
             k4abt_frame_t body_frame = NULL;
             k4a_wait_result_t pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame,
-                WAIT_MS);
+                K4A_WAIT_INFINITE);
 
+            auto so = hc::now();
+            std::chrono::duration<double, std::milli> dif = so - sa;
+            std::cerr << "Enqueue & Pop: " << dif.count() << "ms\n";
             // Maybe we just put it onto the queue here, and everything below
             // will move somewhere else
 
@@ -338,9 +349,9 @@ int main(int argc, char** argv)
                 pointCloudGenerator.Update(depth_image);
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
 
-                measurement_queue.Produce(std::move(MeasuredFrame {
-                    imu_sample, cloudPoints, joints, confidence_levels, (double) timestamp
-                }));
+                measurement_queue.Produce(MeasuredFrame {
+                    imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double) timestamp
+                });
 
                 k4abt_frame_release(body_frame);
                 k4a_image_release(depth_image);
@@ -349,7 +360,7 @@ int main(int argc, char** argv)
                 frames_json.push_back(frame_result_json);
                 frame_count++;
 #ifdef BENCH_MEASUREMENT
-                auto stop = std::chrono::high_resolution_clock::now();
+                auto stop = hc::now();
                 std::chrono::duration<double, std::milli> time = stop - start;
                 std::cerr << "Measurement: " << time.count() << "ms\n";
 #endif
