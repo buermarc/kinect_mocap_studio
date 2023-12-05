@@ -99,8 +99,10 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             // visualize stability properties
             auto [com, xcom, bos] = frame.stability_properties.at(body_id);
             std::cout << "COM: " << com << std::endl;
+            std::cout << "COMX: " << xcom << std::endl;
             add_point(window3d, com);
-            add_point(window3d, xcom);
+            Color xcom_color {0, 1, 0, 1};
+            add_point(window3d, xcom, xcom_color);
 
             auto [center, _] = bos.into_center_and_normal();
             add_point(window3d, center);
@@ -129,11 +131,13 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             auto gravity_vector = Samples::TryEstimateGravityVectorForDepthCamera(frame.imu_sample, sensor_calibration);
             if (gravity_vector.has_value()) {
                 if (frame.floor.has_value()) {
+                    /*
                     linmath::vec3 g = {
                         (float) gravity_vector->X,
                         (float) gravity_vector->Y,
                         (float) gravity_vector->Z,
                     };
+                    */
 
                     auto point = Point(
                         frame.floor->Origin.X * 1000,
@@ -144,33 +148,49 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
 
                     std::cout << "Floor: " << point << std::endl;
                     add_point(window3d, point);
+                    Samples::Vector cameraOrigin = { 0, 0, 0 };
+                    Samples::Vector cameraForward = { 0, 0, 1 };
 
-                    linmath::vec3 f = {
-                        (float) frame.floor->Origin.X,
-                        (float) frame.floor->Origin.Y,
-                        (float) frame.floor->Origin.Z
+                    auto p = frame.floor->ProjectPoint(cameraOrigin)
+                        + frame.floor->ProjectVector(cameraForward) * 1.5f;
+
+                    auto normal = frame.floor->Normal;
+                    linmath::vec3 g = {
+                        (float) normal.X,
+                        (float) normal.Y,
+                        (float) normal.Z,
                     };
 
-                    linmath::vec3 g_norm;
+                    linmath::vec3 f = {
+                        (float) p.X,
+                        (float) p.Y,
+                        (float) p.Z
+                    };
+
                     linmath::vec3 n;
                     linmath::vec3_norm(n, g);
 
-                    // Project points onto the plane
-                    a[0] = a[0] + ((f[0]-a[0])*n[0])*n[0];
-                    a[1] = a[1] + ((f[1]-a[1])*n[1])*n[1];
-                    a[2] = a[2] + ((f[2]-a[2])*n[2])*n[2];
 
-                    b[0] = b[0] + ((f[0]-b[0])*n[0])*n[0];
-                    b[1] = b[1] + ((f[1]-b[1])*n[1])*n[1];
-                    b[2] = b[2] + ((f[2]-b[2])*n[2])*n[2];
+                    float sum;
+                    sum = (f[0]-a[0])*n[0] + (f[1]-a[1])*n[1] + (f[2]-a[2])*n[2];
+                    a[0] = a[0] + (sum) *n[0];
+                    a[1] = a[1] + (sum) *n[1];
+                    a[2] = a[2] + (sum) *n[2];
 
-                    c[0] = c[0] + ((f[0]-c[0])*n[0])*n[0];
-                    c[1] = c[1] + ((f[1]-c[1])*n[1])*n[1];
-                    c[2] = c[2] + ((f[2]-c[2])*n[2])*n[2];
+                    sum = (f[0]-b[0])*n[0] + (f[1]-b[1])*n[1] + (f[2]-b[2])*n[2];
+                    b[0] = b[0] + (sum) *n[0];
+                    b[1] = b[1] + (sum) *n[1];
+                    b[2] = b[2] + (sum) *n[2];
 
-                    d[0] = d[0] + ((f[0]-d[0])*n[0])*n[0];
-                    d[1] = d[1] + ((f[1]-d[1])*n[1])*n[1];
-                    d[2] = d[2] + ((f[2]-d[2])*n[2])*n[2];
+                    sum = (f[0]-c[0])*n[0] + (f[1]-c[1])*n[1] + (f[2]-c[2])*n[2];
+                    c[0] = c[0] + (sum) *n[0];
+                    c[1] = c[1] + (sum) *n[1];
+                    c[2] = c[2] + (sum) *n[2];
+
+                    sum = (f[0]-d[0])*n[0] + (f[1]-d[1])*n[1] + (f[2]-d[2])*n[2];
+                    d[0] = d[0] + (sum) *n[0];
+                    d[1] = d[1] + (sum) *n[1];
+                    d[2] = d[2] + (sum) *n[2];
                 }
             }
 
