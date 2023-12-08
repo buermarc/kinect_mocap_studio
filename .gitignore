@@ -9,3 +9,6 @@ compile_commands.json
 
 .git-credentials
 !include/kinect_mocap_studio/*
+output*
+*.swp
+*.swo

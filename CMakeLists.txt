@@ -23,6 +23,8 @@ set(BENCH_VIZ 0)
 find_package(k4a REQUIRED)
 find_package(k4abt REQUIRED)
 find_package(k4arecord REQUIRED)
+find_package(PythonLibs)
+include_directories(${PYTHON_INCLUDE_DIRS})
 
 # These specific settings tell the loader to search the directory of the
 # executable for shared objects. This is done on Linux to emulate the default
@@ -106,4 +108,5 @@ target_link_libraries(kinect_mocap_studio
     window_controller_3d::window_controller_3d
     k4arecord
     nlohmann_json::nlohmann_json
+    ${PYTHON_LIBRARIES}
 )
