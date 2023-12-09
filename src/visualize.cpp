@@ -29,6 +29,9 @@ typedef std::chrono::high_resolution_clock hc;
 #define BENCH_VIZ 1
 #endif
 
+Samples::Vector cameraOrigin = { 0, 0, 0 };
+Samples::Vector cameraForward = { 0, 0, 1 };
+
 // Taken from Azure-Kinect-Samples/body-tracking-samples/simple_3d_viewer
 int64_t processKey(void* /*context*/, int key)
 {
@@ -95,7 +98,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             add_bone(window3d, joint1Position, joint2Position, color);
         }
 
-        if (frame.stability_properties.size() > 0) {
+        if (frame.stability_properties.size() > body_id) {
             // visualize stability properties
             auto [com, xcom, bos] = frame.stability_properties.at(body_id);
             std::cout << "COM: " << com << std::endl;
@@ -104,28 +107,49 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             Color xcom_color {0, 1, 0, 1};
             add_point(window3d, xcom, xcom_color);
 
+            // Visualize projected com and xcom
+            if (frame.floor.has_value()) {
+                Color com_projected_color {0, 0, 1, 1};
+                auto p = frame.floor->ProjectPoint(cameraOrigin)
+                    + frame.floor->ProjectVector(cameraForward) * 1.5f;
+                Point<double> point(p.X, p.Y, p.Z);
+                std::cout << point << std::endl;
+                Point<double> normed_n(
+                    frame.floor->Normal.X,
+                    frame.floor->Normal.Y,
+                    frame.floor->Normal.Z
+                );
+                std::cout << normed_n << std::endl;
+                auto p_com = com.project_onto_plane(point, normed_n);
+                auto p_xcom = xcom.project_onto_plane(point, normed_n);
+                std::cout << "p_com " << p_com << std::endl;
+                std::cout << "p_xcom " << p_xcom << std::endl;
+                add_point(window3d, p_com, com_projected_color);
+                add_point(window3d, p_xcom, com_projected_color);
+            }
+
             auto [center, _] = bos.into_center_and_normal();
             add_point(window3d, center);
 
             linmath::vec3 a = {
-                (float) bos.a.x / 1000,
-                (float) bos.a.y / 1000,
-                (float) bos.a.z / 1000
+                (float) bos.a.x,
+                (float) bos.a.y,
+                (float) bos.a.z
             };
             linmath::vec3 b = {
-                (float) bos.b.x / 1000,
-                (float) bos.b.y / 1000,
-                (float) bos.b.z / 1000
+                (float) bos.b.x,
+                (float) bos.b.y,
+                (float) bos.b.z
             };
             linmath::vec3 c = {
-                (float) bos.c.x / 1000,
-                (float) bos.c.y / 1000,
-                (float) bos.c.z / 1000
+                (float) bos.c.x,
+                (float) bos.c.y,
+                (float) bos.c.z
             };
             linmath::vec3 d = {
-                (float) bos.d.x / 1000,
-                (float) bos.d.y / 1000,
-                (float) bos.d.z / 1000
+                (float) bos.d.x,
+                (float) bos.d.y,
+                (float) bos.d.z
             };
 
             auto gravity_vector = Samples::TryEstimateGravityVectorForDepthCamera(frame.imu_sample, sensor_calibration);
@@ -140,16 +164,14 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                     */
 
                     auto point = Point(
-                        frame.floor->Origin.X * 1000,
-                        frame.floor->Origin.Y * 1000,
-                        frame.floor->Origin.Z * 1000
+                        frame.floor->Origin.X,
+                        frame.floor->Origin.Y,
+                        frame.floor->Origin.Z
                     );
 
 
                     std::cout << "Floor: " << point << std::endl;
                     add_point(window3d, point);
-                    Samples::Vector cameraOrigin = { 0, 0, 0 };
-                    Samples::Vector cameraForward = { 0, 0, 1 };
 
                     auto p = frame.floor->ProjectPoint(cameraOrigin)
                         + frame.floor->ProjectVector(cameraForward) * 1.5f;
@@ -169,7 +191,6 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
 
                     linmath::vec3 n;
                     linmath::vec3_norm(n, g);
-
 
                     float sum;
                     sum = (f[0]-a[0])*n[0] + (f[1]-a[1])*n[1] + (f[2]-a[2])*n[2];

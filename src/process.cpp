@@ -17,14 +17,21 @@
 #include <filter/adaptive/AdaptivePointFilter3D.hpp>
 #include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
 
+#include <matplotlibcpp/matplotlibcpp.h>
+
+namespace plt = matplotlibcpp;
+
+#include <cassert>
+
+
 #ifndef BENCH_PROCESS
 #define BENCH_PROCESS 1
 #endif
 
 typedef std::chrono::high_resolution_clock hc;
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
-// typedef SkeletonFilter<double> CurrentFilterType;
-typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
+typedef SkeletonFilter<double> CurrentFilterType;
+// typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
  * Fit a plane to the depth points that are furthest away from
@@ -33,8 +40,8 @@ typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterT
  * This uses code from teh floor_detector example code
  */
 
-// SkeletonFilterBuilder<double> builder(32, 2.0);
-AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
+SkeletonFilterBuilder<double> builder(32, 2.0);
+// AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
 std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
     // Get down-sampled cloud points.
@@ -163,6 +170,54 @@ void processThread(
         }
     }
 
+    // Idea, plot finite diff against velocities of filter
     frame_result_json["filters"] = filters;
     process_json_promise.set_value(frame_result_json);
+    if (filters.size() > 0) {
+        auto filter = filters.at(0);
+        auto positions = filter.get_unfiltered_positions();
+        auto velocities = filter.get_filtered_velocities();
+        auto timestamps = filter.get_timestamps();
+        assert(timestamps.size() == positions.size());
+        std::cout << "Timestamp size: " << timestamps.size() << std::endl;
+        std::cout << "Positions size: " << positions.size() << std::endl;
+
+        std::vector<double> x(positions.size());
+        std::vector<double> y(positions.size());
+        std::vector<double> z(positions.size());
+        std::transform(positions.cbegin(), positions.cend(), x.begin(), [](auto ele) { return ele.at(HAND_RIGHT).x; });
+        std::transform(positions.cbegin(), positions.cend(), y.begin(), [](auto ele) { return ele.at(HAND_RIGHT).y; });
+        std::transform(positions.cbegin(), positions.cend(), z.begin(), [](auto ele) { return ele.at(HAND_RIGHT).z; });
+
+        std::vector<double> vel_x(velocities.size());
+        std::vector<double> vel_y(velocities.size());
+        std::vector<double> vel_z(velocities.size());
+
+        std::transform(velocities.cbegin(), velocities.cend(), vel_x.begin(), [](auto ele) { return ele.at(HAND_RIGHT).x; });
+        std::transform(velocities.cbegin(), velocities.cend(), vel_y.begin(), [](auto ele) { return ele.at(HAND_RIGHT).y; });
+        std::transform(velocities.cbegin(), velocities.cend(), vel_z.begin(), [](auto ele) { return ele.at(HAND_RIGHT).z; });
+
+
+        std::vector<double> diff_x;
+        diff_x.reserve(positions.size());
+        diff_x.push_back(0);
+        for (int i = 0; i < positions.size() - 1; ++i) {
+            auto position_n = positions.at(i).at(HAND_RIGHT);
+            auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
+            auto timestamp_n = timestamps.at(i);
+            auto timestamp_n1 = timestamps.at(i+1);
+            diff_x.push_back((position_n1.x - position_n.x) / (timestamp_n1 - timestamp_n));
+        }
+
+        std::cout << "diff_x size: " << diff_x.size() << std::endl;
+        plt::named_plot("diff_x", timestamps, diff_x);
+        plt::named_plot("vel_x", timestamps, vel_x);
+        // plt::named_plot("y", timestamps, y);
+        // plt::named_plot("z", timestamps, z);
+        plt::title("Test");
+        plt::legend();
+        plt::show(true);
+    }
+    plt::close();
+    std::cout << "Process Thread Exit" << std::endl;
 }

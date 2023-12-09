@@ -84,9 +84,9 @@ push_body_data_to_json(nlohmann::json& body_result_json,
                     body.skeleton.joints[index_joint].position.xyz.z });
 
             body_joints.push_back(Point<double>(
-                (double)body.skeleton.joints[index_joint].position.v[0],
-                (double)body.skeleton.joints[index_joint].position.v[1],
-                (double)body.skeleton.joints[index_joint].position.v[2]
+                (double)body.skeleton.joints[index_joint].position.v[0] / 1000,
+                (double)body.skeleton.joints[index_joint].position.v[1] / 1000,
+                (double)body.skeleton.joints[index_joint].position.v[2] / 1000
             ));
             body_result_json["joint_orientations"].push_back(
                 { body.skeleton.joints[index_joint].orientation.wxyz.w,

@@ -350,7 +350,7 @@ int main(int argc, char** argv)
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
 
                 measurement_queue.Produce(MeasuredFrame {
-                    imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double) timestamp
+                    imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double) timestamp / 1e6
                 });
 
                 k4abt_frame_release(body_frame);
@@ -419,6 +419,7 @@ int main(int argc, char** argv)
         k4a_device_close(device);
     }
 
+    std::cout << "Main Thread Exiting" << std::endl;
     return 0;
 }
 /*
