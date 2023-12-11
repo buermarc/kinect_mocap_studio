@@ -13,6 +13,7 @@
 #include <filter/com.hpp>
 #include <filter/Point.hpp>
 #include <filter/SkeletonFilter.hpp>
+#include <filter/ConstrainedSkeletonFilter.hpp>
 #include <filter/adaptive/AdaptiveConstrainedSkeletonFilter.hpp>
 #include <filter/adaptive/AdaptivePointFilter3D.hpp>
 #include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
@@ -30,7 +31,8 @@ namespace plt = matplotlibcpp;
 
 typedef std::chrono::high_resolution_clock hc;
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
-typedef SkeletonFilter<double> CurrentFilterType;
+// typedef SkeletonFilter<double> CurrentFilterType;
+typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
 // typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
@@ -40,7 +42,7 @@ typedef SkeletonFilter<double> CurrentFilterType;
  * This uses code from teh floor_detector example code
  */
 
-SkeletonFilterBuilder<double> builder(32, 2.0);
+ConstrainedSkeletonFilterBuilder<double> builder(32);
 // AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
 std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
