@@ -74,6 +74,8 @@ namespace Visualization
 
         void AddBone(const Visualization::Bone& bone);
 
+        void PreRender();
+
         void Render(
             std::vector<uint8_t>* renderedPixelsBgr = nullptr,
             int* pixelsWidth = nullptr,

@@ -328,6 +328,10 @@ void WindowController3d::TriggerCameraPivotPointRendering()
     m_cameraPivotPointRenderCount = 5;
 }
 
+void WindowController3d::PreRender() {
+    glfwMakeContextCurrent(m_window);
+}
+
 void WindowController3d::Render(std::vector<uint8_t>* renderedPixelsBgr, int* pixelsWidth, int* pixelsHeight)
 {
     std::lock_guard<std::mutex> lock(m_mutex);

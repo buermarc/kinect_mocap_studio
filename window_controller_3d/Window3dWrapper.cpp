@@ -216,6 +216,7 @@ void Window3dWrapper::AddBody(const k4abt_body_t& body, Color color)
 
 void Window3dWrapper::Render()
 {
+    m_window3d.PreRender();
     if (m_pointCloudUpdated || m_pointClouds.size() != 0)
     {
         m_window3d.UpdatePointClouds(m_pointClouds.data(), (uint32_t)m_pointClouds.size(), m_depthWidth, m_depthHeight);
