@@ -18,6 +18,7 @@
 extern boost::atomic<bool> s_isRunning;
 extern boost::atomic<bool> s_visualizeJointFrame;
 extern boost::atomic<int> s_layoutMode;
+extern boost::atomic<bool> s_glfwInitialized;
 
 
 struct MeasuredFrame {

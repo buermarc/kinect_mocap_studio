@@ -35,12 +35,12 @@
 
 
 #include <kinect_mocap_studio/filter_utils.hpp>
-#include <kinect_mocap_studio/visualize.hpp>
 #include <kinect_mocap_studio/utils.hpp>
 #include <kinect_mocap_studio/cli.hpp>
 #include <kinect_mocap_studio/queues.hpp>
 #include <kinect_mocap_studio/process.hpp>
 #include <kinect_mocap_studio/visualize.hpp>
+#include <kinect_mocap_studio/plotting.hpp>
 
 using Eigen::MatrixXd;
 typedef std::chrono::high_resolution_clock hc;
@@ -56,6 +56,7 @@ ProcessedQueue processed_queue;
 #define BENCH_MEASUREMENT 1
 #endif
 
+boost::atomic<bool> s_glfwInitialized (false);
 boost::atomic<bool> s_isRunning (true);
 boost::atomic<bool> s_visualizeJointFrame (false);
 boost::atomic<int> s_layoutMode ((int) Visualization::Layout3d::OnlyMainView);
@@ -108,8 +109,10 @@ int main(int argc, char** argv)
     std::promise<nlohmann::json> visualize_json_promise;
     std::future<nlohmann::json> visualize_json_future = visualize_json_promise.get_future();
 
+    // glfwInit();
     std::thread process_thread(processThread, sensor_calibration, std::move(process_json_promise));
     std::thread visualize_thread(visualizeThread, sensor_calibration, std::move(visualize_json_promise));
+    std::thread plot_thread(plotThread);
 
     //
     // Initialize and start the body tracker
@@ -401,6 +404,7 @@ int main(int argc, char** argv)
     }
     process_thread.join();
     visualize_thread.join();
+    plot_thread.join();
 
     auto process_json = process_json_future.get();
 

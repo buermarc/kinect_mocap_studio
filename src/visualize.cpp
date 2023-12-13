@@ -8,6 +8,7 @@
 #include <thread>
 #include <iostream>
 #include <future>
+#include <memory>
 
 #include <k4abt.h>
 #include <k4a/k4a.h>
@@ -17,6 +18,8 @@
 #include "BodyTrackingHelpers.h"
 
 #include "FloorDetector.h"
+#include "GLPL/rendering/IDrawable.h"
+#include "GLPL/rendering/ShaderSet.h"
 #include "linmath.h"
 #include <Window3dWrapper.h>
 
@@ -253,6 +256,7 @@ void visualizeThread(
     window3d.Create("3D Visualization", sensor_calibration);
     window3d.SetCloseCallback(closeCallback);
     window3d.SetKeyCallback(processKey);
+    s_glfwInitialized = true;
 
     bool skip = false;
     while (s_isRunning) {

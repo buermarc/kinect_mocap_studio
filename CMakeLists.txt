@@ -71,7 +71,8 @@ FetchContent_MakeAvailable(Boost)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sample_helper_includes
                     ${CMAKE_CURRENT_SOURCE_DIR}/glfw/src/include
                     ${CMAKE_CURRENT_SOURCE_DIR}/include
-                    ${CMAKE_CURRENT_SOURCE_DIR}/floor_detector)
+                    ${CMAKE_CURRENT_SOURCE_DIR}/floor_detector
+                    ${CMAKE_CURRENT_SOURCE_DIR}/openGLPlotLive/src)
 
 FetchContent_Declare(
   filter
@@ -88,7 +89,10 @@ include_directories(SYSTEM ${EIGEN_INCLUDE_DIR})
 
 add_subdirectory(glfw)
 add_subdirectory(window_controller_3d)
+add_subdirectory(openGLPlotLive)
 
+#find_package(FREETYPE REQUIRED)
+include_directories(${FREETYPE_INCLUDE_DIR_ft2build})
 
 add_executable(kinect_mocap_studio
 		src/kinect_mocap_studio.cpp
@@ -96,6 +100,7 @@ add_executable(kinect_mocap_studio
 		src/cli.cpp
 		src/process.cpp
 		src/visualize.cpp
+		src/plotting.cpp
 		floor_detector/FloorDetector.cpp
 		floor_detector/PointCloudGenerator.cpp)
 
@@ -108,5 +113,9 @@ target_link_libraries(kinect_mocap_studio
     window_controller_3d::window_controller_3d
     k4arecord
     nlohmann_json::nlohmann_json
+    openGLPlotLive
+    freetype
     ${PYTHON_LIBRARIES}
 )
+add_custom_command(TARGET kinect_mocap_studio PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/../openGLPlotLive/Shaders $<TARGET_FILE_DIR:kinect_mocap_studio>/Shaders)
+add_custom_command(TARGET kinect_mocap_studio PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/../openGLPlotLive/textures $<TARGET_FILE_DIR:kinect_mocap_studio>/textures)
