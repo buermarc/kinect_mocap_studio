@@ -47,6 +47,7 @@ typedef std::chrono::high_resolution_clock hc;
 
 MeasurementQueue measurement_queue;
 ProcessedQueue processed_queue;
+PlottingQueue plotting_queue;
 
 #define WAIT_MS 0
 #define FPS_30 33

@@ -80,12 +80,20 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
     return maybeFloorPlane;
 }
 
-std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>>
+std::tuple<
+    std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>>,
+    std::vector<std::vector<Point<double>>>,
+    std::vector<std::vector<Point<double>>>,
+    std::vector<double>
+>
 apply_filter(
     MeasuredFrame& frame,
     std::vector<CurrentFilterType>& filters
 ) {
     std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
+    std::vector<double> durations;
+    std::vector<std::vector<Point<double>>> fpositions;
+    std::vector<std::vector<Point<double>>> fvelocities;
     for (int i = 0; i < frame.joints.size(); ++i)
     {
         if (filters.empty() or filters.size() <= frame.joints.size()) {
@@ -98,7 +106,8 @@ apply_filter(
             continue;
         }
 
-        auto [filtered_positions, _ ] = filter.step(frame.joints.at(i), frame.timestamp);
+        auto [filtered_positions, filtered_velocities] = filter.step(frame.joints.at(i), frame.timestamp);
+        durations.push_back(filter.time_diff(frame.timestamp));
 
         auto com = filter.calculate_com();
         auto ankle_left = filtered_positions[ANKLE_LEFT];
@@ -118,12 +127,13 @@ apply_filter(
         Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
         stability_properties.push_back(std::make_tuple(com, xcom, bos_plane));
 
-        frame.joints.at(i) = std::move(filtered_positions);
+        fpositions.push_back(filtered_positions);
+        fvelocities.push_back(filtered_velocities);
     }
-    return stability_properties;
+    return std::make_tuple(stability_properties, fpositions, fvelocities, durations);
 }
 
-ProcessedFrame processLogic(
+std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     MeasuredFrame frame,
     k4a_calibration_t sensor_calibration,
     Samples::FloorDetector& floorDetector,
@@ -133,9 +143,13 @@ ProcessedFrame processLogic(
     // Can we detect the floor
     auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json);
     // Mutates joints
-    auto stability_properties = apply_filter(frame, filters);
+    auto [stability_properties, fpositions, fvelocities, durations] = apply_filter(frame, filters);
+    auto filtered_joints(fpositions);
 
-    return ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(frame.joints), std::move(frame.confidence_levels), std::move(stability_properties), optional_point };
+    return std::make_tuple(
+        ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(fpositions), std::move(frame.confidence_levels), std::move(stability_properties), optional_point },
+        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations) }
+    );
 }
 
 void processThread(
@@ -157,7 +171,9 @@ void processThread(
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
             auto start = hc::now();
-            processed_queue.Produce(processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json));
+            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json);
+            processed_queue.Produce(std::move(processed_frame));
+            plotting_queue.Produce(std::move(plotting_frame));
 
 #ifdef BENCH_PROCESS
             auto stop = hc::now();

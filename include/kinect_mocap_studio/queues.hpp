@@ -42,11 +42,20 @@ struct ProcessedFrame {
     std::optional<Samples::Plane> floor;
 };
 
+struct PlottingFrame {
+    std::vector<std::vector<Point<double>>> unfiltered_joints;
+    std::vector<std::vector<Point<double>>> filtered_joints;
+    std::vector<std::vector<Point<double>>> filtered_vel;
+    std::vector<double> durations;
+};
+
 // Typedef boost::lockfree::spsc_queue<MeasuredFrame> MeasurementQueue;
 // Typedef boost::lockfree::spsc_queue<ProcessedFrame> ProcessedQueue;
 
 typedef SafeQueue<MeasuredFrame> MeasurementQueue;
 typedef SafeQueue<ProcessedFrame> ProcessedQueue;
+typedef SafeQueue<PlottingFrame> PlottingQueue;
 
 extern MeasurementQueue measurement_queue;
 extern ProcessedQueue processed_queue;
+extern PlottingQueue plotting_queue;
