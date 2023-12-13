@@ -49,6 +49,8 @@ MeasurementQueue measurement_queue;
 ProcessedQueue processed_queue;
 
 #define WAIT_MS 0
+#define FPS_30 33
+#define FPS_15 66
 
 #ifndef BENCH_MEASUREMENT
 #define BENCH_MEASUREMENT 1
@@ -197,6 +199,8 @@ int main(int argc, char** argv)
         k4a_capture_t sensor_capture = nullptr;
 
         bool capture_ready = false;
+        k4a_wait_result_t pop_frame_result = K4A_WAIT_RESULT_SUCCEEDED;
+        k4a_wait_result_t queue_capture_result;
 
 
 
@@ -239,11 +243,14 @@ int main(int argc, char** argv)
 
 
             auto sa = hc::now();
-            k4a_wait_result_t queue_capture_result = k4abt_tracker_enqueue_capture(
-                tracker,
-                sensor_capture,
-                std::max(1.0, 32. - (hc::now() - start).count())
-            );
+            std::cout << "About to put onto the queue" << std::endl;
+            if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
+                queue_capture_result = k4abt_tracker_enqueue_capture(
+                    tracker,
+                    sensor_capture,
+                    std::max(1.0, 32. - (hc::now() - start).count())
+                );
+            }
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
 
             if (config.record_sensor_data) {
@@ -260,18 +267,32 @@ int main(int argc, char** argv)
             // Remember to release the sensor capture once you finish using it
             k4a_capture_release(sensor_capture);
 
-            if (queue_capture_result == K4A_WAIT_RESULT_TIMEOUT) {
-                // It should never hit timeout when K4A_WAIT_INFINITE is set.
-                printf("Error! Add capture to tracker process queue timeout!\n");
-                continue;
-            } else if (queue_capture_result == K4A_WAIT_RESULT_FAILED) {
-                printf("Error! Add capture to tracker process queue failed!\n");
-                break;
+            if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
+                if (queue_capture_result == K4A_WAIT_RESULT_TIMEOUT) {
+                    // It should never hit timeout when K4A_WAIT_INFINITE is set.
+                    printf("Error! Add capture to tracker process queue timeout!\n");
+                    continue;
+                } else if (queue_capture_result == K4A_WAIT_RESULT_FAILED) {
+                    printf("Error! Add capture to tracker process queue failed!\n");
+                    break;
+                }
             }
 
             k4abt_frame_t body_frame = NULL;
-            k4a_wait_result_t pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame,
-                K4A_WAIT_INFINITE);
+            auto pop_start = hc::now();
+            int count;
+            while (true) {
+                pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame, WAIT_MS);
+                if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
+                    break;
+                }
+
+                if (count % 1000 == 0) {
+                    std::cout << "Still popping: " << (hc::now() - pop_start).count() << std::endl;
+                    count = 0;
+                }
+                count++;
+            }
 
             auto so = hc::now();
             std::chrono::duration<double, std::milli> dif = so - sa;
@@ -280,6 +301,7 @@ int main(int argc, char** argv)
             // will move somewhere else
 
             if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
+                std::cout << "Went into imu." << std::endl;
                 k4a_imu_sample_t imu_sample;
 
 
@@ -349,9 +371,18 @@ int main(int argc, char** argv)
                 pointCloudGenerator.Update(depth_image);
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
 
+                std::cout << "Pushing onto measurement queue" << std::endl;
+                std::cout << "Amount cloudPoints: " << cloudPoints.size() << std::endl;
+                std::cout << "Amount joints: " << joints.size() << std::endl;
+                if (joints.size() < 0) {
+                    std::cout << "joint(0)(0).x: " << joints.at(0).at(0).x << std::endl;
+                    std::cout << "joint(0)(0).y: " << joints.at(0).at(0).y << std::endl;
+                    std::cout << "joint(0)(0).z: " << joints.at(0).at(0).z << std::endl;
+                }
                 measurement_queue.Produce(MeasuredFrame {
                     imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double) timestamp / 1e6
                 });
+                std::cout << "queue size: " << measurement_queue.Size() << std::endl;
 
                 k4abt_frame_release(body_frame);
                 k4a_image_release(depth_image);

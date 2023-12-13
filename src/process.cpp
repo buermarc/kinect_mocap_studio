@@ -32,8 +32,8 @@ namespace plt = matplotlibcpp;
 typedef std::chrono::high_resolution_clock hc;
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
 // typedef SkeletonFilter<double> CurrentFilterType;
-typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
-// typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
+// typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
+typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
  * Fit a plane to the depth points that are furthest away from
@@ -42,8 +42,8 @@ typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
  * This uses code from teh floor_detector example code
  */
 
-ConstrainedSkeletonFilterBuilder<double> builder(32);
-// AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
+// ConstrainedSkeletonFilterBuilder<double> builder(32);
+AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
 std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
     // Get down-sampled cloud points.
@@ -135,7 +135,7 @@ ProcessedFrame processLogic(
     // Mutates joints
     auto stability_properties = apply_filter(frame, filters);
 
-    return ProcessedFrame { frame.imu_sample, frame.cloudPoints, frame.joints, frame.confidence_levels, stability_properties, optional_point };
+    return ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(frame.joints), std::move(frame.confidence_levels), std::move(stability_properties), optional_point };
 }
 
 void processThread(
@@ -155,10 +155,13 @@ void processThread(
         auto latency = hc::now();
 #endif
         bool retrieved = measurement_queue.Consume(frame);
+        std::cout << "Process is consuming." << std::endl;
         if (retrieved) {
             auto start = hc::now();
-            ProcessedFrame result = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json);
-            processed_queue.Produce(std::move(result));
+            std::cout << "Process is retrieving." << std::endl;
+            std::cout << "Putting onto processed queue" << std::endl;
+            processed_queue.Produce(processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json));
+            std::cout << "Processed queue Size in process: " << processed_queue.Size() << std::endl;
 
 #ifdef BENCH_PROCESS
             auto stop = hc::now();

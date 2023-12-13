@@ -169,10 +169,6 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                         frame.floor->Origin.Z
                     );
 
-
-                    std::cout << "Floor: " << point << std::endl;
-                    add_point(window3d, point);
-
                     auto p = frame.floor->ProjectPoint(cameraOrigin)
                         + frame.floor->ProjectVector(cameraForward) * 1.5f;
 
@@ -267,9 +263,16 @@ void visualizeThread(
     bool skip = false;
     while (s_isRunning) {
         auto start = hc::now();
+        std::cout << "Processed queue Size in viz: " << processed_queue.Size() << std::endl;
         bool retrieved =  processed_queue.Consume(frame);
-        if (retrieved and !skip) {
-            skip = false;
+        std::cout << "Viz is consuming." << std::endl;
+        if (retrieved) {
+            if (skip) {
+                std::cout << "Viz is skipping" << std::endl;
+                skip = false;
+                continue;
+            }
+            std::cout << "Viz is retrieving." << std::endl;
             visualizeLogic(window3d, frame, sensor_calibration);
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
