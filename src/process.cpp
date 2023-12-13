@@ -155,13 +155,9 @@ void processThread(
         auto latency = hc::now();
 #endif
         bool retrieved = measurement_queue.Consume(frame);
-        std::cout << "Process is consuming." << std::endl;
         if (retrieved) {
             auto start = hc::now();
-            std::cout << "Process is retrieving." << std::endl;
-            std::cout << "Putting onto processed queue" << std::endl;
             processed_queue.Produce(processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json));
-            std::cout << "Processed queue Size in process: " << processed_queue.Size() << std::endl;
 
 #ifdef BENCH_PROCESS
             auto stop = hc::now();

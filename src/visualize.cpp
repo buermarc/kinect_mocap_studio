@@ -101,8 +101,6 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
         if (frame.stability_properties.size() > body_id) {
             // visualize stability properties
             auto [com, xcom, bos] = frame.stability_properties.at(body_id);
-            std::cout << "COM: " << com << std::endl;
-            std::cout << "COMX: " << xcom << std::endl;
             add_point(window3d, com);
             Color xcom_color {0, 1, 0, 1};
             add_point(window3d, xcom, xcom_color);
@@ -113,17 +111,13 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                 auto p = frame.floor->ProjectPoint(cameraOrigin)
                     + frame.floor->ProjectVector(cameraForward) * 1.5f;
                 Point<double> point(p.X, p.Y, p.Z);
-                std::cout << point << std::endl;
                 Point<double> normed_n(
                     frame.floor->Normal.X,
                     frame.floor->Normal.Y,
                     frame.floor->Normal.Z
                 );
-                std::cout << normed_n << std::endl;
                 auto p_com = com.project_onto_plane(point, normed_n);
                 auto p_xcom = xcom.project_onto_plane(point, normed_n);
-                std::cout << "p_com " << p_com << std::endl;
-                std::cout << "p_xcom " << p_xcom << std::endl;
                 add_point(window3d, p_com, com_projected_color);
                 add_point(window3d, p_xcom, com_projected_color);
             }
@@ -263,16 +257,13 @@ void visualizeThread(
     bool skip = false;
     while (s_isRunning) {
         auto start = hc::now();
-        std::cout << "Processed queue Size in viz: " << processed_queue.Size() << std::endl;
         bool retrieved =  processed_queue.Consume(frame);
-        std::cout << "Viz is consuming." << std::endl;
         if (retrieved) {
             if (skip) {
                 std::cout << "Viz is skipping" << std::endl;
                 skip = false;
                 continue;
             }
-            std::cout << "Viz is retrieving." << std::endl;
             visualizeLogic(window3d, frame, sensor_calibration);
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
