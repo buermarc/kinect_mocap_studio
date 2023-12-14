@@ -69,7 +69,7 @@ void plotThread() {
     xVec1c_fd.reserve(2000);
     yVec1c_fd.reserve(2000);
 
-    std::shared_ptr<GLPL::Plot> myplot = std::make_shared<GLPL::Plot>(0.0, 0.0, 1.0, 1.0, window2->getParentDimensions(), 2, 1);
+    std::shared_ptr<GLPL::Plot> myplot = std::make_shared<GLPL::Plot>(0.0, 0.0, 1.0, 1.0, window2->getParentDimensions(), 1, 1);
     std::shared_ptr<GLPL::IDrawable> myPlotPt = std::dynamic_pointer_cast<GLPL::IDrawable>(myplot);
     window2->addPlot(myPlotPt);
 
@@ -84,29 +84,49 @@ void plotThread() {
     axesPt->setButtonState("Y Axes Limits Scaling", true);
     axesPt->showLegend(true);
 
+    /*
+    std::vector<std::shared_ptr<GLPL::Axes2D>> axes;
+    for (int i = 1; i < 32; ++i) {
+        std::shared_ptr<GLPL::Axes2D> axesPt = myplot->add2DAxes();
+        axes.push_back(axesPt);
+        axesPt->setAxesBoxOn(false);
+        axesPt->setButtonState("Grid", false);
+        axesPt->setXLabel("Time (s)");
+        axesPt->setYLabel("Displacement (m)");
+        std::stringstream stream;
+        stream << "Joint " << i;
+        axesPt->setTitle(stream.str());
+        axesPt->setYLabelRotation(GLPL::SIDEWAYS_RIGHT);
+        axesPt->setButtonState("X Axes Limits Scaling", false);
+        axesPt->setButtonState("Y Axes Limits Scaling", true);
+        axesPt->showLegend(true);
+    }
+    */
+
+
 
     // X Axis
-    std::shared_ptr<GLPL::ILine2D> line1a_vel = axesPt->addLine(&xVec1a_vel, &yVec1a_vel, GLPL::SHADED_LINE, LC_YELLOW, 0.5, "X Axis - Filter Velocity");
+    std::shared_ptr<GLPL::ILine2D> line1a_vel = axesPt->addLine(&xVec1a_vel, &yVec1a_vel, GLPL::SINGLE_LINE, LC_BLUE, 0.5, "X Axis - Filter Velocity");
     std::shared_ptr<GLPL::Line2D2Vecs> line1a_vel_cast = std::dynamic_pointer_cast<GLPL::Line2D2Vecs>(line1a_vel);
 
     // Y Axis
-    std::shared_ptr<GLPL::ILine2D> line1b_vel = axesPt->addLine(&xVec1b_vel, &yVec1b_vel, GLPL::SHADED_LINE, LC_CYAN, 0.5, "Y Axis - Filter Velocity");
+    std::shared_ptr<GLPL::ILine2D> line1b_vel = axesPt->addLine(&xVec1b_vel, &yVec1b_vel, GLPL::SINGLE_LINE, LC_BLUE, 0.5, "Y Axis - Filter Velocity");
     std::shared_ptr<GLPL::Line2D2Vecs> line1b_vel_cast = std::dynamic_pointer_cast<GLPL::Line2D2Vecs>(line1b_vel);
 
     // Z Axis
-    std::shared_ptr<GLPL::ILine2D> line1c_vel = axesPt->addLine(&xVec1c_vel, &yVec1c_vel, GLPL::SHADED_LINE, LC_GREEN, 0.5, "Z Axis - Filter Velocity");
+    std::shared_ptr<GLPL::ILine2D> line1c_vel = axesPt->addLine(&xVec1c_vel, &yVec1c_vel, GLPL::SINGLE_LINE, LC_BLUE, 0.5, "Z Axis - Filter Velocity");
     std::shared_ptr<GLPL::Line2D2Vecs> line1c_vel_cast = std::dynamic_pointer_cast<GLPL::Line2D2Vecs>(line1c_vel);
 
     // X Axis
-    std::shared_ptr<GLPL::ILine2D> line1a_fd = axesPt->addLine(&xVec1a_fd, &yVec1a_fd, GLPL::SINGLE_LINE, LC_YELLOW, 0.5, "X Axis - Filter Finite Diff");
+    std::shared_ptr<GLPL::ILine2D> line1a_fd = axesPt->addLine(&xVec1a_fd, &yVec1a_fd, GLPL::SINGLE_LINE, LC_RED, 0.5, "X Axis - Filter Finite Diff");
     std::shared_ptr<GLPL::Line2D2Vecs> line1a_fd_cast = std::dynamic_pointer_cast<GLPL::Line2D2Vecs>(line1a_fd);
 
     // Y Axis
-    std::shared_ptr<GLPL::ILine2D> line1b_fd = axesPt->addLine(&xVec1b_fd, &yVec1b_fd, GLPL::SINGLE_LINE, LC_CYAN, 0.5, "Y Axis - Filter Finite Diff");
+    std::shared_ptr<GLPL::ILine2D> line1b_fd = axesPt->addLine(&xVec1b_fd, &yVec1b_fd, GLPL::SINGLE_LINE, LC_RED, 0.5, "Y Axis - Filter Finite Diff");
     std::shared_ptr<GLPL::Line2D2Vecs> line1b_fd_cast = std::dynamic_pointer_cast<GLPL::Line2D2Vecs>(line1b_fd);
 
     // Z Axis
-    std::shared_ptr<GLPL::ILine2D> line1c_fd = axesPt->addLine(&xVec1c_fd, &yVec1c_fd, GLPL::SINGLE_LINE, LC_GREEN, 0.5, "Z Axis - Filter Finite Diff");
+    std::shared_ptr<GLPL::ILine2D> line1c_fd = axesPt->addLine(&xVec1c_fd, &yVec1c_fd, GLPL::SINGLE_LINE, LC_RED, 0.5, "Z Axis - Filter Finite Diff");
     std::shared_ptr<GLPL::Line2D2Vecs> line1c_fd_cast = std::dynamic_pointer_cast<GLPL::Line2D2Vecs>(line1c_fd);
 
     float yVal1a, yVal1b, yVec1c = 0;
@@ -114,6 +134,11 @@ void plotThread() {
 
     bool skip = false;
     bool first = true;
+
+    window2->preLoopDraw(true);
+    myplot->Draw();
+    window2->postLoopDraw();
+
     while (s_isRunning) {
         bool retrieved =  plotting_queue.Consume(frame);
         if (retrieved) {
@@ -123,7 +148,8 @@ void plotThread() {
                 continue;
             }
             if (first) {
-                tmp_joints = frame.filtered_joints;
+                tmp_joints = std::move(frame.unfiltered_joints);
+                first = false;
                 continue;
             }
 
@@ -137,8 +163,8 @@ void plotThread() {
             line1b_fd_cast->dataPtX->push_back(i);
             line1c_fd_cast->dataPtX->push_back(i);
 
-            if (frame.filtered_joints.size() > 0 && tmp_joints.size() > 0) {
-                auto current = frame.filtered_joints.at(0).at(HAND_RIGHT);
+            if (frame.unfiltered_joints.size() > 0 && tmp_joints.size() > 0) {
+                auto current = frame.unfiltered_joints.at(0).at(HAND_RIGHT);
                 auto prior = tmp_joints.at(0).at(HAND_RIGHT);
                 auto duration = frame.durations.at(0);
 
@@ -170,7 +196,7 @@ void plotThread() {
             line1c_fd_cast->updateInternalData();
 
             // Get range of last 1000 points, provided the points in the a axis are in order
-            unsigned int minInd = std::max((long)0, (long)line1a_vel_cast->dataPtX->size() - 1000);
+            unsigned int minInd = std::max((long)0, (long)line1a_vel_cast->dataPtX->size() - 250);
             unsigned int maxInd = line1a_vel_cast->dataPtX->size()-1;
             float xmin = (*line1a_vel_cast->dataPtX)[minInd];
             float xmax = (*line1a_vel_cast->dataPtX)[maxInd];
@@ -179,7 +205,7 @@ void plotThread() {
             myplot->Draw();
             window2->postLoopDraw();
 
-            tmp_joints = frame.filtered_joints;
+            tmp_joints = frame.unfiltered_joints;
         } else {
             std::this_thread::yield();
         }

@@ -106,8 +106,9 @@ apply_filter(
             continue;
         }
 
-        auto [filtered_positions, filtered_velocities] = filter.step(frame.joints.at(i), frame.timestamp);
+        std::cout << "Duration: " << filter.time_diff(frame.timestamp) << std::endl;
         durations.push_back(filter.time_diff(frame.timestamp));
+        auto [filtered_positions, filtered_velocities] = filter.step(frame.joints.at(i), frame.timestamp);
 
         auto com = filter.calculate_com();
         auto ankle_left = filtered_positions[ANKLE_LEFT];
@@ -226,11 +227,8 @@ void processThread(
             diff_x.push_back((position_n1.x - position_n.x) / (timestamp_n1 - timestamp_n));
         }
 
-        std::cout << "diff_x size: " << diff_x.size() << std::endl;
         plt::named_plot("diff_x", timestamps, diff_x);
         plt::named_plot("vel_x", timestamps, vel_x);
-        // plt::named_plot("y", timestamps, y);
-        // plt::named_plot("z", timestamps, z);
         plt::title("Test");
         plt::legend();
         plt::show(true);
