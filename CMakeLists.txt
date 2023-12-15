@@ -101,6 +101,7 @@ add_executable(kinect_mocap_studio
 		src/process.cpp
 		src/visualize.cpp
 		src/plotting.cpp
+		src/moving_average.cpp
 		floor_detector/FloorDetector.cpp
 		floor_detector/PointCloudGenerator.cpp)
 

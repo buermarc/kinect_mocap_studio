@@ -106,11 +106,11 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             auto [com, xcom, bos] = frame.stability_properties.at(body_id);
             add_point(window3d, com);
             Color xcom_color {0, 1, 0, 1};
-            add_point(window3d, xcom, xcom_color);
 
             // Visualize projected com and xcom
             if (frame.floor.has_value()) {
                 Color com_projected_color {0, 0, 1, 1};
+                Color xcom_projected_color {1, 1, 0, 1};
                 auto p = frame.floor->ProjectPoint(cameraOrigin)
                     + frame.floor->ProjectVector(cameraForward) * 1.5f;
                 Point<double> point(p.X, p.Y, p.Z);
@@ -122,11 +122,8 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                 auto p_com = com.project_onto_plane(point, normed_n);
                 auto p_xcom = xcom.project_onto_plane(point, normed_n);
                 add_point(window3d, p_com, com_projected_color);
-                add_point(window3d, p_xcom, com_projected_color);
+                add_point(window3d, p_xcom, xcom_projected_color);
             }
-
-            auto [center, _] = bos.into_center_and_normal();
-            add_point(window3d, center);
 
             linmath::vec3 a = {
                 (float) bos.a.x,

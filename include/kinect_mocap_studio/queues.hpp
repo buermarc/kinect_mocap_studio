@@ -15,6 +15,7 @@
 #include <filter/com.hpp>
 
 
+extern boost::atomic<bool> s_stillPlotting;
 extern boost::atomic<bool> s_isRunning;
 extern boost::atomic<bool> s_visualizeJointFrame;
 extern boost::atomic<int> s_layoutMode;
@@ -47,6 +48,7 @@ struct PlottingFrame {
     std::vector<std::vector<Point<double>>> filtered_joints;
     std::vector<std::vector<Point<double>>> filtered_vel;
     std::vector<double> durations;
+    std::vector<Point<double>> com_dots;
 };
 
 // Typedef boost::lockfree::spsc_queue<MeasuredFrame> MeasurementQueue;

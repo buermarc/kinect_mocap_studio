@@ -1,4 +1,5 @@
 ﻿#include <chrono>
+#include <cstdlib>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
@@ -42,6 +43,11 @@
 #include <kinect_mocap_studio/visualize.hpp>
 #include <kinect_mocap_studio/plotting.hpp>
 
+
+#include <matplotlibcpp/matplotlibcpp.h>
+
+namespace plt = matplotlibcpp;
+
 using Eigen::MatrixXd;
 typedef std::chrono::high_resolution_clock hc;
 
@@ -57,12 +63,11 @@ PlottingQueue plotting_queue;
 #define BENCH_MEASUREMENT 1
 #endif
 
+boost::atomic<bool> s_stillPlotting (true);
 boost::atomic<bool> s_glfwInitialized (false);
 boost::atomic<bool> s_isRunning (true);
 boost::atomic<bool> s_visualizeJointFrame (false);
 boost::atomic<int> s_layoutMode ((int) Visualization::Layout3d::OnlyMainView);
-
-std::vector<SkeletonFilter<double>> filters;
 
 
 /*
@@ -437,7 +442,11 @@ int main(int argc, char** argv)
     }
 
     std::cout << "Main Thread Exiting" << std::endl;
-    return 0;
+    while (s_stillPlotting) {
+        std::this_thread::yield();
+    }
+    // plt::close();
+    std::exit(0);
 }
 /*
  * Handel CLI args

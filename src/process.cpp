@@ -1,4 +1,5 @@
 #include <kinect_mocap_studio/process.hpp>
+#include <kinect_mocap_studio/moving_average.hpp>
 #include <optional>
 #include <iostream>
 #include <thread>
@@ -32,8 +33,8 @@ namespace plt = matplotlibcpp;
 typedef std::chrono::high_resolution_clock hc;
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
 // typedef SkeletonFilter<double> CurrentFilterType;
-// typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
-typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
+typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
+// typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
  * Fit a plane to the depth points that are furthest away from
@@ -42,17 +43,19 @@ typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterT
  * This uses code from teh floor_detector example code
  */
 
-// ConstrainedSkeletonFilterBuilder<double> builder(32);
-AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
+ConstrainedSkeletonFilterBuilder<double> builder(32);
+// AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
-std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json) {
+std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json, MovingAverage& moving_average) {
     // Get down-sampled cloud points.
     const int downsampleStep = 2;
     // Detect floor plane based on latest visual and inertial observations.
     const size_t minimumFloorPointCount = 1024 / (downsampleStep * downsampleStep);
 
-    const auto& maybeFloorPlane = floorDetector.TryDetectFloorPlane(frame.cloudPoints, frame.imu_sample,
+    auto maybeFloorPlane = floorDetector.TryDetectFloorPlane(frame.cloudPoints, frame.imu_sample,
         sensor_calibration, minimumFloorPointCount);
+
+    maybeFloorPlane = moving_average.get_average(maybeFloorPlane);
 
 
     nlohmann::json floor_result_json;
@@ -84,7 +87,8 @@ std::tuple<
     std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>>,
     std::vector<std::vector<Point<double>>>,
     std::vector<std::vector<Point<double>>>,
-    std::vector<double>
+    std::vector<double>,
+    std::vector<Point<double>>
 >
 apply_filter(
     MeasuredFrame& frame,
@@ -92,6 +96,7 @@ apply_filter(
 ) {
     std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     std::vector<double> durations;
+    std::vector<Point<double>> com_dots;
     std::vector<std::vector<Point<double>>> fpositions;
     std::vector<std::vector<Point<double>>> fvelocities;
     for (int i = 0; i < frame.joints.size(); ++i)
@@ -127,11 +132,12 @@ apply_filter(
         auto xcom = filter.calculate_x_com(ankle_com_norm);
         Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
         stability_properties.push_back(std::make_tuple(com, xcom, bos_plane));
+        com_dots.push_back(filter.calculate_com_dot());
 
         fpositions.push_back(filtered_positions);
         fvelocities.push_back(filtered_velocities);
     }
-    return std::make_tuple(stability_properties, fpositions, fvelocities, durations);
+    return std::make_tuple(stability_properties, fpositions, fvelocities, durations, com_dots);
 }
 
 std::tuple<ProcessedFrame, PlottingFrame> processLogic(
@@ -139,17 +145,18 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     k4a_calibration_t sensor_calibration,
     Samples::FloorDetector& floorDetector,
     std::vector<CurrentFilterType>& filters,
-    nlohmann::json& frame_result_json
+    nlohmann::json& frame_result_json,
+    MovingAverage& moving_average
 ) {
     // Can we detect the floor
-    auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json);
+    auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json, moving_average);
     // Mutates joints
-    auto [stability_properties, fpositions, fvelocities, durations] = apply_filter(frame, filters);
+    auto [stability_properties, fpositions, fvelocities, durations, com_dots] = apply_filter(frame, filters);
     auto filtered_joints(fpositions);
 
     return std::make_tuple(
         ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(fpositions), std::move(frame.confidence_levels), std::move(stability_properties), optional_point },
-        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations) }
+        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations), std::move(com_dots) }
     );
 }
 
@@ -161,6 +168,7 @@ void processThread(
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
     std::vector<CurrentFilterType> filters;
+    MovingAverage moving_average(40);
 
     nlohmann::json frame_result_json;
 
@@ -172,7 +180,7 @@ void processThread(
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
             auto start = hc::now();
-            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json);
+            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json, moving_average);
             processed_queue.Produce(std::move(processed_frame));
             plotting_queue.Produce(std::move(plotting_frame));
 
@@ -193,19 +201,29 @@ void processThread(
     process_json_promise.set_value(frame_result_json);
     if (filters.size() > 0) {
         auto filter = filters.at(0);
-        auto positions = filter.get_unfiltered_positions();
+        auto unpositions = filter.get_unfiltered_positions();
+        auto positions = filter.get_filtered_positions();
         auto velocities = filter.get_filtered_velocities();
         auto timestamps = filter.get_timestamps();
         assert(timestamps.size() == positions.size());
         std::cout << "Timestamp size: " << timestamps.size() << std::endl;
         std::cout << "Positions size: " << positions.size() << std::endl;
 
+        std::vector<double> unx(positions.size());
+        std::vector<double> uny(positions.size());
+        std::vector<double> unz(positions.size());
+
         std::vector<double> x(positions.size());
         std::vector<double> y(positions.size());
         std::vector<double> z(positions.size());
+
         std::transform(positions.cbegin(), positions.cend(), x.begin(), [](auto ele) { return ele.at(HAND_RIGHT).x; });
         std::transform(positions.cbegin(), positions.cend(), y.begin(), [](auto ele) { return ele.at(HAND_RIGHT).y; });
         std::transform(positions.cbegin(), positions.cend(), z.begin(), [](auto ele) { return ele.at(HAND_RIGHT).z; });
+
+        std::transform(unpositions.cbegin(), unpositions.cend(), unx.begin(), [](auto ele) { return ele.at(HAND_RIGHT).x; });
+        std::transform(unpositions.cbegin(), unpositions.cend(), uny.begin(), [](auto ele) { return ele.at(HAND_RIGHT).y; });
+        std::transform(unpositions.cbegin(), unpositions.cend(), unz.begin(), [](auto ele) { return ele.at(HAND_RIGHT).z; });
 
         std::vector<double> vel_x(velocities.size());
         std::vector<double> vel_y(velocities.size());
@@ -216,6 +234,7 @@ void processThread(
         std::transform(velocities.cbegin(), velocities.cend(), vel_z.begin(), [](auto ele) { return ele.at(HAND_RIGHT).z; });
 
 
+        /*
         std::vector<double> diff_x;
         diff_x.reserve(positions.size());
         diff_x.push_back(0);
@@ -227,12 +246,71 @@ void processThread(
             diff_x.push_back((position_n1.x - position_n.x) / (timestamp_n1 - timestamp_n));
         }
 
-        plt::named_plot("diff_x", timestamps, diff_x);
-        plt::named_plot("vel_x", timestamps, vel_x);
-        plt::title("Test");
+        std::vector<double> diff_y;
+        diff_y.reserve(positions.size());
+        diff_y.push_back(0);
+        for (int i = 0; i < positions.size() - 1; ++i) {
+            auto position_n = positions.at(i).at(HAND_RIGHT);
+            auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
+            auto timestamp_n = timestamps.at(i);
+            auto timestamp_n1 = timestamps.at(i+1);
+            diff_y.push_back((position_n1.y - position_n.y) / (timestamp_n1 - timestamp_n));
+        }
+
+        std::vector<double> diff_z;
+        diff_z.reserve(positions.size());
+        diff_z.push_back(0);
+        for (int i = 0; i < positions.size() - 1; ++i) {
+            auto position_n = positions.at(i).at(HAND_RIGHT);
+            auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
+            auto timestamp_n = timestamps.at(i);
+            auto timestamp_n1 = timestamps.at(i+1);
+            diff_z.push_back((position_n1.z - position_n.z) / (timestamp_n1 - timestamp_n));
+        }
+
+        plt::title("Hand Right Velocities X");
+        plt::named_plot("Finite diff x", timestamps, diff_x);
+        plt::named_plot("Filter velocity x", timestamps, vel_x);
         plt::legend();
         plt::show(true);
+        plt::cla();
+
+        plt::title("Hand Right Velocities Y");
+        plt::named_plot("Finite diff y", timestamps, diff_y);
+        plt::named_plot("Filter velocity y", timestamps, vel_x);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        plt::title("Hand Right Velocities Z ");
+        plt::named_plot("Finite diff z", timestamps, diff_z);
+        plt::named_plot("Filter velocity z", timestamps, vel_x);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+        */
+        plt::title("Hand Right Position X");
+        plt::named_plot("Unfiltered", timestamps, unx);
+        plt::named_plot("Filtered", timestamps, x);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        plt::title("Hand Right Position Y");
+        plt::named_plot("Unfiltered", timestamps, uny);
+        plt::named_plot("Filtered", timestamps, y);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        plt::title("Hand Right Position Z ");
+        plt::named_plot("Unfiltered", timestamps, unz);
+        plt::named_plot("Filtered", timestamps, z);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
     }
     plt::close();
     std::cout << "Process Thread Exit" << std::endl;
+    s_stillPlotting = false;
 }
