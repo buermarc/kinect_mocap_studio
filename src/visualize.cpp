@@ -68,7 +68,9 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
     window3d.CleanJointsAndBones();
     int offset = 7;
     // visualize Joints
-    for (int body_id = 0; body_id < frame.joints.size(); ++body_id) {
+    for (const auto& element : frame.joints)
+    {
+        auto body_id = element.first;
         auto body_joints = frame.joints.at(body_id);
         auto confidence_level = frame.confidence_levels.at(body_id);
         for (int i=0; i < body_joints.size(); ++i) {

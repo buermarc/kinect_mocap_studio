@@ -3,6 +3,7 @@
 #include <k4abt.h>
 #include <k4a/k4a.h>
 #include <vector>
+#include <map>
 #include <filter/Point.hpp>
 
 bool check_depth_image_exists(k4a_capture_t capture)
@@ -53,13 +54,13 @@ Azure-Kinect-Samples/body-tracking-samples/offline_processor
 @param body_frame a sample of the tracked bodies
 
 */
-std::tuple<std::vector<std::vector<Point<double>>>, std::vector<std::vector<int>>>
+std::tuple<std::map<uint32_t, std::vector<Point<double>>>, std::map<uint32_t, std::vector<int>>>
 push_body_data_to_json(nlohmann::json& body_result_json,
     k4abt_frame_t& body_frame,
     uint32_t num_bodies)
 {
-    std::vector<std::vector<Point<double>>> points;
-    std::vector<std::vector<int>> confidence_levels;
+    std::map<uint32_t, std::vector<Point<double>>> points;
+    std::map<uint32_t, std::vector<int>> confidence_levels;
     for (size_t index_body = 0; index_body < num_bodies; ++index_body) {
 
         k4abt_body_t body;
@@ -98,8 +99,8 @@ push_body_data_to_json(nlohmann::json& body_result_json,
                 body.skeleton.joints[index_joint].confidence_level);
             confidence_level.push_back(body.skeleton.joints[index_joint].confidence_level);
         }
-        points.push_back(body_joints);
-        confidence_levels.push_back(confidence_level);
+        points[body.id] = std::move(body_joints);
+        confidence_levels[body.id] = std::move(confidence_level);
     }
     return std::make_tuple(points, confidence_levels);
 }

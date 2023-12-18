@@ -35,7 +35,7 @@ void plotThread() {
         std::this_thread::yield();
     }
     PlottingFrame frame;
-    std::vector<std::vector<Point<double>>> tmp_joints;
+    std::map<uint32_t, std::vector<Point<double>>> tmp_joints;
 
     int windowWidth  = 1600;
     int windowHeight = 800;
@@ -204,13 +204,13 @@ void plotThread() {
             com_dot_z_cast->dataPtX->push_back(i);
 
             if (frame.unfiltered_joints.size() > 0 && tmp_joints.size() > 0) {
-                auto current = frame.unfiltered_joints.at(0).at(HAND_RIGHT);
-                auto prior = tmp_joints.at(0).at(HAND_RIGHT);
+                auto current = frame.unfiltered_joints.begin()->second.at(HAND_RIGHT);
+                auto prior = tmp_joints.begin()->second.at(HAND_RIGHT);
                 auto duration = frame.durations.at(0);
 
-                auto comdot = frame.com_dots.at(0);
+                auto comdot = frame.com_dots.begin()->second;
 
-                auto vel = frame.filtered_vel.at(0).at(HAND_RIGHT);
+                auto vel = frame.filtered_vel.begin()->second.at(HAND_RIGHT);
 
                 line1a_vel_cast->dataPtY->push_back((float)vel.x);
                 line1b_vel_cast->dataPtY->push_back((float)vel.y);

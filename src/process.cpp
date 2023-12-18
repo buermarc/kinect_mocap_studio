@@ -84,25 +84,26 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
 }
 
 std::tuple<
-    std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>>,
-    std::vector<std::vector<Point<double>>>,
-    std::vector<std::vector<Point<double>>>,
+    std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>>,
+    std::map<uint32_t, std::vector<Point<double>>>,
+    std::map<uint32_t, std::vector<Point<double>>>,
     std::vector<double>,
-    std::vector<Point<double>>
+    std::map<uint32_t, Point<double>>
 >
 apply_filter(
     MeasuredFrame& frame,
-    std::vector<CurrentFilterType>& filters
+    std::map<uint32_t, CurrentFilterType>& filters
 ) {
-    std::vector<std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
+    std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     std::vector<double> durations;
-    std::vector<Point<double>> com_dots;
-    std::vector<std::vector<Point<double>>> fpositions;
-    std::vector<std::vector<Point<double>>> fvelocities;
-    for (int i = 0; i < frame.joints.size(); ++i)
+    std::map<uint32_t, Point<double>> com_dots;
+    std::map<uint32_t, std::vector<Point<double>>> fpositions;
+    std::map<uint32_t, std::vector<Point<double>>> fvelocities;
+    for (const auto& element : frame.joints)
     {
-        if (filters.empty() or filters.size() <= frame.joints.size()) {
-            filters.push_back(builder.build());
+        uint32_t i = element.first;
+        if (filters.find(i) == filters.end()) {
+            filters.insert(std::map<uint32_t, CurrentFilterType>::value_type (i, builder.build()));
         }
 
         auto& filter = filters.at(i);
@@ -131,11 +132,11 @@ apply_filter(
 
         auto xcom = filter.calculate_x_com(ankle_com_norm);
         Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
-        stability_properties.push_back(std::make_tuple(com, xcom, bos_plane));
-        com_dots.push_back(filter.calculate_com_dot());
+        stability_properties.insert(std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>>::value_type(i,  std::make_tuple(com, xcom, bos_plane)));
+        com_dots[i] = filter.calculate_com_dot();
 
-        fpositions.push_back(filtered_positions);
-        fvelocities.push_back(filtered_velocities);
+        fpositions[i] = filtered_positions;
+        fvelocities[i] = filtered_velocities;
     }
     return std::make_tuple(stability_properties, fpositions, fvelocities, durations, com_dots);
 }
@@ -144,7 +145,7 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     MeasuredFrame frame,
     k4a_calibration_t sensor_calibration,
     Samples::FloorDetector& floorDetector,
-    std::vector<CurrentFilterType>& filters,
+    std::map<uint32_t, CurrentFilterType>& filters,
     nlohmann::json& frame_result_json,
     MovingAverage& moving_average
 ) {
@@ -167,7 +168,7 @@ void processThread(
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
-    std::vector<CurrentFilterType> filters;
+    std::map<uint32_t, CurrentFilterType> filters;
     MovingAverage moving_average(40);
 
     nlohmann::json frame_result_json;
