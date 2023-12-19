@@ -156,7 +156,7 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     auto filtered_joints(fpositions);
 
     return std::make_tuple(
-        ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(fpositions), std::move(frame.confidence_levels), std::move(stability_properties), optional_point },
+        ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(fpositions), std::move(frame.confidence_levels), std::move(stability_properties), optional_point, com_dots },
         PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations), std::move(com_dots) }
     );
 }

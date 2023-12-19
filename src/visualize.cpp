@@ -106,7 +106,18 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
         if (frame.stability_properties.size() > body_id) {
             // visualize stability properties
             auto [com, xcom, bos] = frame.stability_properties.at(body_id);
+            auto com_dot = frame.com_dots.at(body_id);
+
+            Point com_dot_vector(
+                com.x + com_dot.x,
+                com.y + com_dot.y,
+                com.z + com_dot.z,
+            );
             add_point(window3d, com);
+
+            Color white {1, 1, 1, 1};
+            add_bone(window3d, com, com_dot_vector, white)
+
             Color xcom_color {0, 1, 0, 1};
 
             // Visualize projected com and xcom
