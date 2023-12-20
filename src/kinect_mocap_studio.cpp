@@ -218,7 +218,6 @@ int main(int argc, char** argv)
         if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
             if (stream_result == K4A_STREAM_RESULT_EOF) {
-                s_isRunning = false;
                 break;
             } else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED) {
                 capture_ready = true;
@@ -401,6 +400,7 @@ int main(int argc, char** argv)
         }
 
     } while (s_isRunning);
+    s_isRunning = false;
 
     printf("Finished body tracking processing!\n");
 
