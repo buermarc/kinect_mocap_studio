@@ -36,6 +36,7 @@ namespace Visualization
     {
         OnlyMainView = 0,
         FourViews,
+        MainAndBosView,
         Count,
     };
 

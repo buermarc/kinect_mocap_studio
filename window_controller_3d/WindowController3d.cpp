@@ -363,6 +363,10 @@ void WindowController3d::Render(std::vector<uint8_t>* renderedPixelsBgr, int* pi
         RenderScene(m_viewControl, Viewport{0, m_windowHeight / 2, windowWidth / 2, windowHeight / 2});
         RenderScene(m_topViewControl, Viewport{windowWidth / 2, windowHeight / 2, windowWidth / 2, windowHeight / 2});
         break;
+    case Layout3d::MainAndBosView:
+        RenderScene(m_viewControl, Viewport{0, 0, windowWidth / 2, windowHeight});
+        RenderScene(m_topViewControl, Viewport{windowWidth / 2, 0, windowWidth / 2, windowHeight});
+        break;
     }
 
     // Copy rendered pixels if needed
