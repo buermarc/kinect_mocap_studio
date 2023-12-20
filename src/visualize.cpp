@@ -115,7 +115,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             );
             add_point(window3d, com);
 
-            Color white {1, 1, 1, 1};
+            Color white {1, 1, 1, 0.2};
             add_bone(window3d, com, com_dot_vector, white);
 
             Color xcom_color {0, 1, 0, 1};
@@ -134,8 +134,8 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
                 );
                 auto p_com = com.project_onto_plane(point, normed_n);
                 auto p_xcom = xcom.project_onto_plane(point, normed_n);
-                add_point(window3d, p_com, com_projected_color);
-                add_point(window3d, p_xcom, xcom_projected_color);
+                add_point(window3d, p_com, com_projected_color, true);
+                add_point(window3d, p_xcom, xcom_projected_color, true);
             }
 
             linmath::vec3 a = {

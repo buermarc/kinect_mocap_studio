@@ -71,9 +71,9 @@ namespace Visualization
 
         void CleanJointsAndBones();
 
-        void AddJoint(const Visualization::Joint& joint);
+        void AddJoint(const Visualization::Joint& joint, bool stability=false);
 
-        void AddBone(const Visualization::Bone& bone);
+        void AddBone(const Visualization::Bone& bone, bool stability=false);
 
         void PreRender();
 
@@ -127,17 +127,20 @@ namespace Visualization
         SkeletonRenderMode m_skeletonRenderMode = SkeletonRenderMode::DefaultRender;
         bool m_enableFloorRendering = false;
         bool m_enableBosRendering = false;
+        bool m_onlyStability = false;
 
         // View Controls
         ViewControl m_viewControl;
         ViewControl m_leftViewControl;
         ViewControl m_rightViewControl;
         ViewControl m_topViewControl;
-        std::array<ViewControl*,4> m_allViewControls = { &m_viewControl, &m_leftViewControl, &m_rightViewControl, &m_topViewControl };
+        ViewControl m_realTopViewControl;
+        std::array<ViewControl*,5> m_allViewControls = { &m_viewControl, &m_leftViewControl, &m_rightViewControl, &m_topViewControl, &m_realTopViewControl };
 
         // Object renderers
         SimplePointCloudRenderer m_pointCloudRenderer;
         SkeletonRenderer m_skeletonRenderer;
+        SkeletonRenderer m_stabilityMetricsRenderer;
         FloorRenderer m_floorRenderer;
         FloorRenderer m_old_bosRenderer;
         BosRenderer m_bosRenderer;

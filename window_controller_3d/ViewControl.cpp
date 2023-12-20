@@ -54,6 +54,11 @@ const ViewParameters kTopView(
     0.f, -1.f, 0.f,                             // WorldUp
     0.f, 45.0f);                                // Yaw and Pitch (degrees)
 
+const ViewParameters kRealTopView(
+    0.f, 0.f, kTargetDepth,                     // Target depth (meters)
+    0.f, -1.f, 0.f,                             // WorldUp
+    0.f, 90.0f);                                // Yaw and Pitch (degrees)
+
 ViewParameters::ViewParameters(const ViewParameters &v)
 {
     vec3_copy(targetPos, v.targetPos);
@@ -247,6 +252,10 @@ void ViewControl::SetViewPoint(ViewPoint viewPoint)
         break;
     case ViewPoint::TopView:
         m_viewParams = kTopView;
+        m_perspectiveFactor = kObserverPerspectiveFactor;
+        break;
+    case ViewPoint::RealTopView:
+        m_viewParams = kRealTopView;
         m_perspectiveFactor = kObserverPerspectiveFactor;
         break;
     }

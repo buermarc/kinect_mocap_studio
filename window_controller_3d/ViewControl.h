@@ -13,7 +13,8 @@ enum class ViewPoint
     RightView,
     LeftView,
     BackView,
-    TopView
+    TopView,
+    RealTopView,
 };
 
 // Camera placement parameterized around the target point the camera points to.

@@ -57,6 +57,7 @@ WindowController3d::WindowController3d()
     m_leftViewControl.SetViewPoint(ViewPoint::LeftView);
     m_rightViewControl.SetViewPoint(ViewPoint::RightView);
     m_topViewControl.SetViewPoint(ViewPoint::TopView);
+    m_realTopViewControl.SetViewPoint(ViewPoint::RealTopView);
 }
 
 void WindowController3d::Create(const char* name, bool showWindow, int width, int height, bool fullscreen)
@@ -180,6 +181,7 @@ void WindowController3d::Create(const char* name, bool showWindow, int width, in
 
     m_pointCloudRenderer.Create(m_window);
     m_skeletonRenderer.Create(m_window);
+    m_stabilityMetricsRenderer.Create(m_window);
 }
 
 void WindowController3d::Delete()
@@ -187,6 +189,7 @@ void WindowController3d::Delete()
     m_initialized = false;
     m_pointCloudRenderer.Delete();
     m_skeletonRenderer.Delete();
+    m_stabilityMetricsRenderer.Delete();
 
     if (m_enableFloorRendering)
     {
@@ -243,16 +246,26 @@ void WindowController3d::UpdatePointClouds(
 void WindowController3d::CleanJointsAndBones()
 {
     m_skeletonRenderer.CleanJointsAndBones();
+    m_stabilityMetricsRenderer.CleanJointsAndBones();
 }
 
-void WindowController3d::AddJoint(const Visualization::Joint& joint)
+void WindowController3d::AddJoint(const Visualization::Joint& joint, bool stability)
 {
-    m_skeletonRenderer.AddJoint(joint);
+    if (stability) {
+        m_stabilityMetricsRenderer.AddJoint(joint);
+    } else {
+        m_skeletonRenderer.AddJoint(joint);
+    }
 }
 
-void WindowController3d::AddBone(const Visualization::Bone& bone)
+void WindowController3d::AddBone(const Visualization::Bone& bone, bool stability)
 {
-    m_skeletonRenderer.AddBone(bone);
+
+    if (stability) {
+        m_stabilityMetricsRenderer.AddBone(bone);
+    } else {
+        m_skeletonRenderer.AddBone(bone);
+    }
 }
 
 void WindowController3d::RenderScene(ViewControl& viewControl, Viewport viewport)
@@ -286,11 +299,17 @@ void WindowController3d::RenderScene(ViewControl& viewControl, Viewport viewport
     {
         m_skeletonRenderer.EnableJointCoordinateAxes(true);
         m_skeletonRenderer.EnableSkeletons(true);
+
+        m_stabilityMetricsRenderer.EnableJointCoordinateAxes(true);
+        m_stabilityMetricsRenderer.EnableSkeletons(true);
     }
     else
     {
         m_skeletonRenderer.EnableJointCoordinateAxes(false);
         m_skeletonRenderer.EnableSkeletons(true);
+
+        m_stabilityMetricsRenderer.EnableJointCoordinateAxes(false);
+        m_stabilityMetricsRenderer.EnableSkeletons(true);
     }
 
     if (m_skeletonRenderMode == SkeletonRenderMode::SkeletonOverlay ||
@@ -299,11 +318,18 @@ void WindowController3d::RenderScene(ViewControl& viewControl, Viewport viewport
         m_pointCloudRenderer.Render(viewport.width, viewport.height);
 
         glClear(GL_DEPTH_BUFFER_BIT);
-        m_skeletonRenderer.Render();
+        if (!m_onlyStability) {
+            m_skeletonRenderer.Render();
+        }
+        m_stabilityMetricsRenderer.Render();
     }
     else
     {
-        m_skeletonRenderer.Render();
+        if (!m_onlyStability) {
+            m_skeletonRenderer.Render();
+        }
+        m_stabilityMetricsRenderer.Render();
+
         m_pointCloudRenderer.Render(viewport.width, viewport.height);
     }
 
@@ -365,7 +391,9 @@ void WindowController3d::Render(std::vector<uint8_t>* renderedPixelsBgr, int* pi
         break;
     case Layout3d::MainAndBosView:
         RenderScene(m_viewControl, Viewport{0, 0, windowWidth / 2, windowHeight});
-        RenderScene(m_topViewControl, Viewport{windowWidth / 2, 0, windowWidth / 2, windowHeight});
+        m_onlyStability = true;
+        RenderScene(m_realTopViewControl, Viewport{windowWidth / 2, 0, windowWidth / 2, windowHeight});
+        m_onlyStability = false;
         break;
     }
 
@@ -547,6 +575,7 @@ void WindowController3d::UpdateRenderersViewProjection(linmath::mat4x4 view, lin
 {
     m_pointCloudRenderer.UpdateViewProjection(view, projection);
     m_skeletonRenderer.UpdateViewProjection(view, projection);
+    m_stabilityMetricsRenderer.UpdateViewProjection(view, projection);
 
     if (m_enableFloorRendering)
     {
@@ -639,6 +668,7 @@ void WindowController3d::ChangeCameraPivotPoint(ViewControl& viewControl, linmat
 void WindowController3d::MouseScrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset)
 {
     m_viewControl.ProcessMouseScroll(window, (float)yoffset);
+    m_realTopViewControl.ProcessMouseScroll(window, (float)yoffset);
     TriggerCameraPivotPointRendering();
 }
 

@@ -150,17 +150,17 @@ void Window3dWrapper::CleanJointsAndBones()
     m_window3d.CleanJointsAndBones();
 }
 
-void Window3dWrapper::AddJoint(k4a_float3_t position, k4a_quaternion_t orientation, Color color)
+void Window3dWrapper::AddJoint(k4a_float3_t position, k4a_quaternion_t orientation, Color color, bool stability)
 {
     linmath::vec3 jointPositionInMeter;
     ConvertMillimeterToMeter(position, jointPositionInMeter);
     m_window3d.AddJoint({
         {jointPositionInMeter[0], jointPositionInMeter[1], jointPositionInMeter[2]},
         {orientation.v[0], orientation.v[1], orientation.v[2], orientation.v[3]},
-        {color.r, color.g, color.b, color.a} });
+        {color.r, color.g, color.b, color.a} }, stability);
 }
 
-void Window3dWrapper::AddBone(k4a_float3_t joint1Position, k4a_float3_t joint2Position, Color color)
+void Window3dWrapper::AddBone(k4a_float3_t joint1Position, k4a_float3_t joint2Position, Color color, bool stability)
 {
     linmath::vec3 joint1PositionInMeter;
     ConvertMillimeterToMeter(joint1Position, joint1PositionInMeter);
@@ -174,7 +174,7 @@ void Window3dWrapper::AddBone(k4a_float3_t joint1Position, k4a_float3_t joint2Po
     bone.Color[2] = color.b;
     bone.Color[3] = color.a;
 
-    m_window3d.AddBone(bone);
+    m_window3d.AddBone(bone, stability);
 }
 
 void Window3dWrapper::AddBody(const k4abt_body_t& body, Color color)

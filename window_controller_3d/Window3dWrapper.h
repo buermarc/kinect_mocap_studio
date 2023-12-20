@@ -43,9 +43,9 @@ public:
 
     void CleanJointsAndBones();
 
-    void AddJoint(k4a_float3_t position, k4a_quaternion_t orientation, Color color);
+    void AddJoint(k4a_float3_t position, k4a_quaternion_t orientation, Color color, bool stability=false);
 
-    void AddBone(k4a_float3_t joint1Position, k4a_float3_t joint2Position, Color color);
+    void AddBone(k4a_float3_t joint1Position, k4a_float3_t joint2Position, Color color, bool stability=false);
 
     // Helper function to directly add the whole body for rendering instead of adding separate joints and bones
     void AddBody(const k4abt_body_t& body, Color color);
