@@ -40,7 +40,6 @@ struct ProcessedFrame {
     std::map<uint32_t, std::vector<Point<double>>> joints;
     std::map<uint32_t, std::vector<int>> confidence_levels;
     std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
-    std::map<uint32_t, std::vector<Point<double>>> filtered_vel;
     std::optional<Samples::Plane> floor;
     std::map<uint32_t, Point<double>> com_dots;
 };

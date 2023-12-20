@@ -103,7 +103,7 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             add_bone(window3d, joint1Position, joint2Position, color);
         }
 
-        if (frame.stability_properties.size() > body_id) {
+        if (frame.stability_properties.find(body_id) != frame.stability_properties.end()) {
             // visualize stability properties
             auto [com, xcom, bos] = frame.stability_properties.at(body_id);
             auto com_dot = frame.com_dots.at(body_id);
@@ -111,12 +111,12 @@ void visualizeSkeleton(Window3dWrapper& window3d, ProcessedFrame frame, k4a_cali
             Point com_dot_vector(
                 com.x + com_dot.x,
                 com.y + com_dot.y,
-                com.z + com_dot.z,
+                com.z + com_dot.z
             );
             add_point(window3d, com);
 
             Color white {1, 1, 1, 1};
-            add_bone(window3d, com, com_dot_vector, white)
+            add_bone(window3d, com, com_dot_vector, white);
 
             Color xcom_color {0, 1, 0, 1};
 

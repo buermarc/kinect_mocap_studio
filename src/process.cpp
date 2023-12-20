@@ -1,5 +1,6 @@
 #include <kinect_mocap_studio/process.hpp>
 #include <kinect_mocap_studio/moving_average.hpp>
+#include <kinect_mocap_studio/plotwrap.hpp>
 #include <optional>
 #include <iostream>
 #include <thread>
@@ -157,13 +158,13 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
 
     return std::make_tuple(
         ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(fpositions), std::move(frame.confidence_levels), std::move(stability_properties), optional_point, com_dots },
-        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations), std::move(com_dots) }
+        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations), com_dots }
     );
 }
 
 void processThread(
     k4a_calibration_t sensor_calibration,
-    std::promise<nlohmann::json> process_json_promise
+    std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise
 ) {
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
@@ -197,11 +198,10 @@ void processThread(
         }
     }
 
-    // Idea, plot finite diff against velocities of filter
-    frame_result_json["filters"] = filters;
-    process_json_promise.set_value(frame_result_json);
+
+    PlotWrap<double> plotwrap;
     if (filters.size() > 0) {
-        auto filter = filters.at(0);
+        auto filter = filters.cbegin()->second;
         auto unpositions = filter.get_unfiltered_positions();
         auto positions = filter.get_filtered_positions();
         auto velocities = filter.get_filtered_velocities();
@@ -235,83 +235,81 @@ void processThread(
         std::transform(velocities.cbegin(), velocities.cend(), vel_z.begin(), [](auto ele) { return ele.at(HAND_RIGHT).z; });
 
 
-        /*
-        std::vector<double> diff_x;
-        diff_x.reserve(positions.size());
-        diff_x.push_back(0);
-        for (int i = 0; i < positions.size() - 1; ++i) {
-            auto position_n = positions.at(i).at(HAND_RIGHT);
-            auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
-            auto timestamp_n = timestamps.at(i);
-            auto timestamp_n1 = timestamps.at(i+1);
-            diff_x.push_back((position_n1.x - position_n.x) / (timestamp_n1 - timestamp_n));
-        }
+        // std::vector<double> diff_x;
+        // diff_x.reserve(positions.size());
+        // diff_x.push_back(0);
+        // for (int i = 0; i < positions.size() - 1; ++i) {
+        //     auto position_n = positions.at(i).at(HAND_RIGHT);
+        //     auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
+        //     auto timestamp_n = timestamps.at(i);
+        //     auto timestamp_n1 = timestamps.at(i+1);
+        //     diff_x.push_back((position_n1.x - position_n.x) / (timestamp_n1 - timestamp_n));
+        // }
 
-        std::vector<double> diff_y;
-        diff_y.reserve(positions.size());
-        diff_y.push_back(0);
-        for (int i = 0; i < positions.size() - 1; ++i) {
-            auto position_n = positions.at(i).at(HAND_RIGHT);
-            auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
-            auto timestamp_n = timestamps.at(i);
-            auto timestamp_n1 = timestamps.at(i+1);
-            diff_y.push_back((position_n1.y - position_n.y) / (timestamp_n1 - timestamp_n));
-        }
+        // std::vector<double> diff_y;
+        // diff_y.reserve(positions.size());
+        // diff_y.push_back(0);
+        // for (int i = 0; i < positions.size() - 1; ++i) {
+        //     auto position_n = positions.at(i).at(HAND_RIGHT);
+        //     auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
+        //     auto timestamp_n = timestamps.at(i);
+        //     auto timestamp_n1 = timestamps.at(i+1);
+        //     diff_y.push_back((position_n1.y - position_n.y) / (timestamp_n1 - timestamp_n));
+        // }
 
-        std::vector<double> diff_z;
-        diff_z.reserve(positions.size());
-        diff_z.push_back(0);
-        for (int i = 0; i < positions.size() - 1; ++i) {
-            auto position_n = positions.at(i).at(HAND_RIGHT);
-            auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
-            auto timestamp_n = timestamps.at(i);
-            auto timestamp_n1 = timestamps.at(i+1);
-            diff_z.push_back((position_n1.z - position_n.z) / (timestamp_n1 - timestamp_n));
-        }
+        // std::vector<double> diff_z;
+        // diff_z.reserve(positions.size());
+        // diff_z.push_back(0);
+        // for (int i = 0; i < positions.size() - 1; ++i) {
+        //     auto position_n = positions.at(i).at(HAND_RIGHT);
+        //     auto position_n1 = positions.at(i+1).at(HAND_RIGHT);
+        //     auto timestamp_n = timestamps.at(i);
+        //     auto timestamp_n1 = timestamps.at(i+1);
+        //     diff_z.push_back((position_n1.z - position_n.z) / (timestamp_n1 - timestamp_n));
+        // }
 
-        plt::title("Hand Right Velocities X");
-        plt::named_plot("Finite diff x", timestamps, diff_x);
-        plt::named_plot("Filter velocity x", timestamps, vel_x);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        // plt::title("Hand Right Velocities X");
+        // plt::named_plot("Finite diff x", timestamps, diff_x);
+        // plt::named_plot("Filter velocity x", timestamps, vel_x);
+        // plt::legend();
+        // plt::show(true);
+        // plt::cla();
 
-        plt::title("Hand Right Velocities Y");
-        plt::named_plot("Finite diff y", timestamps, diff_y);
-        plt::named_plot("Filter velocity y", timestamps, vel_x);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        // plt::title("Hand Right Velocities Y");
+        // plt::named_plot("Finite diff y", timestamps, diff_y);
+        // plt::named_plot("Filter velocity y", timestamps, vel_x);
+        // plt::legend();
+        // plt::show(true);
+        // plt::cla();
 
-        plt::title("Hand Right Velocities Z ");
-        plt::named_plot("Finite diff z", timestamps, diff_z);
-        plt::named_plot("Filter velocity z", timestamps, vel_x);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
-        */
-        plt::title("Hand Right Position X");
-        plt::named_plot("Unfiltered", timestamps, unx);
-        plt::named_plot("Filtered", timestamps, x);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        // plt::title("Hand Right Velocities Z ");
+        // plt::named_plot("Finite diff z", timestamps, diff_z);
+        // plt::named_plot("Filter velocity z", timestamps, vel_x);
+        // plt::legend();
+        // plt::show(true);
+        // plt::cla();
+        //
 
-        plt::title("Hand Right Position Y");
-        plt::named_plot("Unfiltered", timestamps, uny);
-        plt::named_plot("Filtered", timestamps, y);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
 
-        plt::title("Hand Right Position Z ");
-        plt::named_plot("Unfiltered", timestamps, unz);
-        plt::named_plot("Filtered", timestamps, z);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        NamedPlot<double> plot_a("Hand Right Position X", true);
+        plot_a.add_line(NamedLine<double>("Unfiltered", timestamps, unx));
+        plot_a.add_line(NamedLine<double>("Filtered", timestamps, x));
+        plotwrap.add_named_plot(plot_a);
+
+        NamedPlot<double> plot_b("Hand Right Position Y", true);
+        plot_b.add_line(NamedLine<double>("Unfiltered", timestamps, uny));
+        plot_b.add_line(NamedLine<double>("Filtered", timestamps, y));
+        plotwrap.add_named_plot(plot_b);
+
+        NamedPlot<double> plot_c("Hand Right Position Z", true);
+        plot_c.add_line(NamedLine<double>("Unfiltered", timestamps, unz));
+        plot_c.add_line(NamedLine<double>("Filtered", timestamps, z));
+        plotwrap.add_named_plot(plot_c);
     }
-    plt::close();
+    //plt::close();
     std::cout << "Process Thread Exit" << std::endl;
     s_stillPlotting = false;
+
+    frame_result_json["filters"] = filters;
+    process_json_promise.set_value(std::make_tuple(frame_result_json, plotwrap));
 }

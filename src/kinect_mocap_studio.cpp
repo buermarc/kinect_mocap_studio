@@ -42,6 +42,7 @@
 #include <kinect_mocap_studio/process.hpp>
 #include <kinect_mocap_studio/visualize.hpp>
 #include <kinect_mocap_studio/plotting.hpp>
+#include <kinect_mocap_studio/plotwrap.hpp>
 
 
 #include <matplotlibcpp/matplotlibcpp.h>
@@ -109,8 +110,8 @@ int main(int argc, char** argv)
     // Echo the configuration to the command terminal
     config.printConfig();
 
-    std::promise<nlohmann::json> process_json_promise;
-    std::future<nlohmann::json> process_json_future = process_json_promise.get_future();
+    std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise;
+    std::future<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_future = process_json_promise.get_future();
 
     std::promise<nlohmann::json> visualize_json_promise;
     std::future<nlohmann::json> visualize_json_future = visualize_json_promise.get_future();
@@ -217,6 +218,7 @@ int main(int argc, char** argv)
         if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
             if (stream_result == K4A_STREAM_RESULT_EOF) {
+                s_isRunning = false;
                 break;
             } else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED) {
                 capture_ready = true;
@@ -412,7 +414,7 @@ int main(int argc, char** argv)
     visualize_thread.join();
     plot_thread.join();
 
-    auto process_json = process_json_future.get();
+    auto [process_json, plotwrap] = process_json_future.get();
 
     // Write the frame_data_time_series to file
     now = time(0);
@@ -445,6 +447,7 @@ int main(int argc, char** argv)
     while (s_stillPlotting) {
         std::this_thread::yield();
     }
+    plotwrap.plot_all();
     // plt::close();
     std::exit(0);
 }
