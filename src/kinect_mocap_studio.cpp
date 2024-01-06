@@ -447,7 +447,7 @@ int main(int argc, char** argv)
     while (s_stillPlotting) {
         std::this_thread::yield();
     }
-    plotwrap.plot_all();
+    //plotwrap.plot_all();
     // plt::close();
     std::exit(0);
 }

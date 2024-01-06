@@ -200,6 +200,7 @@ void processThread(
 
 
     PlotWrap<double> plotwrap;
+    /*
     if (filters.size() > 0) {
         auto filter = filters.cbegin()->second;
         auto unpositions = filter.get_unfiltered_positions();
@@ -307,6 +308,7 @@ void processThread(
         plotwrap.add_named_plot(plot_c);
     }
     //plt::close();
+    */
     std::cout << "Process Thread Exit" << std::endl;
     s_stillPlotting = false;
 
