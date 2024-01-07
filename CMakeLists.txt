@@ -118,5 +118,19 @@ target_link_libraries(kinect_mocap_studio
     freetype
     ${PYTHON_LIBRARIES}
 )
+add_executable(evaluate src/evaluate.cpp)
+target_link_libraries(evaluate
+    Boost::lockfree
+    filter
+    k4a
+    k4abt
+    window_controller_3d::window_controller_3d
+    k4arecord
+    nlohmann_json::nlohmann_json
+    openGLPlotLive
+    freetype
+    ${PYTHON_LIBRARIES}
+)
+
 add_custom_command(TARGET kinect_mocap_studio PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/../openGLPlotLive/Shaders $<TARGET_FILE_DIR:kinect_mocap_studio>/Shaders)
 add_custom_command(TARGET kinect_mocap_studio PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/../openGLPlotLive/textures $<TARGET_FILE_DIR:kinect_mocap_studio>/textures)

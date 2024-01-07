@@ -25,6 +25,7 @@ target_include_directories(window_controller_3d PUBLIC ${CMAKE_CURRENT_SOURCE_DI
 # Dependencies of this library
 target_link_libraries(window_controller_3d PRIVATE 
     glfw::glfw
+    k4a
     )
 
 add_library(window_controller_3d::window_controller_3d ALIAS window_controller_3d)
