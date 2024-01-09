@@ -113,11 +113,12 @@ void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<do
     for (auto joint : frame.joints) {
         add_point(window3d, joint + kinect_point);
     }
+    std::cout << "Kinect Point: " << frame.joints.at(0) + kinect_point << std::endl;
 
 }
 
 void visualizeQtmLogic(Window3dWrapper& window3d, QtmFrame frame) {
-    window3d.CleanJointsAndBones();
+    std::cout << "QTM Point: " << frame.l_ak << std::endl;
     add_point(window3d, frame.l_ak);
     add_point(window3d, frame.r_ak);
     add_point(window3d, frame.b_ak);
@@ -489,7 +490,9 @@ class Experiment {
 
         auto camera_middle =  azure_kinect_origin_lab_coords(data.l_ak, data.r_ak, data.b_ak);
 
-        auto last_ts = ts.at(0);
+        std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
+        std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
+        auto first_ts = ts.at(0);
 
         int j = 0;
         for (int i = 0; i < data.timestamps.size(); ++i) {
@@ -505,21 +508,34 @@ class Experiment {
                 data.r_usp.at(i)
             };
 
-            auto time = ts.at(j) - last_ts;
-            if (data.timestamps.at(i) <= time < data.timestamps.at(i+1)) {
-                std::vector<Point<double>> points;
-                for (int k = 0; k < 32; ++k) {
-                    points.push_back(Point<double>(
-                        joints(i, k, 0),
-                        joints(i, k, 1),
-                        joints(i, k, 2)
-                    ));
+            if (j < ts.size()) {
+                std::cout << "visualizeKinect step: " << j << std::endl;
+                auto time = ts.at(j) - first_ts;
+                std::cout << "Kinect time: " << time << std::endl;
+                std::cout << "QTM time: " << data.timestamps.at(i) << std::endl;
+                double current = data.timestamps.at(i);
+                double next;
+                if (i == data.timestamps.size() - 1) {
+                    next = data.timestamps.at(i) + (data.timestamps.at(i) - data.timestamps.at(i-1));
+                } else if (i >= data.timestamps.size()) {
+                    break;
+                } else {
+                    next = data.timestamps.at(i+1);
                 }
+                if (current <= time && time < next) {
+                    std::vector<Point<double>> points;
+                    for (int k = 0; k < 32; ++k) {
+                        points.push_back(Point<double>(
+                            joints(j, k, 0),
+                            joints(j, k, 1),
+                            joints(j, k, 2)
+                        ));
+                    }
 
-                KinectFrame kinect_frame { points };
-                visualizeKinectLogic(window3d, kinect_frame, camera_middle);
-                last_ts = ts.at(j);
-                j++;
+                    KinectFrame kinect_frame { points };
+                    visualizeKinectLogic(window3d, kinect_frame, camera_middle);
+                    j++;
+                }
             }
 
             visualizeQtmLogic(window3d, qtm_frame);
@@ -528,6 +544,7 @@ class Experiment {
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
+            window3d.CleanJointsAndBones();
             if (!s_isRunning) {
                 break;
             }
