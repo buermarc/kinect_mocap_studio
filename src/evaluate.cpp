@@ -1,3 +1,4 @@
+#include "filter/com.hpp"
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include<string>
 #include<tuple>
@@ -110,15 +111,15 @@ int64_t closeCallback(void* /*context*/)
 }
 
 void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<double> kinect_point) {
+    std::cout << "Frame size: " << frame.joints.size() << std::endl;
     for (auto joint : frame.joints) {
+        // add_point(window3d, joint, Color {0, 1, 0, 1});
         add_point(window3d, joint + kinect_point);
     }
-    std::cout << "Kinect Point: " << frame.joints.at(0) + kinect_point << std::endl;
 
 }
 
 void visualizeQtmLogic(Window3dWrapper& window3d, QtmFrame frame) {
-    std::cout << "QTM Point: " << frame.l_ak << std::endl;
     add_point(window3d, frame.l_ak);
     add_point(window3d, frame.r_ak);
     add_point(window3d, frame.b_ak);
@@ -492,21 +493,30 @@ class Experiment {
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
         std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
+
+        // What ever is longer should continue
+        // Never go longer over the max size
+
         auto first_ts = ts.at(0);
 
+        QtmFrame qtm_frame;
+        KinectFrame kinect_frame;
+        int i = 0;
         int j = 0;
-        for (int i = 0; i < data.timestamps.size(); ++i) {
-            QtmFrame qtm_frame {
-                data.timestamps.at(i),
-                data.l_ak.at(i),
-                data.r_ak.at(i),
-                data.b_ak.at(i),
-                data.l_sae.at(i),
-                data.l_hle.at(i),
-                data.l_usp.at(i),
-                data.r_hle.at(i),
-                data.r_usp.at(i)
-            };
+        while (i < data.timestamps.size() or j < ts.size()) {
+            if (i < data.timestamps.size()) {
+                qtm_frame = QtmFrame {
+                    data.timestamps.at(i),
+                    data.l_ak.at(i),
+                    data.r_ak.at(i),
+                    data.b_ak.at(i),
+                    data.l_sae.at(i),
+                    data.l_hle.at(i),
+                    data.l_usp.at(i),
+                    data.r_hle.at(i),
+                    data.r_usp.at(i)
+                };
+            }
 
             if (j < ts.size()) {
                 std::cout << "visualizeKinect step: " << j << std::endl;
@@ -518,7 +528,7 @@ class Experiment {
                 if (i == data.timestamps.size() - 1) {
                     next = data.timestamps.at(i) + (data.timestamps.at(i) - data.timestamps.at(i-1));
                 } else if (i >= data.timestamps.size()) {
-                    break;
+                    next = ts.back();
                 } else {
                     next = data.timestamps.at(i+1);
                 }
@@ -531,16 +541,16 @@ class Experiment {
                             joints(j, k, 2)
                         ));
                     }
-
-                    KinectFrame kinect_frame { points };
-                    visualizeKinectLogic(window3d, kinect_frame, camera_middle);
+                    kinect_frame = KinectFrame { points };
                     j++;
                 }
             }
+            i++;
 
+            visualizeKinectLogic(window3d, kinect_frame, camera_middle);
             visualizeQtmLogic(window3d, qtm_frame);
-
             add_point(window3d, camera_middle, Color {0, 1, 0, 1});
+
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
