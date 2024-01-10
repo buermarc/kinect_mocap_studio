@@ -111,9 +111,7 @@ int64_t closeCallback(void* /*context*/)
 }
 
 void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<double> kinect_point) {
-    std::cout << "Frame size: " << frame.joints.size() << std::endl;
     for (auto joint : frame.joints) {
-        // add_point(window3d, joint, Color {0, 1, 0, 1});
         add_point(window3d, joint + kinect_point);
     }
 
@@ -255,10 +253,6 @@ class QtmRecording {
             if (header.size() > 0) {
                 key = header.at(0);
             }
-            for (auto element : header) {
-                std::cout << element << " ";
-            }
-            std::cout << std::endl;;
         } while (key != "Frame");
 
 
@@ -279,9 +273,6 @@ class QtmRecording {
         while (!csv_file.eof()) {
             auto results = getNextLineAndSplitIntoTokens(csv_file);
             if (results.size() == 1) {
-                for (auto e : results) {
-                    std::cout << e << std::endl;
-                }
                 break;
             }
             timestamps.push_back(std::stod(results.at(1)));
@@ -389,10 +380,6 @@ class QtmRecording {
             if (header.size() > 0) {
                 key = header.at(0);
             }
-            for (auto element : header) {
-                std::cout << element << " ";
-            }
-            std::cout << std::endl;;
         } while (key != "SAMPLE");
 
 
@@ -405,9 +392,6 @@ class QtmRecording {
         while (!csv_file.eof()) {
             auto results = getNextLineAndSplitIntoTokens(csv_file);
             if (results.size() == 1) {
-                for (auto e : results) {
-                    std::cout << e << std::endl;
-                }
                 break;
             }
             timestamps.push_back(std::stod(results.at(1)));
@@ -478,9 +462,51 @@ class Experiment {
 
     void visualize() {
         Data data = qtm_recording.read_marker_file();
+        double max = 0;
+        double tmp = 0;
+        int idx = 0;
+        int max_idx = 0;
+        for (auto point : data.l_sae) {
+            tmp = point.y * (-1);
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            idx++;
+        }
+        double qtm_max_ts = data.timestamps.at(max_idx);
+
+        std::cout << "QTM max_idx: " << max_idx << std::endl;
+        std::cout << "QTM max_idx timestamps: " << qtm_max_ts << std::endl;
+        std::cout << "QTM max_idx point: " << data.l_sae.at(max_idx) << std::endl;
 
         auto ts = kinect_recording.timestamps;
         auto joints = kinect_recording.joints;
+
+        max = 0;
+        tmp = 0;
+        max_idx = 0;
+        for (int idx = 0; idx < ts.size(); ++idx) {
+            tmp = (-1) * joints(idx, K4ABT_JOINT_SHOULDER_LEFT, 1);
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            idx++;
+        }
+        double kinect_max_ts = ts.at(max_idx) - ts.front();
+        std::cout << "Kinect max_idx: " << max_idx << std::endl;
+        std::cout << "Kinect max_idx timestamps: " << kinect_max_ts << std::endl;
+        auto point = Point<double>(
+            joints(max_idx, K4ABT_JOINT_SHOULDER_LEFT, 0),
+            joints(max_idx, K4ABT_JOINT_SHOULDER_LEFT, 1),
+            joints(max_idx, K4ABT_JOINT_SHOULDER_LEFT, 2)
+        );
+        std::cout << "Kinect max_idx point: " << point << std::endl;
+
+        double time_offset = qtm_max_ts - kinect_max_ts;
+        std::cout << "Time offset: " << time_offset << std::endl;
+
 
         Window3dWrapper window3d;
         k4a_calibration_t sensor_calibration;
@@ -519,11 +545,10 @@ class Experiment {
             }
 
             if (j < ts.size()) {
-                std::cout << "visualizeKinect step: " << j << std::endl;
-                auto time = ts.at(j) - first_ts;
-                std::cout << "Kinect time: " << time << std::endl;
-                std::cout << "QTM time: " << data.timestamps.at(i) << std::endl;
+                auto time = ts.at(j) - first_ts + time_offset;
                 double current = data.timestamps.at(i);
+                std::cout << "Kinect time: " << time << std::endl;
+                std::cout << "QTM time: " << current << std::endl;
                 double next;
                 if (i == data.timestamps.size() - 1) {
                     next = data.timestamps.at(i) + (data.timestamps.at(i) - data.timestamps.at(i-1));
@@ -592,8 +617,8 @@ int main(int argc, char** argv) {
     auto file = tsv_file.getValue();
     auto experiment = Experiment(tsv_file.getValue(), kinect_file.getValue());
 
-    Data data = experiment.qtm_recording.read_marker_file();
-    experiment.qtm_recording.read_force_plate_files();
+    // Data data = experiment.qtm_recording.read_marker_file();
+    // experiment.qtm_recording.read_force_plate_files();
 
     std::cout << experiment << std::endl;
 
