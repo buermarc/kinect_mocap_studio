@@ -9,6 +9,7 @@
 #include<sstream>
 #include<tclap/CmdLine.h>
 #include<filter/Point.hpp>
+#include<filter/com.hpp>
 #include<filter/Utils.hpp>
 
 #include<nlohmann/json.hpp>
@@ -220,6 +221,18 @@ std::ostream& operator<<(std::ostream& out, KinectRecording const& recording)
     return out;
 }
 
+struct ForcePlateData {
+
+    Plane<double> plate;
+    bool used;
+    std::vector<double> timestamps;
+    std::vector<Point<double>> force;
+    std::vector<Point<double>> moment;
+    std::vector<Point<double>> cop;
+
+};
+
+
 class QtmRecording {
     public:
     QtmRecording(std::string file) {
@@ -364,17 +377,44 @@ class QtmRecording {
         return Data { timestamps , l_ak , r_ak , b_ak , l_sae, l_hle , l_usp , r_hle , r_usp };
     }
 
-    std::tuple<
-        std::vector<double>,
-        std::vector<Point<double>>,
-        std::vector<Point<double>>,
-        std::vector<Point<double>>
-    >
+    ForcePlateData
     read_force_plate_file(std::string force_plate_file) {
         std::ifstream csv_file(force_plate_file);
 
         // Go through headers for file
         std::string key = "";
+        do {
+            auto header = getNextLineAndSplitIntoTokens(csv_file);
+            if (header.size() > 0) {
+                key = header.at(0);
+            }
+        } while (key != "FORCE_PLATE_NAME");
+
+        // Get force plate placement in the lab
+        double lu_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double lu_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+        double lu_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+
+        double ld_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double ld_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+        double ld_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+
+        double ru_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double ru_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+        double ru_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+
+        double rd_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double rd_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+        double rd_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1))*(-1);
+
+        auto left_up = Point<double>(lu_x, lu_y, lu_z) / 1000;
+        auto left_down = Point<double>(ld_x, ld_y, ld_z) / 1000;
+
+        auto right_up = Point<double>(ru_x, ru_y, ru_z) / 1000;
+        auto right_down = Point<double>(rd_x, rd_y, rd_z) / 1000;
+
+        auto plate = Plane<double>(left_down, right_down, right_up, left_up);
+
         do {
             auto header = getNextLineAndSplitIntoTokens(csv_file);
             if (header.size() > 0) {
@@ -400,36 +440,42 @@ class QtmRecording {
             i = 2;
             force.push_back(
                 Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))
+                    std::stod(results.at(i + 0)) / 1000 ,
+                    std::stod(results.at(i + 2)) / 1000 ,
+                    std::stod(results.at(i + 1)) / 1000
                 )
             );
 
             i += 3;
             moment.push_back(
                 Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))
+                    std::stod(results.at(i + 0)) / 1000,
+                    (-1) * std::stod(results.at(i + 2)) / 1000,
+                    (-1) * std::stod(results.at(i + 1)) / 1000
                 )
             );
 
             i += 3;
             cop.push_back(
                 Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))
+                    std::stod(results.at(i + 0)) / 1000,
+                    (-1) * std::stod(results.at(i + 2)) / 1000,
+                    (-1) * std::stod(results.at(i + 1)) / 1000
                 )
             );
         }
-        return std::make_tuple(timestamps, force, moment, cop);
+        auto mean = std::accumulate(force.cbegin(), force.cend(), Point<double>()) / force.size();
+        bool used = (std::abs(mean.z) > 10);
+        std::cout << "Force plate z mean: " << mean << std::endl;
+        std::cout << "Force plate used: " << used << std::endl;
+        return ForcePlateData { plate, used, timestamps, force, moment, cop };
     }
 
-    void read_force_plate_files() {
-        auto [timestamp_f1, force_f1, moment_f1, com_f1] = read_force_plate_file(force_plate_file_f1);
-        auto [timestamp_f2, force_f2, moment_f2, com_f2] = read_force_plate_file(force_plate_file_f2);
+    std::tuple<ForcePlateData, ForcePlateData> read_force_plate_files() {
+        auto data1 = read_force_plate_file(force_plate_file_f1);
+        auto data2 = read_force_plate_file(force_plate_file_f2);
+
+        return std::make_tuple(data1, data2);
 
         // print_vec("timestamp_f1", timestamp_f1);
         // print_vec("force_f1", force_f1);
@@ -462,6 +508,8 @@ class Experiment {
 
     void visualize() {
         Data data = qtm_recording.read_marker_file();
+        auto [force_data_f1, force_data_f2]  = qtm_recording.read_force_plate_files();
+
         double max = 0;
         double tmp = 0;
         int idx = 0;
@@ -576,6 +624,20 @@ class Experiment {
             visualizeQtmLogic(window3d, qtm_frame);
             add_point(window3d, camera_middle, Color {0, 1, 0, 1});
 
+            add_point(window3d, force_data_f1.plate.a, Color { 0, 1, 0, 1});
+            add_point(window3d, force_data_f1.plate.b, Color { 0, 1, 0, 1});
+            add_point(window3d, force_data_f1.plate.c, Color { 0, 1, 0, 1});
+            add_point(window3d, force_data_f1.plate.d, Color { 0, 1, 0, 1});
+
+            add_point(window3d, force_data_f2.plate.a, Color { 0, 1, 0, 1});
+            add_point(window3d, force_data_f2.plate.b, Color { 0, 1, 0, 1});
+            add_point(window3d, force_data_f2.plate.c, Color { 0, 1, 0, 1});
+            add_point(window3d, force_data_f2.plate.d, Color { 0, 1, 0, 1});
+
+            int f = i * 6;
+            add_bone(window3d, force_data_f1.cop.at(f), force_data_f1.cop.at(f) + force_data_f1.force.at(f), Color { 0, 1, 0, 1});
+            add_bone(window3d, force_data_f2.cop.at(f), force_data_f2.cop.at(f) + force_data_f2.force.at(f), Color { 0, 1, 0, 1});
+
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
@@ -618,7 +680,7 @@ int main(int argc, char** argv) {
     auto experiment = Experiment(tsv_file.getValue(), kinect_file.getValue());
 
     // Data data = experiment.qtm_recording.read_marker_file();
-    // experiment.qtm_recording.read_force_plate_files();
+    experiment.qtm_recording.read_force_plate_files();
 
     std::cout << experiment << std::endl;
 
