@@ -2,6 +2,7 @@
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include<string>
 #include<tuple>
+#include<limits>
 #include<algorithm>
 #include<vector>
 #include<fstream>
@@ -465,7 +466,7 @@ class QtmRecording {
             );
         }
         auto mean = std::accumulate(force.cbegin(), force.cend(), Point<double>()) / force.size();
-        bool used = (std::abs(mean.z) > 10);
+        bool used = (std::abs(mean.y) > 0.1);
         std::cout << "Force plate z mean: " << mean << std::endl;
         std::cout << "Force plate used: " << used << std::endl;
         return ForcePlateData { plate, used, timestamps, force, moment, cop };
@@ -506,53 +507,258 @@ class Experiment {
     Experiment(std::string qtm_file, std::string kinect_file) : qtm_recording(qtm_file), kinect_recording(kinect_file) {}
     friend std::ostream& operator<<(std::ostream& out, Experiment const& recording);
 
+    double _min_max_for_one_point(
+        std::vector<int>& qtm_min_events,
+        std::vector<int>& qtm_max_events,
+        std::vector<int>& kinect_min_events,
+        std::vector<int>& kinect_max_events,
+        std::vector<Point<double>> qtm,
+        std::vector<Point<double>> kinect)
+    {
+        double min = std::numeric_limits<double>::max();
+        double max = 0;
+        double tmp = 0;
+
+        int idx = 0;
+
+        int min_idx = 0;
+        int max_idx = 0;
+
+        int qtm_x_min_idx = 0;
+        int qtm_x_max_idx = 0;
+
+        int qtm_y_min_idx = 0;
+        int qtm_y_max_idx = 0;
+
+        int qtm_z_min_idx = 0;
+        int qtm_z_max_idx = 0;
+
+        int kinect_x_min_idx = 0;
+        int kinect_x_max_idx = 0;
+
+        int kinect_y_min_idx = 0;
+        int kinect_y_max_idx = 0;
+
+        int kinect_z_min_idx = 0;
+        int kinect_z_max_idx = 0;
+
+
+        for (auto point : qtm) {
+            tmp = point.x;
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            if (tmp < min) {
+                min = tmp;
+                min_idx = idx;
+            }
+            idx++;
+        }
+
+        qtm_min_events.push_back(min_idx);
+        qtm_max_events.push_back(max_idx);
+
+
+        for (auto point : qtm) {
+            tmp = point.y;
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            if (tmp < min) {
+                min = tmp;
+                min_idx = idx;
+            }
+            idx++;
+        }
+
+        qtm_min_events.push_back(min_idx);
+        qtm_max_events.push_back(max_idx);
+
+        for (auto point : qtm) {
+            tmp = point.z;
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            if (tmp < min) {
+                min = tmp;
+                min_idx = idx;
+            }
+            idx++;
+        }
+
+        qtm_min_events.push_back(min_idx);
+        qtm_max_events.push_back(max_idx);
+
+        for (auto point : kinect) {
+            tmp = point.x;
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            if (tmp < min) {
+                min = tmp;
+                min_idx = idx;
+            }
+            idx++;
+        }
+
+        kinect_min_events.push_back(min_idx);
+        kinect_max_events.push_back(max_idx);
+
+
+        for (auto point : kinect) {
+            tmp = point.y;
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            if (tmp < min) {
+                min = tmp;
+                min_idx = idx;
+            }
+            idx++;
+        }
+
+        kinect_min_events.push_back(min_idx);
+        kinect_max_events.push_back(max_idx);
+
+        for (auto point : kinect) {
+            tmp = point.z;
+            if (tmp > max) {
+                max = tmp;
+                max_idx = idx;
+            }
+            if (tmp < min) {
+                min = tmp;
+                min_idx = idx;
+            }
+            idx++;
+        }
+
+        kinect_min_events.push_back(min_idx);
+        kinect_max_events.push_back(max_idx);
+
+    }
+
+    double calculate_time_offset(Data& data, Tensor<double, 3>& joints, std::vector<double> ts)
+    {
+        // Do this for each joint
+        // Sort indicies, remove outlier -> anything above std deviation 1
+        // Get mean
+
+        std::vector<int> qtm_min_events;
+        std::vector<int> qtm_max_events;
+        std::vector<int> kinect_min_events;
+        std::vector<int> kinect_max_events;
+
+
+        std::vector<Point<double>> kinect;
+        std::vector<Point<double>> qtm;
+
+        for (int i = 0; i < ts.size(); ++i) {
+            kinect.push_back(Point<double>(
+                joints(i, K4ABT_JOINT_SHOULDER_LEFT, 0),
+                joints(i, K4ABT_JOINT_SHOULDER_LEFT, 1),
+                joints(i, K4ABT_JOINT_SHOULDER_LEFT, 2)
+            ));
+        }
+        _min_max_for_one_point(qtm_min_events, qtm_max_events, kinect_min_events, kinect_max_events, data.l_sae, kinect);
+        kinect.clear();
+        qtm.clear();
+
+        for (int i = 0; i < data.timestamps.size(); ++i) {
+            qtm.push_back(data.r_hle.at(i) + (data.l_hle.at(i) - data.r_hle.at(i)));
+        }
+
+        for (int i = 0; i < ts.size(); ++i) {
+            kinect.push_back(Point<double>(
+                joints(i, K4ABT_JOINT_ELBOW_LEFT, 0),
+                joints(i, K4ABT_JOINT_ELBOW_LEFT, 1),
+                joints(i, K4ABT_JOINT_ELBOW_LEFT, 2)
+            ));
+        }
+        _min_max_for_one_point(qtm_min_events, qtm_max_events, kinect_min_events, kinect_max_events, qtm, kinect);
+        kinect.clear();
+        qtm.clear();
+
+        for (int i = 0; i < data.timestamps.size(); ++i) {
+            qtm.push_back(data.r_usp.at(i) + (data.l_usp.at(i) - data.r_usp.at(i)));
+        }
+
+        for (int i = 0; i < ts.size(); ++i) {
+            kinect.push_back(Point<double>(
+                joints(i, K4ABT_JOINT_HAND_LEFT, 0),
+                joints(i, K4ABT_JOINT_HAND_LEFT, 1),
+                joints(i, K4ABT_JOINT_HAND_LEFT, 2)
+            ));
+        }
+        _min_max_for_one_point(qtm_min_events, qtm_max_events, kinect_min_events, kinect_max_events, qtm, kinect);
+        kinect.clear();
+        qtm.clear();
+
+        double qtm_min_mean = std::accumulate(qtm_min_events.cbegin(), qtm_min_events.cend(), 0.0) / qtm_min_events.size();
+        double qtm_max_mean = std::accumulate(qtm_max_events.cbegin(), qtm_max_events.cend(), 0.0) / qtm_max_events.size();
+
+        double qtm_min_std = std::sqrt(std::accumulate(qtm_min_events.cbegin(), qtm_min_events.cend(), 0, [=](double a, double b) {
+            return a + std::pow(b - qtm_min_mean, 2);
+        ;}));
+        double qtm_max_std = std::sqrt(std::accumulate(qtm_max_events.cbegin(), qtm_max_events.cend(), 0, [=](double a, double b) {
+            return a + std::pow(b - qtm_max_mean, 2);
+        ;}));
+
+        std::vector<double> qtm_min_events_filtered;
+        std::vector<double> qtm_max_events_filtered;
+
+        std::copy_if(qtm_min_events.cbegin(), qtm_max_events.cend(), qtm_min_events_filtered.begin(), [=](auto element){
+            return (element > (qtm_min_mean - qtm_min_std) and (element < qtm_min_mean + qtm_min_std));
+        });
+        std::copy_if(qtm_max_events.cbegin(), qtm_max_events.cend(), qtm_max_events_filtered.begin(), [=](auto element){
+            return (element > (qtm_max_mean - qtm_max_std) and (element < qtm_max_mean + qtm_max_std));
+        });
+
+        int qtm_min_mean_filtered = (int)std::accumulate(qtm_min_events_filtered.cbegin(), qtm_min_events_filtered.cend(), 0.0) / qtm_min_events_filtered.size();
+        int qtm_max_mean_filtered = (int)std::accumulate(qtm_max_events_filtered.cbegin(), qtm_max_events_filtered.cend(), 0.0) / qtm_max_events_filtered.size();
+
+
+
+        double kinect_min_mean = std::accumulate(kinect_min_events.cbegin(), kinect_min_events.cend(), 0.0) / kinect_min_events.size();
+        double kinect_max_mean = std::accumulate(kinect_max_events.cbegin(), kinect_max_events.cend(), 0.0) / kinect_max_events.size();
+
+        double kinect_min_std = std::sqrt(std::accumulate(kinect_min_events.cbegin(), kinect_min_events.cend(), 0, [=](double a, double b) {
+            return a + std::pow(b - kinect_min_mean, 2);
+        ;}));
+        double kinect_max_std = std::sqrt(std::accumulate(kinect_max_events.cbegin(), kinect_max_events.cend(), 0, [=](double a, double b) {
+            return a + std::pow(b - kinect_max_mean, 2);
+        ;}));
+
+        std::vector<double> kinect_min_events_filtered;
+        std::vector<double> kinect_max_events_filtered;
+
+        std::copy_if(kinect_min_events.cbegin(), kinect_max_events.cend(), kinect_min_events_filtered.begin(), [=](auto element){
+            return (element > (kinect_min_mean - kinect_min_std) and (element < kinect_min_mean + kinect_min_std));
+        });
+        std::copy_if(kinect_max_events.cbegin(), kinect_max_events.cend(), kinect_max_events_filtered.begin(), [=](auto element){
+            return (element > (kinect_max_mean - kinect_max_std) and (element < kinect_max_mean + kinect_max_std));
+        });
+
+        int kinect_min_mean_filtered = (int)std::accumulate(kinect_min_events_filtered.cbegin(), kinect_min_events_filtered.cend(), 0.0) / kinect_min_events_filtered.size();
+        int kinect_max_mean_filtered = (int)std::accumulate(kinect_max_events_filtered.cbegin(), kinect_max_events_filtered.cend(), 0.0) / kinect_max_events_filtered.size();
+
+        return qtm_max_ts - kinect_max_ts;
+
+    }
+
     void visualize() {
         Data data = qtm_recording.read_marker_file();
         auto [force_data_f1, force_data_f2]  = qtm_recording.read_force_plate_files();
 
-        double max = 0;
-        double tmp = 0;
-        int idx = 0;
-        int max_idx = 0;
-        for (auto point : data.l_sae) {
-            tmp = point.y * (-1);
-            if (tmp > max) {
-                max = tmp;
-                max_idx = idx;
-            }
-            idx++;
-        }
-        double qtm_max_ts = data.timestamps.at(max_idx);
-
-        std::cout << "QTM max_idx: " << max_idx << std::endl;
-        std::cout << "QTM max_idx timestamps: " << qtm_max_ts << std::endl;
-        std::cout << "QTM max_idx point: " << data.l_sae.at(max_idx) << std::endl;
-
         auto ts = kinect_recording.timestamps;
         auto joints = kinect_recording.joints;
 
-        max = 0;
-        tmp = 0;
-        max_idx = 0;
-        for (int idx = 0; idx < ts.size(); ++idx) {
-            tmp = (-1) * joints(idx, K4ABT_JOINT_SHOULDER_LEFT, 1);
-            if (tmp > max) {
-                max = tmp;
-                max_idx = idx;
-            }
-            idx++;
-        }
-        double kinect_max_ts = ts.at(max_idx) - ts.front();
-        std::cout << "Kinect max_idx: " << max_idx << std::endl;
-        std::cout << "Kinect max_idx timestamps: " << kinect_max_ts << std::endl;
-        auto point = Point<double>(
-            joints(max_idx, K4ABT_JOINT_SHOULDER_LEFT, 0),
-            joints(max_idx, K4ABT_JOINT_SHOULDER_LEFT, 1),
-            joints(max_idx, K4ABT_JOINT_SHOULDER_LEFT, 2)
-        );
-        std::cout << "Kinect max_idx point: " << point << std::endl;
-
-        double time_offset = qtm_max_ts - kinect_max_ts;
+        double time_offset = calculate_time_offset(data, joints, ts);
         std::cout << "Time offset: " << time_offset << std::endl;
 
 
@@ -594,15 +800,18 @@ class Experiment {
 
             if (j < ts.size()) {
                 auto time = ts.at(j) - first_ts + time_offset;
-                double current = data.timestamps.at(i);
-                std::cout << "Kinect time: " << time << std::endl;
-                std::cout << "QTM time: " << current << std::endl;
+                double current;
+                // std::cout << "Kinect time: " << time << std::endl;
+                // std::cout << "QTM time: " << current << std::endl;
                 double next;
                 if (i == data.timestamps.size() - 1) {
                     next = data.timestamps.at(i) + (data.timestamps.at(i) - data.timestamps.at(i-1));
+                    current = data.timestamps.at(data.timestamps.size() - 2);
                 } else if (i >= data.timestamps.size()) {
                     next = ts.back();
+                    current = data.timestamps.at(data.timestamps.size() - 2);
                 } else {
+                    current = data.timestamps.at(i);
                     next = data.timestamps.at(i+1);
                 }
                 if (current <= time && time < next) {
@@ -624,19 +833,39 @@ class Experiment {
             visualizeQtmLogic(window3d, qtm_frame);
             add_point(window3d, camera_middle, Color {0, 1, 0, 1});
 
-            add_point(window3d, force_data_f1.plate.a, Color { 0, 1, 0, 1});
-            add_point(window3d, force_data_f1.plate.b, Color { 0, 1, 0, 1});
-            add_point(window3d, force_data_f1.plate.c, Color { 0, 1, 0, 1});
-            add_point(window3d, force_data_f1.plate.d, Color { 0, 1, 0, 1});
+            {
+                // Render force plate related stuff
+                add_point(window3d, force_data_f1.plate.a, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f1.plate.b, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f1.plate.c, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f1.plate.d, Color { 0, 1, 0, 1});
 
-            add_point(window3d, force_data_f2.plate.a, Color { 0, 1, 0, 1});
-            add_point(window3d, force_data_f2.plate.b, Color { 0, 1, 0, 1});
-            add_point(window3d, force_data_f2.plate.c, Color { 0, 1, 0, 1});
-            add_point(window3d, force_data_f2.plate.d, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f2.plate.a, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f2.plate.b, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f2.plate.c, Color { 0, 1, 0, 1});
+                add_point(window3d, force_data_f2.plate.d, Color { 0, 1, 0, 1});
 
-            int f = i * 6;
-            add_bone(window3d, force_data_f1.cop.at(f), force_data_f1.cop.at(f) + force_data_f1.force.at(f), Color { 0, 1, 0, 1});
-            add_bone(window3d, force_data_f2.cop.at(f), force_data_f2.cop.at(f) + force_data_f2.force.at(f), Color { 0, 1, 0, 1});
+                int f = i * 6;
+                if (f >= force_data_f1.cop.size()) {
+                    f = force_data_f1.cop.size() - 1;
+                }
+                if (force_data_f1.used && !force_data_f2.used) {
+                    add_bone(window3d, force_data_f1.cop.at(f), force_data_f1.cop.at(f) + force_data_f1.force.at(f), Color { 0, 1, 0, 1});
+                } else if (!force_data_f1.used && force_data_f2.used) {
+                    add_bone(window3d, force_data_f2.cop.at(f), force_data_f2.cop.at(f) + force_data_f2.force.at(f), Color { 0, 1, 0, 1});
+                } else if (force_data_f1.used && force_data_f2.used) {
+                    auto cop1 = force_data_f1.cop.at(f);
+                    auto cop2 = force_data_f2.cop.at(f);
+                    auto middle = cop1 + ((cop2 - cop1) / 2);
+                    auto force1 = force_data_f1.force.at(f);
+                    auto force2 = force_data_f2.force.at(f);
+                    auto total_force = force1 + force2;
+                    add_bone(window3d, middle, middle + total_force, Color { 0, 1, 0, 1});
+                }
+
+            }
+
+
 
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
