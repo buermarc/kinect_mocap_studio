@@ -1,9 +1,8 @@
 #include "SampleMathTypes.h"
-#include <iostream>
 #include <kinect_mocap_studio/moving_average.hpp>
+#include <iostream>
 
-std::optional<Samples::Plane> MovingAverage::get_average(std::optional<Samples::Plane> plane)
-{
+std::optional<Samples::Plane> MovingAverage::get_average(std::optional<Samples::Plane> plane) {
     std::cout << "Inside here" << std::endl;
     if (plane.has_value()) {
         std::cout << "Before" << std::endl;
@@ -18,49 +17,49 @@ std::optional<Samples::Plane> MovingAverage::get_average(std::optional<Samples::
 
         if (!m_init) {
             m_init = true;
-            Samples::Plane& current = m_window[m_idx];
-            current.Normal.X = plane->Normal.X;
-            current.Normal.Y = plane->Normal.Y;
-            current.Normal.Z = plane->Normal.Z;
-            current.Origin.X = plane->Origin.X;
-            current.Origin.Y = plane->Origin.Y;
-            current.Origin.Z = plane->Origin.Z;
-            current.C = plane->C;
+            Samples::Plane* current = m_window + (sizeof(Samples::Plane) * m_idx);
+            current->Normal.X = plane->Normal.X;
+            current->Normal.Y = plane->Normal.Y;
+            current->Normal.Z = plane->Normal.Z;
+            current->Origin.X = plane->Origin.X;
+            current->Origin.Y = plane->Origin.Y;
+            current->Origin.Z = plane->Origin.Z;
+            current->C = plane->C;
             m_idx = (m_idx + 1) % m_window_size;
             m_latest = plane;
             std::cout << "Fin" << std::endl;
             return plane;
         }
 
-        Samples::Plane& current = m_window[m_idx];
+        Samples::Plane* current = m_window + (sizeof(Samples::Plane) * m_idx);
 
         std::cout << "Current" << std::endl;
-        std::cout << current.Normal.X << std::endl;
-        std::cout << current.Normal.Y << std::endl;
-        std::cout << current.Normal.Z << std::endl;
-        std::cout << current.Origin.X << std::endl;
-        std::cout << current.Origin.Y << std::endl;
-        std::cout << current.Origin.Z << std::endl;
-        std::cout << current.C << std::endl;
+        std::cout << current->Normal.X << std::endl;
+        std::cout << current->Normal.Y << std::endl;
+        std::cout << current->Normal.Z << std::endl;
+        std::cout << current->Origin.X << std::endl;
+        std::cout << current->Origin.Y << std::endl;
+        std::cout << current->Origin.Z << std::endl;
+        std::cout << current->C << std::endl;
 
-        current.Normal.X = plane->Normal.X;
-        current.Normal.Y = plane->Normal.Y;
-        current.Normal.Z = plane->Normal.Z;
-        current.Origin.X = plane->Origin.X;
-        current.Origin.Y = plane->Origin.Y;
-        current.Origin.Z = plane->Origin.Z;
-        current.C = plane->C;
+        current->Normal.X = plane->Normal.X;
+        current->Normal.Y = plane->Normal.Y;
+        current->Normal.Z = plane->Normal.Z;
+        current->Origin.X = plane->Origin.X;
+        current->Origin.Y = plane->Origin.Y;
+        current->Origin.Z = plane->Origin.Z;
+        current->C = plane->C;
 
         for (int i = 1; i < m_fill; ++i) {
             int offset = (m_idx + i) % m_window_size;
-            Samples::Plane& current = m_window[offset];
-            plane->Normal.X += current.Normal.X;
-            plane->Normal.Y += current.Normal.Y;
-            plane->Normal.Z += current.Normal.Z;
-            plane->Origin.X += current.Origin.X;
-            plane->Origin.Y += current.Origin.Y;
-            plane->Origin.Z += current.Origin.Z;
-            plane->C += current.C;
+            Samples::Plane* current = m_window + (sizeof(Samples::Plane) * offset);
+            plane->Normal.X += current->Normal.X;
+            plane->Normal.Y += current->Normal.Y;
+            plane->Normal.Z += current->Normal.Z;
+            plane->Origin.X += current->Origin.X;
+            plane->Origin.Y += current->Origin.Y;
+            plane->Origin.Z += current->Origin.Z;
+            plane->C += current->C;
         }
         plane->Normal.X /= m_fill;
         plane->Normal.Y /= m_fill;

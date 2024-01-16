@@ -1,19 +1,19 @@
-﻿#include <chrono>
-#include <cstdlib>
+﻿#include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <k4a/k4atypes.h>
 #include <k4abttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <algorithm>
 #include <string>
-#include <vector>
 #include <thread>
-#include <future>
+#include <vector>
 
 #include <k4a/k4a.h>
 #include <k4abt.h>
@@ -31,19 +31,17 @@
 #include <nlohmann/json.hpp>
 #include <tclap/CmdLine.h>
 
-#include <filter/com.hpp>
 #include <filter/SkeletonFilter.hpp>
+#include <filter/com.hpp>
 
-
-#include <kinect_mocap_studio/filter_utils.hpp>
-#include <kinect_mocap_studio/utils.hpp>
 #include <kinect_mocap_studio/cli.hpp>
-#include <kinect_mocap_studio/queues.hpp>
-#include <kinect_mocap_studio/process.hpp>
-#include <kinect_mocap_studio/visualize.hpp>
+#include <kinect_mocap_studio/filter_utils.hpp>
 #include <kinect_mocap_studio/plotting.hpp>
 #include <kinect_mocap_studio/plotwrap.hpp>
-
+#include <kinect_mocap_studio/process.hpp>
+#include <kinect_mocap_studio/queues.hpp>
+#include <kinect_mocap_studio/utils.hpp>
+#include <kinect_mocap_studio/visualize.hpp>
 
 #include <matplotlibcpp/matplotlibcpp.h>
 
@@ -64,12 +62,11 @@ PlottingQueue plotting_queue;
 #define BENCH_MEASUREMENT 1
 #endif
 
-boost::atomic<bool> s_stillPlotting (true);
-boost::atomic<bool> s_glfwInitialized (false);
-boost::atomic<bool> s_isRunning (true);
-boost::atomic<bool> s_visualizeJointFrame (false);
-boost::atomic<int> s_layoutMode ((int) Visualization::Layout3d::OnlyMainView);
-
+boost::atomic<bool> s_stillPlotting(true);
+boost::atomic<bool> s_glfwInitialized(false);
+boost::atomic<bool> s_isRunning(true);
+boost::atomic<bool> s_visualizeJointFrame(false);
+boost::atomic<int> s_layoutMode((int)Visualization::Layout3d::OnlyMainView);
 
 /*
 To do:
@@ -169,7 +166,6 @@ int main(int argc, char** argv)
                 g_jointNames.find(g_boneList[i].second)->second });
     }
 
-
     k4a_record_t recording;
 
     if (config.record_sensor_data) {
@@ -212,8 +208,6 @@ int main(int argc, char** argv)
         k4a_wait_result_t pop_frame_result = K4A_WAIT_RESULT_SUCCEEDED;
         k4a_wait_result_t queue_capture_result;
 
-
-
         // Extract capture
         if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
@@ -251,14 +245,12 @@ int main(int argc, char** argv)
         // Process the data
         if (capture_ready) {
 
-
             auto sa = hc::now();
             if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
                 queue_capture_result = k4abt_tracker_enqueue_capture(
                     tracker,
                     sensor_capture,
-                    std::max(1.0, 32. - (hc::now() - start).count())
-                );
+                    std::max(1.0, 32. - (hc::now() - start).count()));
             }
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
 
@@ -304,7 +296,6 @@ int main(int argc, char** argv)
             if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
                 k4a_imu_sample_t imu_sample;
 
-
                 bool imu_data_ready = false;
                 if (config.process_sensor_file) {
                     k4a_stream_result_t imu_result = k4a_playback_get_next_imu_sample(playback_handle, &imu_sample);
@@ -325,7 +316,6 @@ int main(int argc, char** argv)
                         "Timed out waiting for IMU data");
                     imu_data_ready = true;
                 }
-
 
                 // BEGIN Could be its own thread
                 uint32_t num_bodies = k4abt_frame_get_num_bodies(body_frame);
@@ -372,8 +362,7 @@ int main(int argc, char** argv)
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
 
                 measurement_queue.Produce(MeasuredFrame {
-                    imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double) timestamp / 1e6
-                });
+                    imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double)timestamp / 1e6 });
 
                 k4abt_frame_release(body_frame);
                 k4a_image_release(depth_image);
@@ -431,7 +420,7 @@ int main(int argc, char** argv)
     std::cout << frame_count << " Frames written to "
               << config.output_json_file << std::endl;
 
-    //window3d.Delete();
+    // window3d.Delete();
     k4abt_tracker_shutdown(tracker);
     k4abt_tracker_destroy(tracker);
 
@@ -447,8 +436,8 @@ int main(int argc, char** argv)
     while (s_stillPlotting) {
         std::this_thread::yield();
     }
-    //plotwrap.plot_all();
-    // plt::close();
+    // plotwrap.plot_all();
+    //  plt::close();
     std::exit(0);
 }
 /*
@@ -475,4 +464,4 @@ int main(int argc, char** argv)
  *  - Should we spawn a thread for each body index? ??? Would yield just more questions
  *  - For the Visualization this would mean we skip a Visualization loop, basically just a continue
  *  - This means the Visualization should not influence the JSON output or the recording file
-*/
+ */

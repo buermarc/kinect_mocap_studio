@@ -1,13 +1,13 @@
 #include <kinect_mocap_studio/cli.hpp>
 #include <kinect_mocap_studio/utils.hpp>
 
-#include <string>
 #include <cstdint>
 #include <fstream>
+#include <string>
 
 #include <k4a/k4a.h>
-#include <k4abttypes.h>
 #include <k4a/k4atypes.h>
+#include <k4abttypes.h>
 #include <k4arecord/playback.h>
 #include <k4arecord/record.h>
 #include <tclap/CmdLine.h>
@@ -175,12 +175,10 @@ CliConfig::CliConfig(int argc, char** argv)
             exit(1);
         }
 
-    }
-    catch (TCLAP::ArgException& e)
-    {
-    std::cerr << "error: " << e.error() << " for arg " << e.argId()
-              << std::endl;
-    exit(1);
+    } catch (TCLAP::ArgException& e) {
+        std::cerr << "error: " << e.error() << " for arg " << e.argId()
+                  << std::endl;
+        exit(1);
     }
 
     CliConfig::printAppUsage();
@@ -231,7 +229,6 @@ CliConfig::CliConfig(int argc, char** argv)
         }
 
     } while (name_collision);
-
 }
 
 void CliConfig::openDeviceOrRecording(k4a_device_t& device, k4a_playback_t& playback_handle, k4a_calibration_t& sensor_calibration, k4a_device_configuration_t& device_config)
@@ -362,16 +359,17 @@ void CliConfig::openDeviceOrRecording(k4a_device_t& device, k4a_playback_t& play
     }
 }
 
-void CliConfig::printConfig() {
+void CliConfig::printConfig()
+{
     //
     // Echo the configuration to the command terminal
     //
-    //std::cout << "depth_mode         :" << k4a_depth_mode_str << std::endl;
-    //std::cout << "color_resolution   :" << k4a_color_resolution_str << std::endl;
-    //std::cout << "frames_per_second  :" << k4a_frames_per_second << std::endl;
-    //std::cout << "temporal smoothing :" << temporal_smoothing << std::endl;
-    //std::cout << "output file name   :" << output_json_file << std::endl;
+    // std::cout << "depth_mode         :" << k4a_depth_mode_str << std::endl;
+    // std::cout << "color_resolution   :" << k4a_color_resolution_str << std::endl;
+    // std::cout << "frames_per_second  :" << k4a_frames_per_second << std::endl;
+    // std::cout << "temporal smoothing :" << temporal_smoothing << std::endl;
+    // std::cout << "output file name   :" << output_json_file << std::endl;
     if (record_sensor_data) {
-        //std::cout << "video file name    :" << output_sensor_file << std::endl;
+        // std::cout << "video file name    :" << output_sensor_file << std::endl;
     }
 }

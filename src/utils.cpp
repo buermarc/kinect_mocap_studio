@@ -1,10 +1,10 @@
-#include <kinect_mocap_studio/utils.hpp>
 #include <cstdint>
-#include <k4abt.h>
-#include <k4a/k4a.h>
-#include <vector>
-#include <map>
 #include <filter/Point.hpp>
+#include <k4a/k4a.h>
+#include <k4abt.h>
+#include <kinect_mocap_studio/utils.hpp>
+#include <map>
+#include <vector>
 
 bool check_depth_image_exists(k4a_capture_t capture)
 {
@@ -87,8 +87,7 @@ push_body_data_to_json(nlohmann::json& body_result_json,
             body_joints.push_back(Point<double>(
                 (double)body.skeleton.joints[index_joint].position.v[0] / 1000,
                 (double)body.skeleton.joints[index_joint].position.v[1] / 1000,
-                (double)body.skeleton.joints[index_joint].position.v[2] / 1000
-            ));
+                (double)body.skeleton.joints[index_joint].position.v[2] / 1000));
             body_result_json["joint_orientations"].push_back(
                 { body.skeleton.joints[index_joint].orientation.wxyz.w,
                     body.skeleton.joints[index_joint].orientation.wxyz.x,

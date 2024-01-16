@@ -1,31 +1,30 @@
-#include <kinect_mocap_studio/process.hpp>
+#include <future>
+#include <iostream>
 #include <kinect_mocap_studio/moving_average.hpp>
 #include <kinect_mocap_studio/plotwrap.hpp>
+#include <kinect_mocap_studio/process.hpp>
 #include <optional>
-#include <iostream>
 #include <thread>
-#include <future>
 
 #include <k4abt.h>
 
-#include "PointCloudGenerator.h"
 #include "FloorDetector.h"
+#include "PointCloudGenerator.h"
 
-#include <nlohmann/json.hpp>
-#include <filter/com.hpp>
+#include <filter/ConstrainedSkeletonFilter.hpp>
 #include <filter/Point.hpp>
 #include <filter/SkeletonFilter.hpp>
-#include <filter/ConstrainedSkeletonFilter.hpp>
 #include <filter/adaptive/AdaptiveConstrainedSkeletonFilter.hpp>
 #include <filter/adaptive/AdaptivePointFilter3D.hpp>
 #include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
+#include <filter/com.hpp>
+#include <nlohmann/json.hpp>
 
 #include <matplotlibcpp/matplotlibcpp.h>
 
 namespace plt = matplotlibcpp;
 
 #include <cassert>
-
 
 #ifndef BENCH_PROCESS
 #define BENCH_PROCESS 1
@@ -47,7 +46,8 @@ typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
 ConstrainedSkeletonFilterBuilder<double> builder(32);
 // AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
-std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json, MovingAverage& moving_average) {
+std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json, MovingAverage& moving_average)
+{
     // Get down-sampled cloud points.
     const int downsampleStep = 2;
     // Detect floor plane based on latest visual and inertial observations.
@@ -57,7 +57,6 @@ std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_
         sensor_calibration, minimumFloorPointCount);
 
     maybeFloorPlane = moving_average.get_average(maybeFloorPlane);
-
 
     nlohmann::json floor_result_json;
     if (maybeFloorPlane.has_value()) {
@@ -89,22 +88,20 @@ std::tuple<
     std::map<uint32_t, std::vector<Point<double>>>,
     std::map<uint32_t, std::vector<Point<double>>>,
     std::vector<double>,
-    std::map<uint32_t, Point<double>>
->
+    std::map<uint32_t, Point<double>>>
 apply_filter(
     MeasuredFrame& frame,
-    std::map<uint32_t, CurrentFilterType>& filters
-) {
+    std::map<uint32_t, CurrentFilterType>& filters)
+{
     std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     std::vector<double> durations;
     std::map<uint32_t, Point<double>> com_dots;
     std::map<uint32_t, std::vector<Point<double>>> fpositions;
     std::map<uint32_t, std::vector<Point<double>>> fvelocities;
-    for (const auto& element : frame.joints)
-    {
+    for (const auto& element : frame.joints) {
         uint32_t i = element.first;
         if (filters.find(i) == filters.end()) {
-            filters.insert(std::map<uint32_t, CurrentFilterType>::value_type (i, builder.build()));
+            filters.insert(std::map<uint32_t, CurrentFilterType>::value_type(i, builder.build()));
         }
 
         auto& filter = filters.at(i);
@@ -133,7 +130,7 @@ apply_filter(
 
         auto xcom = filter.calculate_x_com(ankle_com_norm);
         Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
-        stability_properties.insert(std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>>::value_type(i,  std::make_tuple(com, xcom, bos_plane)));
+        stability_properties.insert(std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>>::value_type(i, std::make_tuple(com, xcom, bos_plane)));
         com_dots[i] = filter.calculate_com_dot();
 
         fpositions[i] = filtered_positions;
@@ -148,8 +145,8 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     Samples::FloorDetector& floorDetector,
     std::map<uint32_t, CurrentFilterType>& filters,
     nlohmann::json& frame_result_json,
-    MovingAverage& moving_average
-) {
+    MovingAverage& moving_average)
+{
     // Can we detect the floor
     auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json, moving_average);
     // Mutates joints
@@ -158,14 +155,13 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
 
     return std::make_tuple(
         ProcessedFrame { frame.imu_sample, std::move(frame.cloudPoints), std::move(fpositions), std::move(frame.confidence_levels), std::move(stability_properties), optional_point, com_dots },
-        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations), com_dots }
-    );
+        PlottingFrame { std::move(frame.joints), std::move(filtered_joints), std::move(fvelocities), std::move(durations), com_dots });
 }
 
 void processThread(
     k4a_calibration_t sensor_calibration,
-    std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise
-) {
+    std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise)
+{
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
     MeasuredFrame frame;
@@ -197,7 +193,6 @@ void processThread(
             std::this_thread::yield();
         }
     }
-
 
     PlotWrap<double> plotwrap;
     /*

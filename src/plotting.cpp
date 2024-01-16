@@ -1,18 +1,18 @@
+#include <kinect_mocap_studio/cli.hpp>
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include <kinect_mocap_studio/plotting.hpp>
 #include <kinect_mocap_studio/queues.hpp>
 #include <kinect_mocap_studio/utils.hpp>
-#include <kinect_mocap_studio/cli.hpp>
 
+#include <future>
+#include <iostream>
+#include <memory>
 #include <optional>
 #include <thread>
-#include <iostream>
-#include <future>
-#include <memory>
 
-#include <k4abt.h>
 #include <k4a/k4a.h>
 #include <k4a/k4atypes.h>
+#include <k4abt.h>
 #include <k4abttypes.h>
 
 #include "BodyTrackingHelpers.h"
@@ -24,22 +24,22 @@
 #include "linmath.h"
 #include <Window3dWrapper.h>
 
-#include <filter/com.hpp>
 #include <GLPL/plot/plot.h>
 #include <GLPL/window/window.h>
+#include <filter/com.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-
-void plotThread() {
+void plotThread()
+{
     while (!s_glfwInitialized) {
         std::this_thread::yield();
     }
     PlottingFrame frame;
     std::map<uint32_t, std::vector<Point<double>>> tmp_joints;
 
-    int windowWidth  = 1600;
+    int windowWidth = 1600;
     int windowHeight = 800;
-    std::shared_ptr<GLPL::IWindow> window = std::shared_ptr<GLPL::IWindow>(new GLPL::Window(windowWidth, windowHeight,  false, false));
+    std::shared_ptr<GLPL::IWindow> window = std::shared_ptr<GLPL::IWindow>(new GLPL::Window(windowWidth, windowHeight, false, false));
     std::shared_ptr<GLPL::Window> window2 = std::dynamic_pointer_cast<GLPL::Window>(window);
 
     std::vector<float> xVec1a_vel = {};
@@ -124,8 +124,6 @@ void plotThread() {
     }
     */
 
-
-
     // X Axis
     std::shared_ptr<GLPL::ILine2D> line1a_vel = axesPt->addLine(&xVec1a_vel, &yVec1a_vel, GLPL::SINGLE_LINE, LC_BLUE, 0.8, "X Axis - Filter Velocity");
     line1a_vel->setLineWidth(4);
@@ -176,7 +174,7 @@ void plotThread() {
     window2->postLoopDraw();
 
     while (s_isRunning) {
-        bool retrieved =  plotting_queue.Consume(frame);
+        bool retrieved = plotting_queue.Consume(frame);
         if (retrieved) {
             if (skip) {
                 std::cout << "Plotting is skipping" << std::endl;
@@ -216,9 +214,9 @@ void plotThread() {
                 line1b_vel_cast->dataPtY->push_back((float)vel.y);
                 line1c_vel_cast->dataPtY->push_back((float)vel.z);
 
-                line1a_fd_cast->dataPtY->push_back((float)(current.x - prior.x)/duration);
-                line1b_fd_cast->dataPtY->push_back((float)(current.y - prior.y)/duration);
-                line1c_fd_cast->dataPtY->push_back((float)(current.z - prior.z)/duration);
+                line1a_fd_cast->dataPtY->push_back((float)(current.x - prior.x) / duration);
+                line1b_fd_cast->dataPtY->push_back((float)(current.y - prior.y) / duration);
+                line1c_fd_cast->dataPtY->push_back((float)(current.z - prior.z) / duration);
 
                 com_dot_x_cast->dataPtY->push_back((float)comdot.x);
                 com_dot_y_cast->dataPtY->push_back((float)comdot.y);
@@ -251,7 +249,7 @@ void plotThread() {
 
             // Get range of last 1000 points, provided the points in the a axis are in order
             unsigned int minInd = std::max((long)0, (long)line1a_vel_cast->dataPtX->size() - 250);
-            unsigned int maxInd = line1a_vel_cast->dataPtX->size()-1;
+            unsigned int maxInd = line1a_vel_cast->dataPtX->size() - 1;
             float xmin = (*line1a_vel_cast->dataPtX)[minInd];
             float xmax = (*line1a_vel_cast->dataPtX)[maxInd];
             axesPt->setXAxesLimits(xmin, xmax);
