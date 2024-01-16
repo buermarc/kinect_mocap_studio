@@ -727,9 +727,6 @@ public:
             if (qtm_idx == 0 || kinect_idx == 0) {
                 continue;
             }
-            std::cout << "qtm idx: " << qtm_idx << " kinect_idx: " << kinect_idx << std::endl;
-            std::cout << "qtm ts: " << data.timestamps.at(qtm_idx) << " kinect ts: " << (ts.at(kinect_idx) - ts.front()) << std::endl;
-            std::cout << "diff: " << data.timestamps.at(qtm_idx) - (ts.at(kinect_idx) - ts.front()) << std::endl;
             offsets.push_back(data.timestamps.at(qtm_idx) - (ts.at(kinect_idx) - ts.front()));
         }
         for (int i = 0; i < qtm_max_events.size(); ++i) {
