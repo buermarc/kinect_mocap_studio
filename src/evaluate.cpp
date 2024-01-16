@@ -838,15 +838,28 @@ public:
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
         std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
 
-        // What ever is longer should continue
-        // Never go longer over the max size
+        // i is for qtm
+        int i = 0;
+        // q is for kinect
+        int j = 0;
+        if (time_offset < 0) {
+            // QTM events are a bit later then the Kinect events, therefore, skip
+            // a few qtm frames in the beginning
+            while (data.timestamps.at(i) < time_offset) { i++; };
+        } else if (time_offset > 0) {
+            // Kinect events are a bit later then the Kinect events, therefore, skip
+            // a few kinect frames in the beginning
+            while (ts.at(j) < std::abs(time_offset)) { j++; };
+        }
+
 
         auto first_ts = ts.at(0);
 
         QtmFrame qtm_frame;
         KinectFrame kinect_frame;
-        int i = 0;
-        int j = 0;
+
+        // What ever is longer should continue
+        // Never go longer over the max size
         while (i < data.timestamps.size() or j < ts.size()) {
             if (i < data.timestamps.size()) {
                 qtm_frame = QtmFrame {
@@ -863,7 +876,7 @@ public:
             }
 
             if (j < ts.size()) {
-                auto time = ts.at(j) - first_ts + time_offset;
+                auto time = ts.at(j) - first_ts - time_offset;
                 double current;
                 // std::cout << "Kinect time: " << time << std::endl;
                 // std::cout << "QTM time: " << current << std::endl;
