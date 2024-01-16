@@ -2,6 +2,7 @@
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include<string>
 #include<tuple>
+#include<iterator>
 #include<limits>
 #include<algorithm>
 #include<vector>
@@ -79,6 +80,10 @@ void print_vec(std::vector<T> vector) {
 template<typename T>
 void print_vec(std::string name, std::vector<T> vector) {
     std::cout << "@name: " << name << std::endl;
+    if (vector.size() == 0) {
+        std::cout << "Vector is Empty" << std::endl;
+        return;
+    }
     std::for_each(vector.cbegin(), vector.cend()-1, [](auto ele){ std::cout << ele << ", " << std::endl;});
     std::cout << vector.back() << std::endl;
 }
@@ -507,7 +512,7 @@ class Experiment {
     Experiment(std::string qtm_file, std::string kinect_file) : qtm_recording(qtm_file), kinect_recording(kinect_file) {}
     friend std::ostream& operator<<(std::ostream& out, Experiment const& recording);
 
-    double _min_max_for_one_point(
+    void _min_max_for_one_point(
         std::vector<int>& qtm_min_events,
         std::vector<int>& qtm_max_events,
         std::vector<int>& kinect_min_events,
@@ -515,14 +520,14 @@ class Experiment {
         std::vector<Point<double>> qtm,
         std::vector<Point<double>> kinect)
     {
-        double min = std::numeric_limits<double>::max();
-        double max = 0;
-        double tmp = 0;
+        double min;
+        double max;
+        double tmp;
 
-        int idx = 0;
+        int idx;
 
-        int min_idx = 0;
-        int max_idx = 0;
+        int min_idx;
+        int max_idx;
 
         int qtm_x_min_idx = 0;
         int qtm_x_max_idx = 0;
@@ -543,6 +548,13 @@ class Experiment {
         int kinect_z_max_idx = 0;
 
 
+        min = std::numeric_limits<double>::max();
+        max = 0;
+        tmp = 0;
+        idx = 0;
+        min_idx = 0;
+        max_idx = 0;
+
         for (auto point : qtm) {
             tmp = point.x;
             if (tmp > max) {
@@ -560,6 +572,13 @@ class Experiment {
         qtm_max_events.push_back(max_idx);
 
 
+        min = std::numeric_limits<double>::max();
+        max = 0;
+        tmp = 0;
+        idx = 0;
+        min_idx = 0;
+        max_idx = 0;
+
         for (auto point : qtm) {
             tmp = point.y;
             if (tmp > max) {
@@ -575,6 +594,13 @@ class Experiment {
 
         qtm_min_events.push_back(min_idx);
         qtm_max_events.push_back(max_idx);
+
+        min = std::numeric_limits<double>::max();
+        max = 0;
+        tmp = 0;
+        idx = 0;
+        min_idx = 0;
+        max_idx = 0;
 
         for (auto point : qtm) {
             tmp = point.z;
@@ -592,6 +618,13 @@ class Experiment {
         qtm_min_events.push_back(min_idx);
         qtm_max_events.push_back(max_idx);
 
+        min = std::numeric_limits<double>::max();
+        max = 0;
+        tmp = 0;
+        idx = 0;
+        min_idx = 0;
+        max_idx = 0;
+
         for (auto point : kinect) {
             tmp = point.x;
             if (tmp > max) {
@@ -607,6 +640,13 @@ class Experiment {
 
         kinect_min_events.push_back(min_idx);
         kinect_max_events.push_back(max_idx);
+
+        min = std::numeric_limits<double>::max();
+        max = 0;
+        tmp = 0;
+        idx = 0;
+        min_idx = 0;
+        max_idx = 0;
 
 
         for (auto point : kinect) {
@@ -624,6 +664,13 @@ class Experiment {
 
         kinect_min_events.push_back(min_idx);
         kinect_max_events.push_back(max_idx);
+
+        min = std::numeric_limits<double>::max();
+        max = 0;
+        tmp = 0;
+        idx = 0;
+        min_idx = 0;
+        max_idx = 0;
 
         for (auto point : kinect) {
             tmp = point.z;
@@ -699,6 +746,42 @@ class Experiment {
         kinect.clear();
         qtm.clear();
 
+        std::vector<double> offsets;
+
+        for (int i = 0; i < qtm_min_events.size(); ++i) {
+            int qtm_idx = qtm_min_events.at(i);
+            int kinect_idx = kinect_min_events.at(i);
+            if (qtm_idx == 0 || kinect_idx == 0) {
+                continue;
+            }
+            std::cout << "qtm idx: " << qtm_idx << " kinect_idx: " << kinect_idx << std::endl;
+            std::cout << "qtm ts: " << data.timestamps.at(qtm_idx) << " kinect ts: " << (ts.at(kinect_idx) - ts.front()) << std::endl;
+            std::cout << "diff: " << data.timestamps.at(qtm_idx) - (ts.at(kinect_idx) - ts.front()) << std::endl;
+            offsets.push_back(data.timestamps.at(qtm_idx) - (ts.at(kinect_idx) - ts.front()));
+        }
+        for (int i = 0; i < qtm_max_events.size(); ++i) {
+            int qtm_idx = qtm_max_events.at(i);
+            int kinect_idx = kinect_max_events.at(i);
+            if (qtm_idx == 0 || kinect_idx == 0) {
+                continue;
+            }
+            offsets.push_back(data.timestamps.at(qtm_idx) - (ts.at(kinect_idx) - ts.front()));
+        }
+
+        double offsets_mean = std::accumulate(offsets.cbegin(), offsets.cend(), 0.0) / offsets.size();
+        double offsets_std = 2 * std::sqrt(std::accumulate(offsets.cbegin(), offsets.cend(), 0, [=](double a, double b) {
+            return a + std::pow(b - offsets_mean, 2);
+        ;})) / 3.;
+        std::vector<double> offsets_filtered;
+
+        std::copy_if(offsets.cbegin(), offsets.cend(), std::back_inserter(offsets_filtered), [=](auto element){
+            return (element > (offsets_mean - offsets_std) and (element < offsets_mean + offsets_std));
+        });
+
+        double time_offset = std::accumulate(offsets_filtered.cbegin(), offsets_filtered.cend(), 0.0) / offsets_filtered.size();
+        return time_offset;
+
+        /*
         double qtm_min_mean = std::accumulate(qtm_min_events.cbegin(), qtm_min_events.cend(), 0.0) / qtm_min_events.size();
         double qtm_max_mean = std::accumulate(qtm_max_events.cbegin(), qtm_max_events.cend(), 0.0) / qtm_max_events.size();
 
@@ -709,8 +792,8 @@ class Experiment {
             return a + std::pow(b - qtm_max_mean, 2);
         ;}));
 
-        std::vector<double> qtm_min_events_filtered;
-        std::vector<double> qtm_max_events_filtered;
+        std::vector<double> qtm_min_events_filtered(qtm_min_events.size());
+        std::vector<double> qtm_max_events_filtered(qtm_max_events.size());
 
         std::copy_if(qtm_min_events.cbegin(), qtm_max_events.cend(), qtm_min_events_filtered.begin(), [=](auto element){
             return (element > (qtm_min_mean - qtm_min_std) and (element < qtm_min_mean + qtm_min_std));
@@ -723,7 +806,6 @@ class Experiment {
         int qtm_max_mean_filtered = (int)std::accumulate(qtm_max_events_filtered.cbegin(), qtm_max_events_filtered.cend(), 0.0) / qtm_max_events_filtered.size();
 
 
-
         double kinect_min_mean = std::accumulate(kinect_min_events.cbegin(), kinect_min_events.cend(), 0.0) / kinect_min_events.size();
         double kinect_max_mean = std::accumulate(kinect_max_events.cbegin(), kinect_max_events.cend(), 0.0) / kinect_max_events.size();
 
@@ -734,8 +816,8 @@ class Experiment {
             return a + std::pow(b - kinect_max_mean, 2);
         ;}));
 
-        std::vector<double> kinect_min_events_filtered;
-        std::vector<double> kinect_max_events_filtered;
+        std::vector<double> kinect_min_events_filtered(kinect_min_events.size());
+        std::vector<double> kinect_max_events_filtered(kinect_max_events.size());
 
         std::copy_if(kinect_min_events.cbegin(), kinect_max_events.cend(), kinect_min_events_filtered.begin(), [=](auto element){
             return (element > (kinect_min_mean - kinect_min_std) and (element < kinect_min_mean + kinect_min_std));
@@ -747,8 +829,20 @@ class Experiment {
         int kinect_min_mean_filtered = (int)std::accumulate(kinect_min_events_filtered.cbegin(), kinect_min_events_filtered.cend(), 0.0) / kinect_min_events_filtered.size();
         int kinect_max_mean_filtered = (int)std::accumulate(kinect_max_events_filtered.cbegin(), kinect_max_events_filtered.cend(), 0.0) / kinect_max_events_filtered.size();
 
-        return qtm_max_ts - kinect_max_ts;
+        double kinect_min_ts = ts.at(kinect_min_mean_filtered);
+        double kinect_max_ts = ts.at(kinect_max_mean_filtered);
 
+        double qtm_min_ts = data.timestamps.at(qtm_min_mean_filtered);
+        double qtm_max_ts = data.timestamps.at(qtm_max_mean_filtered);
+
+        double min_diff = kinect_min_ts - qtm_min_ts;
+        double max_diff = kinect_max_ts - qtm_max_ts;
+        std::cout << "min_diff: " << min_diff << std::endl;
+        std::cout << "max_diff: " << max_diff << std::endl;
+        std::cout << "(min_diff + max_diff) / 2: "  << (min_diff + max_diff) / 2 << std::endl;
+
+        return (min_diff + max_diff) / 2;
+        */
     }
 
     void visualize() {
@@ -856,10 +950,14 @@ class Experiment {
                 } else if (force_data_f1.used && force_data_f2.used) {
                     auto cop1 = force_data_f1.cop.at(f);
                     auto cop2 = force_data_f2.cop.at(f);
-                    auto middle = cop1 + ((cop2 - cop1) / 2);
+
                     auto force1 = force_data_f1.force.at(f);
                     auto force2 = force_data_f2.force.at(f);
                     auto total_force = force1 + force2;
+                    auto total_norm = total_force.norm();
+
+                    auto middle = cop1 + ((cop2 - cop1) * (force2.norm() / total_norm));
+
                     add_bone(window3d, middle, middle + total_force, Color { 0, 1, 0, 1});
                 }
 
