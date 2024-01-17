@@ -57,7 +57,7 @@ struct QtmFrame {
     Point<double> r_usp;
 };
 
-Point<double> azure_kinect_origin_lab_coords(
+std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     std::vector<Point<double>> l_ak,
     std::vector<Point<double>> r_ak,
     std::vector<Point<double>> b_ak)
@@ -66,10 +66,31 @@ Point<double> azure_kinect_origin_lab_coords(
     auto mean_r_ak = std::accumulate(r_ak.cbegin(), r_ak.cend(), Point<double>()) / r_ak.size();
     auto mean_b_ak = std::accumulate(b_ak.cbegin(), b_ak.cend(), Point<double>()) / b_ak.size();
 
-    Point<double> middle_between_left_and_right = mean_l_ak + (mean_r_ak - mean_l_ak) / 2;
+    Point<double> translation = mean_l_ak + (mean_r_ak - mean_l_ak) / 2;
 
-    auto result = (mean_r_ak - mean_l_ak).cross_product(mean_b_ak - mean_l_ak);
-    return middle_between_left_and_right;
+    MatrixXd rotation_matrix(3, 3);
+    auto x = mean_r_ak - mean_l_ak;
+    Point<double> z = translation - mean_b_ak;
+    auto y = (x.cross_product(z));
+    // y = y * (-1);
+    x = x.normalized();
+    y = y.normalized();
+    z = z.normalized();
+    x = x * (-1);
+
+    rotation_matrix(0, 0) = x.x;
+    rotation_matrix(1, 0) = x.y;
+    rotation_matrix(2, 0) = x.z;
+
+    rotation_matrix(0, 1) = y.x;
+    rotation_matrix(1, 1) = y.y;
+    rotation_matrix(2, 1) = y.z;
+
+    rotation_matrix(0, 2) = z.x;
+    rotation_matrix(1, 2) = z.y;
+    rotation_matrix(2, 2) = z.z;
+
+    return std::make_tuple(translation, rotation_matrix);
 }
 
 template <typename T>
@@ -119,10 +140,15 @@ int64_t closeCallback(void* /*context*/)
     return 1;
 }
 
-void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<double> kinect_point)
+void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<double> translation, MatrixXd rotation)
 {
     for (auto joint : frame.joints) {
-        add_point(window3d, joint + kinect_point);
+        add_point(window3d, joint.mat_mul(rotation) + translation);
+    }
+
+    if (frame.joints.size() == 32) {
+        auto MM = get_azure_kinect_com_matrix();
+        add_point(window3d, com_helper(frame.joints, MM).mat_mul(rotation) + translation, Color {0, 1, 0, 1});
     }
 }
 
@@ -212,7 +238,9 @@ public:
         mkv_file = mkv_file_ss.str();
 
         json_data = nlohmann::json::parse(std::ifstream(json_file));
-        auto [var_joints, n_frames, timestamps, _is_null] = load_data(json_file, 32);
+        auto [fvar_joints, fn_frames, ftimestamps, _f_is_null] = load_data(json_file, 32);
+        auto [var_joints, n_frames, timestamps, _is_null] = load_filtered_data(json_file, 32);
+
         this->joints = var_joints;
         this->n_frames = n_frames;
         this->timestamps = timestamps;
@@ -833,7 +861,7 @@ public:
         window3d.SetCloseCallback(closeCallback);
         window3d.SetKeyCallback(processKey);
 
-        auto camera_middle = azure_kinect_origin_lab_coords(data.l_ak, data.r_ak, data.b_ak);
+        auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
         std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
@@ -849,8 +877,9 @@ public:
         } else if (time_offset > 0) {
             // Kinect events are a bit later then the Kinect events, therefore, skip
             // a few kinect frames in the beginning
-            while (ts.at(j) < std::abs(time_offset)) { j++; };
+            while ((ts.at(j) - ts.front()) < std::abs(time_offset)) { j++; };
         }
+        std::cout << "Begin: i=" << i << ", j=" << j << std::endl;
 
 
         auto first_ts = ts.at(0);
@@ -905,9 +934,9 @@ public:
             }
             i++;
 
-            visualizeKinectLogic(window3d, kinect_frame, camera_middle);
+            visualizeKinectLogic(window3d, kinect_frame, translation, rotation);
             visualizeQtmLogic(window3d, qtm_frame);
-            add_point(window3d, camera_middle, Color { 0, 1, 0, 1 });
+            add_point(window3d, translation, Color { 0, 1, 0, 1 });
 
             {
                 // Render force plate related stuff
