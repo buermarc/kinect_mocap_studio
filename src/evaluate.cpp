@@ -14,6 +14,9 @@
 #include <tuple>
 #include <vector>
 
+#include <libalglib/ap.h>
+#include <libalglib/fasttransforms.h>
+
 #include <Window3dWrapper.h>
 #include <nlohmann/json.hpp>
 
@@ -695,6 +698,78 @@ public:
         kinect_max_events.push_back(max_idx);
     }
 
+    double cross_correlation_lag(Data& data, Tensor<double, 3>& joints, std::vector<double> kinect_ts) {
+        // downsample to 15hz
+        auto qtm_ts = data.timestamps;
+
+        std::vector<double> qtm_hle_y;
+        std::transform(data.l_hle.cbegin(), data.l_hle.cend(), std::back_inserter(qtm_hle_y), [](auto point) {return point.y;});
+
+        std::vector<double> kinect_hle_y;
+        for (int i = 0; i < joints.dimension(0); ++i) {
+            kinect_hle_y.push_back(joints(i, K4ABT_JOINT_SHOULDER_LEFT, 1));
+        }
+
+        std::vector<double> downsampled_qtm_hle_y;
+
+        double frame_duration = 1./15.;
+        for (int i = 0, down_i = 0; i < qtm_ts.size(); ++i) {
+            auto time = qtm_ts.at(i);
+            if (time >= frame_duration * down_i && time < frame_duration * (down_i + 1)) {
+                downsampled_qtm_hle_y.push_back(qtm_hle_y.at(i));
+                down_i++;
+            }
+        }
+
+        std::vector<double> downsampled_kinect_hle_y;
+
+        for (int i = 0, down_i = 0; i < kinect_ts.size(); ++i) {
+            auto time = kinect_ts.at(i) - kinect_ts.front();
+            if (time >= frame_duration * down_i) {
+                downsampled_kinect_hle_y.push_back(kinect_hle_y.at(i));
+                down_i++;
+            }
+        }
+
+        std::cout << "qtm down size: " << downsampled_qtm_hle_y.size() << std::endl;
+        std::cout << "kinect down size: " << downsampled_kinect_hle_y.size() << std::endl;
+
+        alglib_impl::ae_state state;
+        ae_state_init(&state);
+
+        alglib_impl::ae_vector qtm;
+        memset(&qtm, 0, sizeof(qtm));
+
+        alglib_impl::ae_vector kinect;
+        memset(&kinect, 0, sizeof(kinect));
+
+        alglib_impl::ae_vector result;
+        memset(&result, 0, sizeof(result));
+
+        ae_vector_init(&qtm, 0, alglib_impl::DT_REAL, &state, ae_true);
+        ae_vector_init(&kinect, 0, alglib_impl::DT_REAL, &state, ae_true);
+        ae_vector_init(&result, 0, alglib_impl::DT_REAL, &state, ae_true);
+
+        ae_vector_set_length(&qtm, downsampled_qtm_hle_y.size(), &state);
+        for (int i = 0; i < downsampled_qtm_hle_y.size(); ++i) {
+            qtm.ptr.p_double[i] = downsampled_qtm_hle_y.at(i);
+        }
+
+        ae_vector_set_length(&kinect, downsampled_kinect_hle_y.size(), &state);
+        for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
+            kinect.ptr.p_double[i] = downsampled_kinect_hle_y.at(i);
+        }
+
+        ae_vector_set_length(&result, std::max(downsampled_kinect_hle_y.size(), downsampled_qtm_hle_y.size()), &state);
+        corrr1d(&qtm, downsampled_qtm_hle_y.size(), &kinect, downsampled_kinect_hle_y.size(), &result, &state);
+
+        for (int i = 0; i < 100; ++i) {
+            std::cout << result.ptr.p_double[i] << std::endl;
+        }
+
+        return 0.0;
+    }
+
     double calculate_time_offset(Data& data, Tensor<double, 3>& joints, std::vector<double> ts)
     {
         // Do this for each joint
@@ -843,16 +918,36 @@ public:
         */
     }
 
+    Tensor<double, 3> transform_and_rotate(Tensor<double, 3> joints_in_kinect_system, MatrixXd rotation, Point<double> translation) {
+
+        int frames = joints_in_kinect_system.dimension(0);
+        int joint_count = joints_in_kinect_system.dimension(1);
+        Tensor<double, 3> joints(frames, joint_count, 3);
+
+        Point<double> tmp;
+        for (int i = 0; i < frames; ++i) {
+            for (int j = 0; j < joint_count; ++j) {
+                tmp.x = joints_in_kinect_system(i, j, 0);
+                tmp.y = joints_in_kinect_system(i, j, 1);
+                tmp.z = joints_in_kinect_system(i, j, 1);
+
+                auto result = tmp.mat_mul(rotation) + translation;
+
+                joints(i, j, 0) = result.x;
+                joints(i, j, 1) = result.y;
+                joints(i, j, 2) = result.z;
+            }
+        }
+        return joints;
+    }
+
     void visualize()
     {
         Data data = qtm_recording.read_marker_file();
         auto [force_data_f1, force_data_f2] = qtm_recording.read_force_plate_files();
 
         auto ts = kinect_recording.timestamps;
-        auto joints = kinect_recording.joints;
-
-        double time_offset = calculate_time_offset(data, joints, ts);
-        std::cout << "Time offset: " << time_offset << std::endl;
+        auto joints_in_kinect_system = kinect_recording.joints;
 
         Window3dWrapper window3d;
         k4a_calibration_t sensor_calibration;
@@ -862,6 +957,14 @@ public:
         window3d.SetKeyCallback(processKey);
 
         auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
+
+        auto joints = transform_and_rotate(joints_in_kinect_system, rotation,translation);
+
+        double time_offset = calculate_time_offset(data, joints, ts);
+        double other_time_offset = cross_correlation_lag(data, joints, ts);
+        std::cout << "Time offset: " << time_offset << std::endl;
+
+
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
         std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
@@ -962,12 +1065,11 @@ public:
                     auto cop1 = force_data_f1.cop.at(f);
                     auto cop2 = force_data_f2.cop.at(f);
 
-                    auto force1 = force_data_f1.force.at(f);
-                    auto force2 = force_data_f2.force.at(f);
+                    auto force1 = force_data_f1.force.at(f).y;
+                    auto force2 = force_data_f2.force.at(f).y;
                     auto total_force = force1 + force2;
-                    auto total_norm = total_force.norm();
 
-                    auto middle = cop1 + ((cop2 - cop1) * (force2.norm() / total_norm));
+                    auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force));
 
                     add_bone(window3d, middle, middle + total_force, Color { 0, 1, 0, 1 });
                 }

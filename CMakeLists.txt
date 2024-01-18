@@ -24,6 +24,7 @@ find_package(k4a REQUIRED)
 find_package(k4abt REQUIRED)
 find_package(k4arecord REQUIRED)
 find_package(PythonLibs)
+find_package(alglib)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
 # These specific settings tell the loader to search the directory of the
@@ -129,6 +130,7 @@ target_link_libraries(evaluate
     nlohmann_json::nlohmann_json
     openGLPlotLive
     freetype
+    alglib
     ${PYTHON_LIBRARIES}
 )
 
