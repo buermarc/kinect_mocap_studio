@@ -25,6 +25,10 @@
 #include <k4abt.h>
 #include <k4abttypes.h>
 
+#include <matplotlibcpp/matplotlibcpp.h>
+
+namespace plt = matplotlibcpp;
+
 bool s_isRunning = true;
 bool s_visualizeJointFrame = false;
 int s_layoutMode = 0;
@@ -72,14 +76,22 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     Point<double> translation = mean_l_ak + (mean_r_ak - mean_l_ak) / 2;
 
     MatrixXd rotation_matrix(3, 3);
+
     auto x = mean_r_ak - mean_l_ak;
     Point<double> z = translation - mean_b_ak;
     auto y = (x.cross_product(z));
-    // y = y * (-1);
+    y = y * (-1);
+
     x = x.normalized();
     y = y.normalized();
     z = z.normalized();
-    x = x * (-1);
+
+    // x = x * (-1);
+    // z = z*(-1);
+
+    std::cout << "x : " << x << std::endl;
+    std::cout << "y : " << y << std::endl;
+    std::cout << "z : " << z << std::endl;
 
     rotation_matrix(0, 0) = x.x;
     rotation_matrix(1, 0) = x.y;
@@ -146,26 +158,36 @@ int64_t closeCallback(void* /*context*/)
 void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<double> translation, MatrixXd rotation)
 {
     for (auto joint : frame.joints) {
-        add_point(window3d, joint.mat_mul(rotation) + translation);
+        add_qtm_point(window3d, joint);
     }
 
     if (frame.joints.size() == 32) {
         auto MM = get_azure_kinect_com_matrix();
-        add_point(window3d, com_helper(frame.joints, MM).mat_mul(rotation) + translation, Color {0, 1, 0, 1});
+        add_qtm_point(window3d, com_helper(frame.joints, MM), Color {0, 1, 0, 1});
     }
 }
 
 void visualizeQtmLogic(Window3dWrapper& window3d, QtmFrame frame)
 {
-    add_point(window3d, frame.l_ak);
-    add_point(window3d, frame.r_ak);
-    add_point(window3d, frame.b_ak);
+    Color light_blue {0, 0, 1, 0.15};
+    Color blue {0, 0, 1, 1};
+    add_qtm_point(window3d, frame.l_ak);
+    add_qtm_point(window3d, frame.r_ak);
+    add_qtm_point(window3d, frame.b_ak);
 
-    add_point(window3d, frame.l_sae);
-    add_point(window3d, frame.l_hle);
-    add_point(window3d, frame.l_usp);
-    add_point(window3d, frame.r_hle);
-    add_point(window3d, frame.r_usp);
+    add_qtm_point(window3d, frame.l_sae, blue);
+
+    add_qtm_point(window3d, frame.l_hle, light_blue);
+    add_qtm_point(window3d, frame.r_hle, light_blue);
+
+    add_qtm_point(window3d, frame.l_usp, light_blue);
+    add_qtm_point(window3d, frame.r_usp, light_blue);
+
+    add_qtm_point(window3d, frame.r_hle*0.5 + frame.l_hle*0.5, blue);
+    add_qtm_point(window3d, frame.r_hle*0.5 + frame.l_hle*0.5, blue);
+
+    add_qtm_point(window3d, frame.r_usp*0.5 + frame.l_usp*0.5, blue);
+    add_qtm_point(window3d, frame.r_usp*0.5 + frame.l_usp*0.5, blue);
 
     linmath::vec3 a = { -1, 0.1, -1 };
     linmath::vec3 b = { 1, 0.1, -1 };
@@ -174,8 +196,13 @@ void visualizeQtmLogic(Window3dWrapper& window3d, QtmFrame frame)
     window3d.SetBosRendering(true, a, b, c, d);
 
     add_bone(window3d, Point<double>(0, 0, 0), Point<double>(1, 0, 0), Color { 1, 0, 0, 1 });
+    add_bone(window3d, Point<double>(0, 0, 0), Point<double>(0, 1, 0), Color { 0, 1, 0, 1 });
+    add_bone(window3d, Point<double>(0, 0, 0), Point<double>(0, 0, 1), Color { 0, 0, 1, 1 });
+    /*
+    add_bone(window3d, Point<double>(0, 0, 0), Point<double>(1, 0, 0), Color { 1, 0, 0, 1 });
     add_bone(window3d, Point<double>(0, 0, 0), Point<double>(0, 0, 1) * (-1), Color { 0, 1, 0, 1 });
     add_bone(window3d, Point<double>(0, 0, 0), Point<double>(0, 1, 0) * (-1), Color { 0, 0, 1, 1 });
+    */
 }
 
 std::string trimString(std::string str)
@@ -332,57 +359,57 @@ public:
             l_ak.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             r_ak.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             b_ak.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             l_sae.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             l_hle.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             l_usp.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             r_hle.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             r_usp.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
         }
 
         // print_vec("timestamps", timestamps);
@@ -414,20 +441,20 @@ public:
 
         // Get force plate placement in the lab
         double lu_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
-        double lu_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
-        double lu_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
+        double lu_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double lu_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
 
         double ld_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
-        double ld_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
-        double ld_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
+        double ld_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double ld_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
 
         double ru_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
-        double ru_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
-        double ru_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
+        double ru_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double ru_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
 
         double rd_x = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
-        double rd_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
-        double rd_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1)) * (-1);
+        double rd_y = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
+        double rd_z = std::stod(getNextLineAndSplitIntoTokens(csv_file).at(1));
 
         auto left_up = Point<double>(lu_x, lu_y, lu_z) / 1000;
         auto left_down = Point<double>(ld_x, ld_y, ld_z) / 1000;
@@ -703,11 +730,18 @@ public:
         auto qtm_ts = data.timestamps;
 
         std::vector<double> qtm_hle_y;
-        std::transform(data.l_hle.cbegin(), data.l_hle.cend(), std::back_inserter(qtm_hle_y), [](auto point) {return point.y;});
+        // std::transform(data.l_hle.cbegin(), data.l_hle.cend(), std::back_inserter(qtm_hle_y), [](auto point) {return point.y;});
+
+        for (int i = 0; i < data.l_usp.size(); ++i) {
+            auto l = data.l_usp.at(i)*.5;
+            auto r = data.r_usp.at(i)*.5;
+            double value = (l+r).z;
+            qtm_hle_y.push_back(value);
+        }
 
         std::vector<double> kinect_hle_y;
         for (int i = 0; i < joints.dimension(0); ++i) {
-            kinect_hle_y.push_back(joints(i, K4ABT_JOINT_SHOULDER_LEFT, 1));
+            kinect_hle_y.push_back(joints(i, K4ABT_JOINT_WRIST_LEFT, 2));
         }
 
         std::vector<double> downsampled_qtm_hle_y;
@@ -723,7 +757,7 @@ public:
 
         std::vector<double> downsampled_kinect_hle_y;
 
-        for (int i = 0, down_i = 0; i < kinect_ts.size(); ++i) {
+        for (int i = 0, down_i = 0; i < kinect_ts.size()/4; ++i) {
             auto time = kinect_ts.at(i) - kinect_ts.front();
             if (time >= frame_duration * down_i) {
                 downsampled_kinect_hle_y.push_back(kinect_hle_y.at(i));
@@ -733,6 +767,22 @@ public:
 
         std::cout << "qtm down size: " << downsampled_qtm_hle_y.size() << std::endl;
         std::cout << "kinect down size: " << downsampled_kinect_hle_y.size() << std::endl;
+
+        /*
+        downsampled_qtm_hle_y.clear();
+        for (int i = 0; i < 150; ++i) {
+            downsampled_qtm_hle_y.push_back(i);
+        }
+
+        downsampled_kinect_hle_y.clear();
+        for (int i = 10; i < 160; ++i) {
+            downsampled_kinect_hle_y.push_back(i);
+        }
+        */
+        /*
+        std::vector<double> downsampled_qtm_hle_y = {0., 0., 0., 1., 2., 1., 0., 0., 0., 0., 0.};
+        std::vector<double> downsampled_kinect_hle_y = {0., 1., 3., 1., 0.};
+        */
 
         alglib_impl::ae_state state;
         ae_state_init(&state);
@@ -760,14 +810,75 @@ public:
             kinect.ptr.p_double[i] = downsampled_kinect_hle_y.at(i);
         }
 
-        ae_vector_set_length(&result, std::max(downsampled_kinect_hle_y.size(), downsampled_qtm_hle_y.size()), &state);
+        ae_vector_set_length(&result, downsampled_kinect_hle_y.size()+downsampled_qtm_hle_y.size(), &state);
         corrr1d(&qtm, downsampled_qtm_hle_y.size(), &kinect, downsampled_kinect_hle_y.size(), &result, &state);
 
-        for (int i = 0; i < 100; ++i) {
+        double tmp = 0.0;
+        int idx = 0;
+        int arg_max = 0;
+        for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
+            if (tmp < result.ptr.p_double[i]) {
+                tmp = result.ptr.p_double[i];
+                arg_max = idx;
+            }
             std::cout << result.ptr.p_double[i] << std::endl;
+            idx++;
         }
 
-        return 0.0;
+
+        std::cout << "Other way" << std::endl;
+        double signalData[14] = { 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9};
+        //                                    0  1  2  3  4  5
+        double patternData[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        alglib::real_1d_array signal;
+        alglib::real_1d_array pattern;
+        alglib::real_1d_array corrResult;
+
+        signal.setcontent(14, signalData);
+        pattern.setcontent(10, patternData);
+
+        corrr1d(signal, 14, pattern, 10, corrResult);
+
+        for (int i = 0; i < 24; ++i) {
+            std::cout << corrResult[i]<< std::endl;
+        }
+
+        std::vector<double> qtm_timestamp;
+        for (int i=0; i < downsampled_qtm_hle_y.size(); ++i) {
+            qtm_timestamp.push_back((1./15.)*i);
+        }
+        std::vector<double> kinect_timestamp;
+        for (int i=0; i < downsampled_kinect_hle_y.size(); ++i) {
+            kinect_timestamp.push_back((1./15.)*i);
+        }
+
+
+        plt::title("Downsampled Wrist Z");
+        plt::named_plot("QTM", qtm_timestamp, downsampled_qtm_hle_y);
+        plt::named_plot("Kinect", kinect_timestamp, downsampled_kinect_hle_y);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        std::vector<double> shifted_downsampled_kinect_hle_y;
+        for (int i = arg_max; i < downsampled_kinect_hle_y.size(); ++i) {
+            shifted_downsampled_kinect_hle_y.push_back(downsampled_kinect_hle_y.at(i));
+        }
+        int before_size = kinect_timestamp.size();
+        kinect_timestamp.clear();
+        for (int i = 0; i < shifted_downsampled_kinect_hle_y.size(); ++i) {
+            kinect_timestamp.push_back((1./15.)*(i));
+        }
+
+
+        plt::title("Shifted Downsampled Wrist Z");
+        plt::named_plot("Shifted QTM", qtm_timestamp, downsampled_qtm_hle_y);
+        plt::named_plot("Shifted Kinect", kinect_timestamp, shifted_downsampled_kinect_hle_y);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        return qtm_ts[arg_max];
     }
 
     double calculate_time_offset(Data& data, Tensor<double, 3>& joints, std::vector<double> ts)
@@ -918,7 +1029,7 @@ public:
         */
     }
 
-    Tensor<double, 3> transform_and_rotate(Tensor<double, 3> joints_in_kinect_system, MatrixXd rotation, Point<double> translation) {
+    Tensor<double, 3> transform_and_rotate(Tensor<double, 3> joints_in_kinect_system, Point<double> translation, MatrixXd rotation) {
 
         int frames = joints_in_kinect_system.dimension(0);
         int joint_count = joints_in_kinect_system.dimension(1);
@@ -929,8 +1040,11 @@ public:
             for (int j = 0; j < joint_count; ++j) {
                 tmp.x = joints_in_kinect_system(i, j, 0);
                 tmp.y = joints_in_kinect_system(i, j, 1);
-                tmp.z = joints_in_kinect_system(i, j, 1);
+                tmp.z = joints_in_kinect_system(i, j, 2);
 
+                // auto result = tmp.mat_mul(rotation);
+                // auto result = tmp + translation;
+                // auto result = tmp.mat_mul(rotation);
                 auto result = tmp.mat_mul(rotation) + translation;
 
                 joints(i, j, 0) = result.x;
@@ -958,12 +1072,12 @@ public:
 
         auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
 
-        auto joints = transform_and_rotate(joints_in_kinect_system, rotation,translation);
+        auto joints = transform_and_rotate(joints_in_kinect_system, translation, rotation);
 
         double time_offset = calculate_time_offset(data, joints, ts);
         double other_time_offset = cross_correlation_lag(data, joints, ts);
         std::cout << "Time offset: " << time_offset << std::endl;
-
+        std::cout << "Other Time offset: " << other_time_offset << std::endl;
 
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
@@ -1039,19 +1153,19 @@ public:
 
             visualizeKinectLogic(window3d, kinect_frame, translation, rotation);
             visualizeQtmLogic(window3d, qtm_frame);
-            add_point(window3d, translation, Color { 0, 1, 0, 1 });
+            add_qtm_point(window3d, translation, Color { 0, 1, 0, 1 });
 
             {
                 // Render force plate related stuff
-                add_point(window3d, force_data_f1.plate.a, Color { 0, 1, 0, 1 });
-                add_point(window3d, force_data_f1.plate.b, Color { 0, 1, 0, 1 });
-                add_point(window3d, force_data_f1.plate.c, Color { 0, 1, 0, 1 });
-                add_point(window3d, force_data_f1.plate.d, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f1.plate.a, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f1.plate.b, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f1.plate.c, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f1.plate.d, Color { 0, 1, 0, 1 });
 
-                add_point(window3d, force_data_f2.plate.a, Color { 0, 1, 0, 1 });
-                add_point(window3d, force_data_f2.plate.b, Color { 0, 1, 0, 1 });
-                add_point(window3d, force_data_f2.plate.c, Color { 0, 1, 0, 1 });
-                add_point(window3d, force_data_f2.plate.d, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f2.plate.a, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f2.plate.b, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f2.plate.c, Color { 0, 1, 0, 1 });
+                add_qtm_point(window3d, force_data_f2.plate.d, Color { 0, 1, 0, 1 });
 
                 int f = i * 6;
                 if (f >= force_data_f1.cop.size()) {
@@ -1119,6 +1233,19 @@ int main(int argc, char** argv)
     experiment.qtm_recording.read_force_plate_files();
 
     std::cout << experiment << std::endl;
+
+    MatrixXd matrix(3, 3);
+    matrix(0, 0) = 1.;
+    matrix(0, 1) = 2.;
+    matrix(0, 2) = 3.;
+    matrix(1, 0) = 4.;
+    matrix(1, 1) = 5.;
+    matrix(1, 2) = 6.;
+    matrix(2, 0) = 8.;
+    matrix(2, 1) = 7.;
+    matrix(2, 2) = 6.;
+    Point<double> point(9, 8, 7);
+    std::cout << "Matmul Point: " << point.mat_mul(matrix) << std::endl;;
 
     experiment.visualize();
 }
