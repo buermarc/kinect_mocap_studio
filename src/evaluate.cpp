@@ -8,6 +8,7 @@
 #include <iterator>
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include <limits>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <tclap/CmdLine.h>
@@ -64,6 +65,37 @@ struct QtmFrame {
     Point<double> r_usp;
 };
 
+std::vector<double> smooth(std::vector<double> input, int window_size = 5) {
+    std::vector<double> result;
+    for (int i = 0; i < input.size(); ++i) {
+        double sum;
+        double value;
+        if (i < window_size) {
+            sum = 0;
+            for (int j = 0; j <= 2*i; ++j) {
+                sum += input.at(j);
+            }
+            value = sum / ((2*i)+1);
+            result.push_back(value);
+        } else if (i >= (input.size() - window_size)) {
+            int amount = (input.size() - 1) - i;
+            sum = 0;
+            for (int j = i - amount; j <= i + amount; ++j) {
+                sum += input.at(j);
+            }
+            result.push_back(sum / (amount*2+1));
+        } else {
+            sum = 0;
+            for (int j = i - window_size; j <= i + window_size; ++j) {
+                sum += input.at(j);
+            }
+            value = sum / (window_size*2+1);
+            result.push_back(value);
+        }
+    }
+    return result;
+}
+
 std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     std::vector<Point<double>> l_ak,
     std::vector<Point<double>> r_ak,
@@ -111,7 +143,7 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
 template <typename T>
 void print_vec(std::vector<T> vector)
 {
-    std::for_each(vector.cbegin(), vector.cend() - 1, [](auto ele) { std::cout << ele << ", " << std::endl; });
+    std::for_each(vector.cbegin(), vector.cend() - 1, [](auto ele) { std::cout << ele << ", "; });
     std::cout << vector.back() << std::endl;
 }
 template <typename T>
@@ -122,7 +154,7 @@ void print_vec(std::string name, std::vector<T> vector)
         std::cout << "Vector is Empty" << std::endl;
         return;
     }
-    std::for_each(vector.cbegin(), vector.cend() - 1, [](auto ele) { std::cout << ele << ", " << std::endl; });
+    std::for_each(vector.cbegin(), vector.cend() - 1, [](auto ele) { std::cout << ele << ", "; });
     std::cout << vector.back() << std::endl;
 }
 
@@ -725,7 +757,7 @@ public:
         kinect_max_events.push_back(max_idx);
     }
 
-    double cross_correlation_lag(Data& data, Tensor<double, 3>& joints, std::vector<double> kinect_ts) {
+    double cross_correlation_lag(Data& data, Tensor<double, 3>& joints, std::vector<double> kinect_ts, bool plot=false) {
         // downsample to 15hz
         auto qtm_ts = data.timestamps;
 
@@ -757,14 +789,45 @@ public:
 
         std::vector<double> downsampled_kinect_hle_y;
 
-        for (int i = 0, down_i = 0; i < kinect_ts.size()/4; ++i) {
+        for (int i = 0, down_i = 0; i < kinect_ts.size(); ++i) {
             auto time = kinect_ts.at(i) - kinect_ts.front();
+            double value;
             if (time >= frame_duration * down_i) {
-                downsampled_kinect_hle_y.push_back(kinect_hle_y.at(i));
+                if (time != frame_duration * down_i)  {
+                    auto before_time = kinect_ts.at(i-1) - kinect_ts.front();
+                    auto before_value = kinect_hle_y.at(i-1);
+                    auto current_value = kinect_hle_y.at(i-1);
+                    value = before_value + ((current_value - before_value) * ((frame_duration*down_i - before_time)/(time-before_time)));
+                } else {
+                    value = kinect_hle_y.at(i);
+                }
+                downsampled_kinect_hle_y.push_back(value);
                 down_i++;
             }
+
         }
 
+        //downsampled_qtm_hle_y = {0., 0., 0., 1., 2., 1., 0., 0., 0., 0., 0.};
+        // downsampled_kinect_hle_y = {0., 0., 0., 0., 0., 1., 3., 1., 0.};
+        //downsampled_kinect_hle_y = {0., 1., 3., 1., 0.};
+
+        auto orig_downsampled_kinect_hle_y = downsampled_kinect_hle_y;
+        auto orig_downsampled_qtm_hle_y = downsampled_qtm_hle_y;
+
+
+        // downsampled_kinect_hle_y = smooth(downsampled_kinect_hle_y, 7);
+        // downsampled_qtm_hle_y = smooth(downsampled_qtm_hle_y, 7);
+
+        /*
+        double mean_qtm = std::accumulate(downsampled_qtm_hle_y.cbegin(), downsampled_qtm_hle_y.cend(), 0.0) / downsampled_qtm_hle_y.size();
+        double mean_kinect = std::accumulate(downsampled_kinect_hle_y.cbegin(), downsampled_kinect_hle_y.cend(), 0.0) / downsampled_kinect_hle_y.size();
+
+        double diff = mean_qtm - mean_kinect;
+        std::cout << "diff: " << diff << std::endl;
+
+        std::transform(downsampled_kinect_hle_y.cbegin(), downsampled_kinect_hle_y.cend(), downsampled_kinect_hle_y.begin(), [=](auto element) {return element + diff;});
+
+        */
         std::cout << "qtm down size: " << downsampled_qtm_hle_y.size() << std::endl;
         std::cout << "kinect down size: " << downsampled_kinect_hle_y.size() << std::endl;
 
@@ -778,10 +841,6 @@ public:
         for (int i = 10; i < 160; ++i) {
             downsampled_kinect_hle_y.push_back(i);
         }
-        */
-        /*
-        std::vector<double> downsampled_qtm_hle_y = {0., 0., 0., 1., 2., 1., 0., 0., 0., 0., 0.};
-        std::vector<double> downsampled_kinect_hle_y = {0., 1., 3., 1., 0.};
         */
 
         alglib_impl::ae_state state;
@@ -801,31 +860,45 @@ public:
         ae_vector_init(&result, 0, alglib_impl::DT_REAL, &state, ae_true);
 
         ae_vector_set_length(&qtm, downsampled_qtm_hle_y.size(), &state);
+        std::cout << "signal = [";
         for (int i = 0; i < downsampled_qtm_hle_y.size(); ++i) {
             qtm.ptr.p_double[i] = downsampled_qtm_hle_y.at(i);
+            std::cout << downsampled_qtm_hle_y.at(i) << ",";
         }
+        std::cout << "]" << std::endl;
 
         ae_vector_set_length(&kinect, downsampled_kinect_hle_y.size(), &state);
+        std::cout << "sample = [";
         for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
             kinect.ptr.p_double[i] = downsampled_kinect_hle_y.at(i);
+            std::cout << downsampled_kinect_hle_y.at(i) << ",";
         }
+        std::cout << "]" << std::endl;
 
         ae_vector_set_length(&result, downsampled_kinect_hle_y.size()+downsampled_qtm_hle_y.size(), &state);
         corrr1d(&qtm, downsampled_qtm_hle_y.size(), &kinect, downsampled_kinect_hle_y.size(), &result, &state);
 
         double tmp = 0.0;
-        int idx = 0;
         int arg_max = 0;
-        for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
+        for (int i = 0; i < (downsampled_kinect_hle_y.size() + downsampled_qtm_hle_y.size())-1; ++i) {
             if (tmp < result.ptr.p_double[i]) {
                 tmp = result.ptr.p_double[i];
-                arg_max = idx;
+                arg_max = i;
+                std::cout << "Max : ";
             }
             std::cout << result.ptr.p_double[i] << std::endl;
-            idx++;
         }
 
+        std::cout << "Initial arg max: " << arg_max << std::endl;
+        if (arg_max >= downsampled_qtm_hle_y.size()) {
+            arg_max = arg_max - (downsampled_qtm_hle_y.size() + downsampled_kinect_hle_y.size() -1);
+        }
+        std::cout << "N" << downsampled_qtm_hle_y.size() << std::endl;
+        std::cout << "M" << downsampled_kinect_hle_y.size() << std::endl;
+        std::cout << "Arg max: " << arg_max << std::endl;
 
+
+        /*
         std::cout << "Other way" << std::endl;
         double signalData[14] = { 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9};
         //                                    0  1  2  3  4  5
@@ -842,43 +915,75 @@ public:
         for (int i = 0; i < 24; ++i) {
             std::cout << corrResult[i]<< std::endl;
         }
+        */
 
-        std::vector<double> qtm_timestamp;
-        for (int i=0; i < downsampled_qtm_hle_y.size(); ++i) {
-            qtm_timestamp.push_back((1./15.)*i);
+        if (plot) {
+            std::vector<double> qtm_timestamp;
+            for (int i=0; i < downsampled_qtm_hle_y.size(); ++i) {
+                qtm_timestamp.push_back((1./15.)*i);
+            }
+            std::vector<double> kinect_timestamp;
+            for (int i=0; i < downsampled_kinect_hle_y.size(); ++i) {
+                kinect_timestamp.push_back((1./15.)*i);
+            }
+
+            plt::title("Smooth QTM");
+            plt::named_plot("smooth qtm", qtm_timestamp, downsampled_qtm_hle_y);
+            plt::named_plot("normal qtm", qtm_timestamp, orig_downsampled_qtm_hle_y);
+            plt::named_plot("smooth kinect", kinect_timestamp, downsampled_kinect_hle_y);
+            plt::named_plot("normal kinect", kinect_timestamp, orig_downsampled_kinect_hle_y);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+
+
+            plt::title("Downsampled Wrist Z");
+            plt::named_plot("QTM", qtm_timestamp, downsampled_qtm_hle_y);
+            plt::named_plot("Kinect", kinect_timestamp, downsampled_kinect_hle_y);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+
+            /*
+            std::vector<double> shifted_downsampled_kinect_hle_y;
+            std::vector<double> orig_shifted_downsampled_kinect_hle_y;
+            for (int i = arg_max; i < downsampled_kinect_hle_y.size(); ++i) {
+                shifted_downsampled_kinect_hle_y.push_back(downsampled_kinect_hle_y.at(i));
+                orig_shifted_downsampled_kinect_hle_y.push_back(orig_downsampled_kinect_hle_y.at(i));
+            }
+            */
+
+            int before_size = qtm_timestamp.size();
+
+            std::vector<double> shifted_kinect_timestamp;
+            std::cout << "downsampled size :" << downsampled_kinect_hle_y.size() << std::endl;
+            for (int i = arg_max; i < (arg_max + (int)downsampled_kinect_hle_y.size()); ++i) {
+                std::cout << i << std::endl;
+                shifted_kinect_timestamp.push_back((1./15.)*(i));
+            }
+
+
+            plt::title("Shifted Downsampled Wrist Z");
+            plt::named_plot("QTM", qtm_timestamp, orig_downsampled_qtm_hle_y);
+            plt::named_plot("Shifted Kinect", shifted_kinect_timestamp, downsampled_kinect_hle_y);
+            plt::named_plot("Normal Kinect", kinect_timestamp, downsampled_kinect_hle_y, "r--");
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+
+
+
+            /*
+            plt::title("Smooth Shifted Downsampled Wrist Z");
+            plt::named_plot("Shifted QTM", qtm_timestamp, smooth(downsampled_qtm_hle_y));
+            plt::named_plot("Shifted Kinect", kinect_timestamp, shifted_downsampled_kinect_hle_y);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+            */
         }
-        std::vector<double> kinect_timestamp;
-        for (int i=0; i < downsampled_kinect_hle_y.size(); ++i) {
-            kinect_timestamp.push_back((1./15.)*i);
-        }
 
-
-        plt::title("Downsampled Wrist Z");
-        plt::named_plot("QTM", qtm_timestamp, downsampled_qtm_hle_y);
-        plt::named_plot("Kinect", kinect_timestamp, downsampled_kinect_hle_y);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
-
-        std::vector<double> shifted_downsampled_kinect_hle_y;
-        for (int i = arg_max; i < downsampled_kinect_hle_y.size(); ++i) {
-            shifted_downsampled_kinect_hle_y.push_back(downsampled_kinect_hle_y.at(i));
-        }
-        int before_size = kinect_timestamp.size();
-        kinect_timestamp.clear();
-        for (int i = 0; i < shifted_downsampled_kinect_hle_y.size(); ++i) {
-            kinect_timestamp.push_back((1./15.)*(i));
-        }
-
-
-        plt::title("Shifted Downsampled Wrist Z");
-        plt::named_plot("Shifted QTM", qtm_timestamp, downsampled_qtm_hle_y);
-        plt::named_plot("Shifted Kinect", kinect_timestamp, shifted_downsampled_kinect_hle_y);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
-
-        return qtm_ts[arg_max];
+        return (1./15.) * arg_max;
     }
 
     double calculate_time_offset(Data& data, Tensor<double, 3>& joints, std::vector<double> ts)
@@ -1075,9 +1180,10 @@ public:
         auto joints = transform_and_rotate(joints_in_kinect_system, translation, rotation);
 
         double time_offset = calculate_time_offset(data, joints, ts);
-        double other_time_offset = cross_correlation_lag(data, joints, ts);
+        double other_time_offset = cross_correlation_lag(data, joints, ts, true);
         std::cout << "Time offset: " << time_offset << std::endl;
         std::cout << "Other Time offset: " << other_time_offset << std::endl;
+        time_offset = -other_time_offset;
 
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
@@ -1103,6 +1209,10 @@ public:
 
         QtmFrame qtm_frame;
         KinectFrame kinect_frame;
+
+        std::vector<double> y1;
+        std::vector<double> y2;
+        std::vector<double> plot_ts;
 
         // What ever is longer should continue
         // Never go longer over the max size
@@ -1146,6 +1256,10 @@ public:
                             joints(j, k, 2)));
                     }
                     kinect_frame = KinectFrame { points };
+                    auto m = data.l_usp.at(i)*0.5 + data.r_usp.at(i)*0.5;
+                    y1.push_back(m.z);
+                    y2.push_back(points.at(K4ABT_JOINT_WRIST_LEFT).z);
+                    plot_ts.push_back(current);
                     j++;
                 }
             }
@@ -1197,6 +1311,14 @@ public:
                 break;
             }
         }
+
+        plt::title("Left Wrist Z");
+        plt::named_plot("qtm", plot_ts, y1);
+        plt::named_plot("kinect", plot_ts, y2);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
     }
 };
 
@@ -1233,6 +1355,10 @@ int main(int argc, char** argv)
     experiment.qtm_recording.read_force_plate_files();
 
     std::cout << experiment << std::endl;
+    std::vector<double> test;
+    for (int i=0; i < 100; ++i) {
+        test.push_back(i);
+    }
 
     MatrixXd matrix(3, 3);
     matrix(0, 0) = 1.;
