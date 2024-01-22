@@ -278,6 +278,8 @@ public:
     double n_frames;
     std::vector<double> timestamps;
 
+    KinectRecording() {}
+
     KinectRecording(std::string file)
     {
         auto trimmed_file(file);
@@ -331,6 +333,7 @@ struct ForcePlateData {
 
 class QtmRecording {
 public:
+    QtmRecording() {}
     QtmRecording(std::string file)
     {
         file.replace(file.find(".tsv"), sizeof(".tsv") - 1, "");
@@ -573,8 +576,29 @@ std::ostream& operator<<(std::ostream& out, QtmRecording const& recording)
 
 class Experiment {
 public:
+    Experiment() {}
     QtmRecording qtm_recording;
     KinectRecording kinect_recording;
+    bool hard_offset;
+    double offset;
+
+    Experiment(std::string experiment_json) {
+        std::ifstream file(experiment_json);
+        json data = json::parse(file);
+        std::string qtm_file = data["qtm_file"];
+        std::string kinect_file = data["kinect_file"];
+
+        if (data.contains("offset")) {
+            hard_offset = true;
+            offset = data["offset"];
+        } else {
+            hard_offset = false;
+            offset = 0;
+        }
+
+        qtm_recording = QtmRecording(qtm_file);
+        kinect_recording = KinectRecording(kinect_file);
+    }
 
     Experiment(std::string qtm_file, std::string kinect_file)
         : qtm_recording(qtm_file)
@@ -1348,10 +1372,21 @@ int main(int argc, char** argv)
         "string");
     cmd.add(kinect_file);
 
+    TCLAP::ValueArg<std::string> experiment_json("e", "experiment_json",
+        "Experiment JSON containing info about experiment", false, "",
+        "string");
+
+    cmd.add(experiment_json);
+
     cmd.parse(argc, argv);
 
     auto file = tsv_file.getValue();
-    auto experiment = Experiment(tsv_file.getValue(), kinect_file.getValue());
+    Experiment experiment;
+    if (file != "") {
+        experiment = Experiment(tsv_file.getValue(), kinect_file.getValue());
+    } else {
+        experiment = Experiment(experiment_json.getValue());
+    }
 
     // Data data = experiment.qtm_recording.read_marker_file();
     experiment.qtm_recording.read_force_plate_files();
