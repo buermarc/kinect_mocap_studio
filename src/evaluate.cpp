@@ -1256,7 +1256,8 @@ public:
                             joints(j, k, 2)));
                     }
                     kinect_frame = KinectFrame { points };
-                    auto m = data.l_usp.at(i)*0.5 + data.r_usp.at(i)*0.5;
+                    auto o = std::min(i, (int)data.timestamps.size()-1);
+                    auto m = data.l_usp.at(o)*0.5 + data.r_usp.at(o)*0.5;
                     y1.push_back(m.z);
                     y2.push_back(points.at(K4ABT_JOINT_WRIST_LEFT).z);
                     plot_ts.push_back(current);
@@ -1295,9 +1296,10 @@ public:
 
                     auto force1 = force_data_f1.force.at(f).y;
                     auto force2 = force_data_f2.force.at(f).y;
-                    auto total_force = force1 + force2;
+                    auto total_force_y = force1 + force2;
+                    auto total_force = force_data_f1.force.at(f) + force_data_f2.force.at(f);
 
-                    auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force));
+                    auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force_y));
 
                     add_bone(window3d, middle, middle + total_force, Color { 0, 1, 0, 1 });
                 }
