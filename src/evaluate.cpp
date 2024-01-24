@@ -1007,7 +1007,7 @@ public:
             */
         }
 
-        return (1./15.) * arg_max;
+        return -(1./15.) * arg_max;
     }
 
     double calculate_time_offset(Data& data, Tensor<double, 3>& joints, std::vector<double> ts)
@@ -1203,11 +1203,15 @@ public:
 
         auto joints = transform_and_rotate(joints_in_kinect_system, translation, rotation);
 
-        double time_offset = calculate_time_offset(data, joints, ts);
-        double other_time_offset = cross_correlation_lag(data, joints, ts, true);
+        double time_offset = 0;
+        if (this->hard_offset) {
+            time_offset = this->offset;
+        } else {
+            time_offset = cross_correlation_lag(data, joints, ts, true);
+        }
         std::cout << "Time offset: " << time_offset << std::endl;
-        std::cout << "Other Time offset: " << other_time_offset << std::endl;
-        time_offset = -other_time_offset;
+
+
 
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
