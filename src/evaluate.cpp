@@ -8,12 +8,14 @@
 #include <iterator>
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include <limits>
+#include <numbers>
 #include <numeric>
 #include <sstream>
 #include <string>
 #include <tclap/CmdLine.h>
 #include <tuple>
 #include <vector>
+#include <cmath>
 
 #include <libalglib/ap.h>
 #include <libalglib/fasttransforms.h>
@@ -51,6 +53,7 @@ struct Data {
 
 struct KinectFrame {
     std::vector<Point<double>> joints;
+    std::vector<Point<double>> unfiltered_joints;
 };
 
 struct QtmFrame {
@@ -111,12 +114,20 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
 
     auto x = mean_r_ak - mean_l_ak;
     Point<double> z = translation - mean_b_ak;
-    auto y = (x.cross_product(z));
+
+    double deg = (M_PI/ 180.) * 6.;
+    double z_norm = z.norm();
+    auto w = x.cross_product(z);
+    w = w * (-1);
+
+    auto rotated_z = ((z * (std::cos(deg) / z_norm )) + (w * (std::sin(deg) / w.norm()))) * z_norm;
+    auto y = (x.cross_product(rotated_z));
+
     y = y * (-1);
 
     x = x.normalized();
     y = y.normalized();
-    z = z.normalized();
+    z = rotated_z.normalized();
 
     // x = x * (-1);
     // z = z*(-1);
@@ -124,6 +135,9 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     std::cout << "x : " << x << std::endl;
     std::cout << "y : " << y << std::endl;
     std::cout << "z : " << z << std::endl;
+
+    // Add 6 degrees
+    std::cout << "rotated z : " << rotated_z << std::endl;
 
     rotation_matrix(0, 0) = x.x;
     rotation_matrix(1, 0) = x.y;
@@ -196,6 +210,17 @@ void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<do
     if (frame.joints.size() == 32) {
         auto MM = get_azure_kinect_com_matrix();
         add_qtm_point(window3d, com_helper(frame.joints, MM), Color {0, 1, 0, 1});
+    }
+
+    Color pink = Color { 1, 0, 0.8, 1};
+    Color yellow = Color { 1, 0.9, 0, 1};
+    for (auto joint : frame.unfiltered_joints) {;
+        add_qtm_point(window3d, joint, pink);
+    }
+
+    if (frame.unfiltered_joints.size() == 32) {
+        auto MM = get_azure_kinect_com_matrix();
+        add_qtm_point(window3d, com_helper(frame.unfiltered_joints, MM), yellow);
     }
 }
 
@@ -274,6 +299,7 @@ public:
     std::string json_file;
     nlohmann::json json_data;
     std::string mkv_file;
+    Tensor<double, 3> unfiltered_joints;
     Tensor<double, 3> joints;
     double n_frames;
     std::vector<double> timestamps;
@@ -302,9 +328,10 @@ public:
         mkv_file = mkv_file_ss.str();
 
         json_data = nlohmann::json::parse(std::ifstream(json_file));
-        auto [fvar_joints, fn_frames, ftimestamps, _f_is_null] = load_data(json_file, 32);
+        auto [un_var_joints, fn_frames, ftimestamps, _f_is_null] = load_data(json_file, 32);
         auto [var_joints, n_frames, timestamps, _is_null] = load_filtered_data(json_file, 32);
 
+        this->unfiltered_joints = un_var_joints;
         this->joints = var_joints;
         this->n_frames = n_frames;
         this->timestamps = timestamps;
@@ -1191,6 +1218,7 @@ public:
 
         auto ts = kinect_recording.timestamps;
         auto joints_in_kinect_system = kinect_recording.joints;
+        auto unfiltered_joints_in_kinect_system = kinect_recording.unfiltered_joints;
 
         Window3dWrapper window3d;
         k4a_calibration_t sensor_calibration;
@@ -1202,6 +1230,7 @@ public:
         auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
 
         auto joints = transform_and_rotate(joints_in_kinect_system, translation, rotation);
+        auto unfiltered_joints = transform_and_rotate(unfiltered_joints_in_kinect_system, translation, rotation);
 
         double time_offset = 0;
         if (this->hard_offset) {
@@ -1240,6 +1269,7 @@ public:
 
         std::vector<double> y1;
         std::vector<double> y2;
+        std::vector<double> y3;
         std::vector<double> plot_ts;
 
         // What ever is longer should continue
@@ -1277,17 +1307,23 @@ public:
                 }
                 if (current <= time && time < next) {
                     std::vector<Point<double>> points;
+                    std::vector<Point<double>> unfiltered_points;
                     for (int k = 0; k < 32; ++k) {
                         points.push_back(Point<double>(
                             joints(j, k, 0),
                             joints(j, k, 1),
                             joints(j, k, 2)));
+                        unfiltered_points.push_back(Point<double>(
+                            unfiltered_joints(j, k, 0),
+                            unfiltered_joints(j, k, 1),
+                            unfiltered_joints(j, k, 2)));
                     }
-                    kinect_frame = KinectFrame { points };
+                    kinect_frame = KinectFrame { points, unfiltered_points };
                     auto o = std::min(i, (int)data.timestamps.size()-1);
                     auto m = data.l_usp.at(o)*0.5 + data.r_usp.at(o)*0.5;
                     y1.push_back(m.z);
                     y2.push_back(points.at(K4ABT_JOINT_WRIST_LEFT).z);
+                    y3.push_back(unfiltered_points.at(K4ABT_JOINT_WRIST_LEFT).z);
                     plot_ts.push_back(current);
                     j++;
                 }
@@ -1345,6 +1381,7 @@ public:
         plt::title("Left Wrist Z");
         plt::named_plot("qtm", plot_ts, y1);
         plt::named_plot("kinect", plot_ts, y2);
+        plt::named_plot("unfiltered kinect", plot_ts, y3);
         plt::legend();
         plt::show(true);
         plt::cla();
