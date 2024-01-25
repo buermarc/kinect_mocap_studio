@@ -672,6 +672,16 @@ void WindowController3d::MouseScrollCallback(GLFWwindow* window, double /*xoffse
     TriggerCameraPivotPointRendering();
 }
 
+void WindowController3d::Scroll(float offset)
+{
+    m_viewControl.Scroll(offset);
+}
+
+void WindowController3d::SetTopViewPoint()
+{
+    m_viewControl.SetViewPoint(ViewPoint::TopView);
+}
+
 void WindowController3d::WindowCloseCallback(GLFWwindow* /*window*/)
 {
     if (m_closeCallback)

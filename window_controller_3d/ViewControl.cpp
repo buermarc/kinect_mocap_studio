@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <stdio.h>
+#include <iostream>
 
 using namespace linmath;
 
@@ -217,6 +218,12 @@ void ViewControl::ProcessMouseScroll(GLFWwindow* window, float yoffset)
         m_viewParams.targetDepth += yoffset * m_mouseSensitivity;
         m_viewParams.targetDepth = std::clamp(m_viewParams.targetDepth, 0.2f, 10.0f);
     }
+}
+
+void ViewControl::Scroll(float yoffset)
+{
+    m_viewParams.targetDepth += yoffset * m_mouseSensitivity;
+    m_viewParams.targetDepth = std::clamp(m_viewParams.targetDepth, 0.2f, 10.0f);
 }
 
 void ViewControl::SetViewTarget(const linmath::vec3 target)

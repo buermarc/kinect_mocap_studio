@@ -103,6 +103,8 @@ namespace Visualization
         void SetCloseCallback(CloseCallbackType callback, void* context);
 
         void SetKeyCallback(KeyCallbackType callback, void* context);
+        void Scroll(float offset);
+        void SetTopViewPoint();
 
     protected:
         void FrameBufferSizeCallback(GLFWwindow* window, int width, int height);

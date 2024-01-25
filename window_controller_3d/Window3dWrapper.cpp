@@ -246,6 +246,16 @@ void Window3dWrapper::SetJointFrameVisualization(bool enableJointFrameVisualizat
     m_window3d.SetSkeletonRenderMode(skeletonRenderMode);
 }
 
+void Window3dWrapper::Scroll(float offset)
+{
+    m_window3d.Scroll(offset);
+}
+
+void Window3dWrapper::SetTopViewPoint() {
+    m_window3d.SetTopViewPoint();
+};
+
+
 void Window3dWrapper::SetFloorRendering(bool enableFloorRendering, float floorPositionX, float floorPositionY, float floorPositionZ)
 {
     linmath::vec3 position = { floorPositionX, floorPositionY, floorPositionZ };

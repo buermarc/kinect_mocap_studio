@@ -1,4 +1,5 @@
 #include "filter/com.hpp"
+#include "WindowController3d.h"
 #include <algorithm>
 #include <filter/Point.hpp>
 #include <filter/Utils.hpp>
@@ -110,10 +111,28 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
 
     Point<double> translation = mean_l_ak + (mean_r_ak - mean_l_ak) / 2;
 
+    Point<double> x, y, z;
+
     MatrixXd rotation_matrix(3, 3);
 
-    auto x = mean_r_ak - mean_l_ak;
-    Point<double> z = translation - mean_b_ak;
+    x = mean_r_ak - mean_l_ak;
+    z = translation - mean_b_ak;
+
+    /*
+    // Shift both down N cm
+    auto y = x.cross_product(z);
+    y = y * (-1);
+    y = y.normalized();
+    y = y * 0.01;
+
+    mean_l_ak = mean_l_ak + y;
+    mean_r_ak = mean_r_ak + y;
+    mean_b_ak = mean_b_ak + y;
+    */
+
+    // Recalculate x and z
+    x = mean_r_ak - mean_l_ak;
+    z = translation - mean_b_ak;
 
     double deg = (M_PI/ 180.) * 6.;
     double z_norm = z.norm();
@@ -121,12 +140,12 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     w = w * (-1);
 
     auto rotated_z = ((z * (std::cos(deg) / z_norm )) + (w * (std::sin(deg) / w.norm()))) * z_norm;
-    auto y = (x.cross_product(rotated_z));
+    auto rotated_y = (x.cross_product(rotated_z));
 
-    y = y * (-1);
+    rotated_y = rotated_y * (-1);
 
     x = x.normalized();
-    y = y.normalized();
+    y = rotated_y.normalized();
     z = rotated_z.normalized();
 
     // x = x * (-1);
@@ -1226,6 +1245,8 @@ public:
         window3d.Create("3D Visualization", sensor_calibration);
         window3d.SetCloseCallback(closeCallback);
         window3d.SetKeyCallback(processKey);
+        window3d.SetTopViewPoint();
+        window3d.Scroll(10);
 
         auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
 

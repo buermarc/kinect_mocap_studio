@@ -90,6 +90,8 @@ public:
     // Processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
     void ProcessMouseScroll(GLFWwindow* window, float yoffset);
 
+    void Scroll(float yoffset);
+
     // Set the location the camera points to.
     void SetViewTarget(const linmath::vec3 target);
 

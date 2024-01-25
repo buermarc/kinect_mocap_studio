@@ -68,6 +68,9 @@ public:
     // Render Setting Functions
     void SetLayout3d(Visualization::Layout3d layout3d);
     void SetJointFrameVisualization(bool enableJointFrameVisualization);
+    void Scroll(float offset);
+    void SetTopViewPoint();
+
 
 private:
     void InitializeCalibration(const k4a_calibration_t& sensorCalibration);
