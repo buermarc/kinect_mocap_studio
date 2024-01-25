@@ -20,7 +20,6 @@
 #include <filter/adaptive/AdaptivePointFilter3D.hpp>
 
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
-typedef AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> AdaptiveFilterBuilder;
 
 void CliConfig::printAppUsage()
 {
@@ -197,7 +196,7 @@ CliConfig::CliConfig(int argc, char** argv)
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "basic") == 0) {
             filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "adaptive-constrained") == 0) {
-            // filter_builder = std::make_shared<ZarchanAdaptiveConstrainedSkeletonFilterBuilder<double>>(32, 5.0);
+            filter_builder = std::make_shared<AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter>>(32, 5.0);
         } else {
             std::cerr << "error: filter_mode must be : 'constrained', 'basic', 'adaptive-constrained'" << std::endl;
             exit(1);
