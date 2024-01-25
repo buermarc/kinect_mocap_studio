@@ -3,6 +3,7 @@
 
 #include <k4a/k4atypes.h>
 #include <k4arecord/record.h>
+#include <filter/AbstractSkeletonFilter.hpp>
 
 struct CliConfig {
     public:
@@ -11,6 +12,8 @@ struct CliConfig {
     // bool save_camera_data = false;
     int k4a_depth_mode = 0;
     std::string k4a_depth_mode_str;
+    std::shared_ptr<AbstractSkeletonFilterBuilder<double>> filter_builder;
+    std::string kalman_filter_type_str;
     std::string input_sensor_file_str;
     bool process_sensor_file = false;
     int k4a_frames_per_second = 0;

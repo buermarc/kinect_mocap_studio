@@ -33,7 +33,8 @@ namespace plt = matplotlibcpp;
 typedef std::chrono::high_resolution_clock hc;
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
 // typedef SkeletonFilter<double> CurrentFilterType;
-typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
+// typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
+typedef std::shared_ptr<AbstractSkeletonFilter<double>> CurrentFilterType;
 // typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
@@ -105,16 +106,16 @@ apply_filter(
         }
 
         auto& filter = filters.at(i);
-        if (!filter.is_initialized()) {
-            filter.init(frame.joints.at(i), frame.timestamp);
+        if (!filter->is_initialized()) {
+            filter->init(frame.joints.at(i), frame.timestamp);
             continue;
         }
 
-        std::cout << "Duration: " << filter.time_diff(frame.timestamp) << std::endl;
-        durations.push_back(filter.time_diff(frame.timestamp));
-        auto [filtered_positions, filtered_velocities] = filter.step(frame.joints.at(i), frame.timestamp);
+        std::cout << "Duration: " << filter->time_diff(frame.timestamp) << std::endl;
+        durations.push_back(filter->time_diff(frame.timestamp));
+        auto [filtered_positions, filtered_velocities] = filter->step(frame.joints.at(i), frame.timestamp);
 
-        auto com = filter.calculate_com();
+        auto com = filter->calculate_com();
         auto ankle_left = filtered_positions[ANKLE_LEFT];
         auto ankle_right = filtered_positions[ANKLE_RIGHT];
 
@@ -128,10 +129,10 @@ apply_filter(
         auto ankle_com_norm = std::sqrt(
             std::pow(mean_ankle.x - com.x, 2) + std::pow(mean_ankle.y - com.y, 2) + std::pow(mean_ankle.z - com.z, 2));
 
-        auto xcom = filter.calculate_x_com(ankle_com_norm);
+        auto xcom = filter->calculate_x_com(ankle_com_norm);
         Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
         stability_properties.insert(std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>>::value_type(i, std::make_tuple(com, xcom, bos_plane)));
-        com_dots[i] = filter.calculate_com_dot();
+        com_dots[i] = filter->calculate_com_dot();
 
         fpositions[i] = filtered_positions;
         fvelocities[i] = filtered_velocities;
@@ -307,6 +308,10 @@ void processThread(
     std::cout << "Process Thread Exit" << std::endl;
     s_stillPlotting = false;
 
-    frame_result_json["filters"] = filters;
+    for (auto entry : filters) {
+        auto filter = entry.second;
+        frame_result_json["filters"].push_back(filter->to_json());
+    }
+    // frame_result_json["filters"] = filters;
     process_json_promise.set_value(std::make_tuple(frame_result_json, plotwrap));
 }

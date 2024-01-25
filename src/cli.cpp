@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <fstream>
 #include <string>
+#include <memory>
 
 #include <k4a/k4a.h>
 #include <k4a/k4atypes.h>
@@ -11,6 +12,15 @@
 #include <k4arecord/playback.h>
 #include <k4arecord/record.h>
 #include <tclap/CmdLine.h>
+
+#include <filter/SkeletonFilter.hpp>
+#include <filter/ConstrainedSkeletonFilter.hpp>
+#include <filter/adaptive/AdaptiveConstrainedSkeletonFilter.hpp>
+#include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
+#include <filter/adaptive/AdaptivePointFilter3D.hpp>
+
+typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
+typedef AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> AdaptiveFilterBuilder;
 
 void CliConfig::printAppUsage()
 {
@@ -86,6 +96,12 @@ CliConfig::CliConfig(int argc, char** argv)
             K4ABT_DEFAULT_TRACKER_SMOOTHING_FACTOR, "double");
 
         cmd.add(temporal_smoothing_arg);
+
+        TCLAP::ValueArg<std::string> kalman_filter_type("k", "kalman_filter_type",
+            "Which kalman filter to use. Options: 'constrained', 'basic', 'adaptive-constrained'; Default: 'constrained'",
+            false, "constrained", "string");
+
+        cmd.add(kalman_filter_type);
 
         // TCLAP::SwitchArg mkv_switch("m","mkv","Record rgb and depth camera data"
         //                               " to an *.mkv file", cmd, false);
@@ -172,6 +188,18 @@ CliConfig::CliConfig(int argc, char** argv)
             std::cerr << "error: cannot process an input file (-i) and write"
                          "(-w) the sensor data at the same time"
                       << std::endl;
+            exit(1);
+        }
+
+        kalman_filter_type_str = kalman_filter_type.getValue();
+        if (std::strcmp(kalman_filter_type_str.c_str(), "constrained") == 0) {
+            filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32);
+        } else if (std::strcmp(kalman_filter_type_str.c_str(), "basic") == 0) {
+            filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32);
+        } else if (std::strcmp(kalman_filter_type_str.c_str(), "adaptive-constrained") == 0) {
+            // filter_builder = std::make_shared<ZarchanAdaptiveConstrainedSkeletonFilterBuilder<double>>(32, 5.0);
+        } else {
+            std::cerr << "error: filter_mode must be : 'constrained', 'basic', 'adaptive-constrained'" << std::endl;
             exit(1);
         }
 
