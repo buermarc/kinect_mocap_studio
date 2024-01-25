@@ -827,7 +827,7 @@ public:
         kinect_max_events.push_back(max_idx);
     }
 
-    double cross_correlation_lag(Data& data, Tensor<double, 3>& joints, std::vector<double> kinect_ts, bool plot=false) {
+    double cross_correlation_lag(Data& data, Tensor<double, 3>& joints, std::vector<double> kinect_ts, double initial_offset, bool plot=false) {
         // downsample to 15hz
         auto qtm_ts = data.timestamps;
 
@@ -849,7 +849,15 @@ public:
         std::vector<double> downsampled_qtm_hle_y;
 
         double frame_duration = 1./15.;
-        for (int i = 0, down_i = 0; i < qtm_ts.size(); ++i) {
+
+        std::cout << "initial_offset: " << initial_offset << std::endl;
+        int qtm_begin_idx = 0;
+        if (initial_offset < 0) {
+            qtm_begin_idx = (std::abs(initial_offset) / frame_duration);
+        }
+        std::cout << "qtm_begin_idx: " << qtm_begin_idx << std::endl;
+
+        for (int i = qtm_begin_idx, down_i = qtm_begin_idx; i < qtm_ts.size(); ++i) {
             auto time = qtm_ts.at(i);
             if (time >= frame_duration * down_i && time < frame_duration * (down_i + 1)) {
                 downsampled_qtm_hle_y.push_back(qtm_hle_y.at(i));
@@ -857,9 +865,22 @@ public:
             }
         }
 
+        int kinect_begin_idx = 0;
+        if (initial_offset > 0) {
+            for (int k = 0; k < kinect_ts.size(); ++k) {
+                auto time = kinect_ts.at(k) - kinect_ts.front();
+                if (time >= initial_offset) {
+                    kinect_begin_idx = k;
+                    break;
+                }
+            }
+            int kinect_begin_idx = (initial_offset / frame_duration);
+            std::cout << "kinect_begin_idx: " << kinect_begin_idx << std::endl;
+        }
+
         std::vector<double> downsampled_kinect_hle_y;
 
-        for (int i = 0, down_i = 0; i < kinect_ts.size(); ++i) {
+        for (int i = kinect_begin_idx, down_i = kinect_begin_idx; i < kinect_ts.size(); ++i) {
             auto time = kinect_ts.at(i) - kinect_ts.front();
             double value;
             if (time >= frame_duration * down_i) {
@@ -954,9 +975,8 @@ public:
             if (tmp < result.ptr.p_double[i]) {
                 tmp = result.ptr.p_double[i];
                 arg_max = i;
-                std::cout << "Max : ";
+                std::cout << "Max : " << tmp;
             }
-            std::cout << result.ptr.p_double[i] << std::endl;
         }
 
         std::cout << "Initial arg max: " << arg_max << std::endl;
@@ -1053,7 +1073,7 @@ public:
             */
         }
 
-        return -(1./15.) * arg_max;
+        return initial_offset + (-(1./15.) * arg_max);
     }
 
     double calculate_time_offset(Data& data, Tensor<double, 3>& joints, std::vector<double> ts)
@@ -1256,9 +1276,8 @@ public:
         double time_offset = 0;
         if (this->hard_offset) {
             time_offset = this->offset;
-        } else {
-            time_offset = cross_correlation_lag(data, joints, ts, true);
         }
+        time_offset = cross_correlation_lag(data, joints, ts, this->offset, true);
         std::cout << "Time offset: " << time_offset << std::endl;
 
 
