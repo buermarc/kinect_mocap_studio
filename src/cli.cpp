@@ -3,8 +3,8 @@
 
 #include <cstdint>
 #include <fstream>
-#include <string>
 #include <memory>
+#include <string>
 
 #include <k4a/k4a.h>
 #include <k4a/k4atypes.h>
@@ -13,11 +13,11 @@
 #include <k4arecord/record.h>
 #include <tclap/CmdLine.h>
 
-#include <filter/SkeletonFilter.hpp>
 #include <filter/ConstrainedSkeletonFilter.hpp>
+#include <filter/SkeletonFilter.hpp>
 #include <filter/adaptive/AdaptiveConstrainedSkeletonFilter.hpp>
-#include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
 #include <filter/adaptive/AdaptivePointFilter3D.hpp>
+#include <filter/adaptive/AdaptiveZarchanFilter1D.hpp>
 
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
 
@@ -194,7 +194,7 @@ CliConfig::CliConfig(int argc, char** argv)
         if (std::strcmp(kalman_filter_type_str.c_str(), "constrained") == 0) {
             filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "basic") == 0) {
-            filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32);
+            filter_builder = std::make_shared<SkeletonFilterBuilder<double>>(32, 5.0);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "adaptive-constrained") == 0) {
             filter_builder = std::make_shared<AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter>>(32, 5.0);
         } else {

@@ -119,9 +119,8 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     x = mean_r_ak - mean_l_ak;
     z = translation - mean_b_ak;
 
-    /*
     // Shift both down N cm
-    auto y = x.cross_product(z);
+    y = x.cross_product(z);
     y = y * (-1);
     y = y.normalized();
     y = y * 0.01;
@@ -129,7 +128,8 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     mean_l_ak = mean_l_ak + y;
     mean_r_ak = mean_r_ak + y;
     mean_b_ak = mean_b_ak + y;
-    */
+
+    translation = mean_l_ak + (mean_r_ak - mean_l_ak) / 2;
 
     // Recalculate x and z
     x = mean_r_ak - mean_l_ak;
@@ -223,15 +223,6 @@ int64_t closeCallback(void* /*context*/)
 
 void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<double> translation, MatrixXd rotation)
 {
-    for (auto joint : frame.joints) {
-        add_qtm_point(window3d, joint);
-    }
-
-    if (frame.joints.size() == 32) {
-        auto MM = get_azure_kinect_com_matrix();
-        add_qtm_point(window3d, com_helper(frame.joints, MM), Color { 0, 1, 0, 1 });
-    }
-
     Color pink = Color { 1, 0, 0.8, 1 };
     Color yellow = Color { 1, 0.9, 0, 1 };
     for (auto joint : frame.unfiltered_joints) {
@@ -242,6 +233,15 @@ void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<do
     if (frame.unfiltered_joints.size() == 32) {
         auto MM = get_azure_kinect_com_matrix();
         add_qtm_point(window3d, com_helper(frame.unfiltered_joints, MM), yellow);
+    }
+
+    for (auto joint : frame.joints) {
+        add_qtm_point(window3d, joint);
+    }
+
+    if (frame.joints.size() == 32) {
+        auto MM = get_azure_kinect_com_matrix();
+        add_qtm_point(window3d, com_helper(frame.joints, MM), Color { 0, 1, 0, 1 });
     }
 }
 
@@ -1048,7 +1048,6 @@ public:
             std::vector<double> shifted_kinect_timestamp;
             std::cout << "downsampled size :" << downsampled_kinect_hle_y.size() << std::endl;
             for (int i = arg_max; i < (arg_max + (int)downsampled_kinect_hle_y.size()); ++i) {
-                std::cout << i << std::endl;
                 shifted_kinect_timestamp.push_back((1. / 15.) * (i));
             }
 
@@ -1470,24 +1469,6 @@ int main(int argc, char** argv)
     experiment.qtm_recording.read_force_plate_files();
 
     std::cout << experiment << std::endl;
-    std::vector<double> test;
-    for (int i = 0; i < 100; ++i) {
-        test.push_back(i);
-    }
-
-    MatrixXd matrix(3, 3);
-    matrix(0, 0) = 1.;
-    matrix(0, 1) = 2.;
-    matrix(0, 2) = 3.;
-    matrix(1, 0) = 4.;
-    matrix(1, 1) = 5.;
-    matrix(1, 2) = 6.;
-    matrix(2, 0) = 8.;
-    matrix(2, 1) = 7.;
-    matrix(2, 2) = 6.;
-    Point<double> point(9, 8, 7);
-    std::cout << "Matmul Point: " << point.mat_mul(matrix) << std::endl;
-    ;
 
     experiment.visualize();
 }
