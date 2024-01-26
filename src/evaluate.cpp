@@ -33,6 +33,10 @@
 
 namespace plt = matplotlibcpp;
 
+std::vector<Point<double>> kinect_com;
+std::vector<Point<double>> qtm_cop;
+auto MM = get_azure_kinect_com_matrix();
+
 bool s_isRunning = true;
 bool s_visualizeJointFrame = false;
 int s_layoutMode = 0;
@@ -231,7 +235,6 @@ void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<do
     }
 
     if (frame.unfiltered_joints.size() == 32) {
-        auto MM = get_azure_kinect_com_matrix();
         add_qtm_point(window3d, com_helper(frame.unfiltered_joints, MM), yellow);
     }
 
@@ -240,7 +243,6 @@ void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<do
     }
 
     if (frame.joints.size() == 32) {
-        auto MM = get_azure_kinect_com_matrix();
         add_qtm_point(window3d, com_helper(frame.joints, MM), Color { 0, 1, 0, 1 });
     }
 }
@@ -571,25 +573,25 @@ public:
             force.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    std::stod(results.at(i + 2)) / 1000,
-                    std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    (-1) * std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             moment.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
 
             i += 3;
             cop.push_back(
                 Point<double>(
                     std::stod(results.at(i + 0)) / 1000,
-                    (-1) * std::stod(results.at(i + 2)) / 1000,
-                    (-1) * std::stod(results.at(i + 1)) / 1000));
+                    std::stod(results.at(i + 1)) / 1000,
+                    std::stod(results.at(i + 2)) / 1000));
         }
         auto mean = std::accumulate(force.cbegin(), force.cend(), Point<double>()) / force.size();
-        bool used = (std::abs(mean.y) > 0.1);
+        bool used = (std::abs(mean.z) > 0.1);
         std::cout << "Force plate z mean: " << mean << std::endl;
         std::cout << "Force plate used: " << used << std::endl;
         return ForcePlateData { plate, used, timestamps, force, moment, cop };
@@ -1274,7 +1276,7 @@ public:
         if (this->hard_offset) {
             time_offset = this->offset;
         }
-        time_offset = cross_correlation_lag(data, joints, ts, this->offset, true);
+        time_offset = cross_correlation_lag(data, joints, ts, this->offset, false);
         std::cout << "Time offset: " << time_offset << std::endl;
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
@@ -1361,6 +1363,11 @@ public:
                     y1.push_back(m.z);
                     y2.push_back(points.at(K4ABT_JOINT_WRIST_LEFT).z);
                     y3.push_back(unfiltered_points.at(K4ABT_JOINT_WRIST_LEFT).z);
+                    auto com = com_helper(points, MM);
+                    com.z = 0;
+                    kinect_com.push_back(com);
+                    Color yellow = Color { 1, 0.9, 0, 1 };
+                    add_qtm_point(window3d, com, yellow);
                     plot_ts.push_back(current);
                     j++;
                 }
@@ -1387,23 +1394,32 @@ public:
                 if (f >= force_data_f1.cop.size()) {
                     f = force_data_f1.cop.size() - 1;
                 }
+                Point<double> center, cop;
                 if (force_data_f1.used && !force_data_f2.used) {
-                    add_bone(window3d, force_data_f1.cop.at(f), force_data_f1.cop.at(f) + force_data_f1.force.at(f), Color { 0, 1, 0, 1 });
+                    center = force_data_f1.cop.at(f);
+                    cop = force_data_f1.cop.at(f) + force_data_f1.force.at(f);
                 } else if (!force_data_f1.used && force_data_f2.used) {
-                    add_bone(window3d, force_data_f2.cop.at(f), force_data_f2.cop.at(f) + force_data_f2.force.at(f), Color { 0, 1, 0, 1 });
+                    center = force_data_f2.cop.at(f);
+                    cop = force_data_f2.cop.at(f) + force_data_f2.force.at(f);
                 } else if (force_data_f1.used && force_data_f2.used) {
                     auto cop1 = force_data_f1.cop.at(f);
                     auto cop2 = force_data_f2.cop.at(f);
 
-                    auto force1 = force_data_f1.force.at(f).y;
-                    auto force2 = force_data_f2.force.at(f).y;
-                    auto total_force_y = force1 + force2;
+                    auto force1 = force_data_f1.force.at(f).z;
+                    auto force2 = force_data_f2.force.at(f).z;
+                    auto total_force_z = force1 + force2;
                     auto total_force = force_data_f1.force.at(f) + force_data_f2.force.at(f);
 
-                    auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force_y));
+                    auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force_z));
+                    center = middle;
+                    cop = middle + total_force;
 
-                    add_bone(window3d, middle, middle + total_force, Color { 0, 1, 0, 1 });
                 }
+                add_qtm_bone(window3d, center, cop, Color { 0, 1, 0, 1 });
+                cop.z = 0;
+                qtm_cop.push_back(cop);
+                Color blue = Color { 0, 0, 1, 1 };
+                add_qtm_point(window3d, cop, blue);
             }
 
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
@@ -1422,6 +1438,23 @@ public:
         plt::legend();
         plt::show(true);
         plt::cla();
+
+        std::vector<double> kx, ky, qx, qy;
+        std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(kx), [](auto point) {return point.x;});
+        std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(ky), [](auto point) {return point.y;});
+        plt::title("Kinect CoM");
+        plt::scatter(kx, ky);
+        plt::show(true);
+        plt::cla();
+
+        std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qx), [](auto point) {return point.x;});
+        std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qy), [](auto point) {return point.y;});
+        plt::title("QTM CoP");
+        plt::scatter(qx, qy);
+        plt::show(true);
+        plt::cla();
+
+
     }
 };
 
