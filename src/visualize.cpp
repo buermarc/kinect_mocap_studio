@@ -1,3 +1,4 @@
+#include <kinect_mocap_studio/benchmark.hpp>
 #include <kinect_mocap_studio/cli.hpp>
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include <kinect_mocap_studio/queues.hpp>
@@ -28,6 +29,9 @@
 const std::chrono::duration<double, std::milli> TIME_PER_FRAME(32);
 typedef std::chrono::high_resolution_clock hc;
 
+#ifndef BENCHMARK
+#define BENCHMARK 1
+#endif
 #ifndef BENCH_VIZ
 #define BENCH_VIZ 1
 #endif
@@ -255,7 +259,8 @@ void visualizeLogic(Window3dWrapper& window3d, ProcessedFrame frame, k4a_calibra
 
 void visualizeThread(
     k4a_calibration_t sensor_calibration,
-    std::promise<nlohmann::json> filter_json_promise)
+    std::promise<nlohmann::json> filter_json_promise,
+    Benchmark& bench)
 {
     auto latency = hc::now();
     ProcessedFrame frame;
@@ -276,11 +281,17 @@ void visualizeThread(
                 skip = false;
                 continue;
             }
+#if BENCHMARK
+            auto visualize_ts = hc::now();
+#endif
             visualizeLogic(window3d, frame, sensor_calibration);
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
             window3d.Render();
             auto stop = hc::now();
+#if BENCHMARK
+            bench.visualize.push_back((std::chrono::duration<double, std::milli>(hc::now() - visualize_ts)).count());
+#endif
             std::chrono::duration<double, std::milli> latency_duration = stop - latency;
             latency = stop;
             std::chrono::duration<double, std::milli> time = stop - start;

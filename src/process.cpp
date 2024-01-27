@@ -1,5 +1,6 @@
 #include <future>
 #include <iostream>
+#include <kinect_mocap_studio/benchmark.hpp>
 #include <kinect_mocap_studio/moving_average.hpp>
 #include <kinect_mocap_studio/plotwrap.hpp>
 #include <kinect_mocap_studio/process.hpp>
@@ -26,6 +27,9 @@ namespace plt = matplotlibcpp;
 
 #include <cassert>
 
+#ifndef BENCHMARK
+#define BENCHMARK 1
+#endif
 #ifndef BENCH_PROCESS
 #define BENCH_PROCESS 1
 #endif
@@ -146,12 +150,25 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     Samples::FloorDetector& floorDetector,
     std::map<uint32_t, CurrentFilterType>& filters,
     nlohmann::json& frame_result_json,
-    MovingAverage& moving_average)
+    MovingAverage& moving_average,
+    Benchmark& bench)
 {
     // Can we detect the floor
+#ifdef BENCHMARK
+    auto detect_floor_ts = hc::now();
+#endif
     auto optional_point = detect_floor(frame, sensor_calibration, floorDetector, frame_result_json, moving_average);
+#ifdef BENCHMARK
+    bench.detect_floor.push_back((std::chrono::duration<double, std::milli>(hc::now() - detect_floor_ts)).count());
+#endif
     // Mutates joints
+#ifdef BENCHMARK
+    auto apply_filter_ts = hc::now();
+#endif
     auto [stability_properties, fpositions, fvelocities, durations, com_dots] = apply_filter(frame, filters);
+#ifdef BENCHMARK
+    bench.apply_filter.push_back((std::chrono::duration<double, std::milli>(hc::now() - apply_filter_ts)).count());
+#endif
     auto filtered_joints(fpositions);
 
     return std::make_tuple(
@@ -161,7 +178,8 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
 
 void processThread(
     k4a_calibration_t sensor_calibration,
-    std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise)
+    std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise,
+    Benchmark& bench)
 {
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
     Samples::FloorDetector floorDetector;
@@ -179,9 +197,15 @@ void processThread(
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
             auto start = hc::now();
-            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json, moving_average);
+            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json, moving_average, bench);
+#ifdef BENCHMARK
+            auto process_queue_ts = hc::now();
+#endif
             processed_queue.Produce(std::move(processed_frame));
             plotting_queue.Produce(std::move(plotting_frame));
+#ifdef BENCHMARK
+            bench.process_queue_produce.push_back((std::chrono::duration<double, std::milli>(hc::now() - process_queue_ts)).count());
+#endif
 
 #ifdef BENCH_PROCESS
             auto stop = hc::now();

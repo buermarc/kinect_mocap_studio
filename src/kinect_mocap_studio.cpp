@@ -34,6 +34,7 @@
 #include <filter/SkeletonFilter.hpp>
 #include <filter/com.hpp>
 
+#include <kinect_mocap_studio/benchmark.hpp>
 #include <kinect_mocap_studio/cli.hpp>
 #include <kinect_mocap_studio/filter_utils.hpp>
 #include <kinect_mocap_studio/plotting.hpp>
@@ -72,15 +73,6 @@ boost::atomic<bool> s_isRunning(true);
 boost::atomic<bool> s_visualizeJointFrame(false);
 boost::atomic<int> s_layoutMode((int)Visualization::Layout3d::OnlyMainView);
 
-#ifdef BENCHMARK
-std::vector<double> camera;
-std::vector<double> bench_recording_body;
-std::vector<double> bench_recording_imu;
-std::vector<double> network;
-std::vector<double> imu;
-std::vector<double> save_body;
-std::vector<double> save_imu;
-#endif
 /*
 To do:
 1. Use TCLAP to add some command line options
@@ -104,6 +96,7 @@ int main(int argc, char** argv)
     //     - [optional] name of the mkv file to write
 
     auto config = CliConfig(argc, argv);
+    auto bench = Benchmark();
 
     // Configure and start the device
     k4a_device_t device = NULL;
@@ -127,8 +120,8 @@ int main(int argc, char** argv)
     std::future<nlohmann::json> visualize_json_future = visualize_json_promise.get_future();
 
     // glfwInit();
-    std::thread process_thread(processThread, sensor_calibration, std::move(process_json_promise));
-    std::thread visualize_thread(visualizeThread, sensor_calibration, std::move(visualize_json_promise));
+    std::thread process_thread(processThread, sensor_calibration, std::move(process_json_promise), std::ref(bench));
+    std::thread visualize_thread(visualizeThread, sensor_calibration, std::move(visualize_json_promise), std::ref(bench));
     std::thread plot_thread(plotThread);
 
     //
@@ -242,7 +235,7 @@ int main(int argc, char** argv)
                           << std::endl;
                 capture_ready = false;
 #ifdef BENCHMARK
-                camera.push_back((std::chrono::duration<double, std::milli>(camera_ts - hc::now())).count());
+                bench.camera.push_back((std::chrono::duration<double, std::milli>(hc::now() - camera_ts)).count());
 #endif
             }
 
@@ -289,7 +282,7 @@ int main(int argc, char** argv)
                     break;
                 }
 #ifdef BENCHMARK
-                bench_recording_body.push_back((std::chrono::duration<double, std::milli>(recording_body_ts - hc::now())).count());
+                bench.recording_body.push_back((std::chrono::duration<double, std::milli>(hc::now() - recording_body_ts)).count());
 #endif /* ifdef  */
             }
 
@@ -312,7 +305,7 @@ int main(int argc, char** argv)
                 pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame, WAIT_MS);
                 if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
 #ifdef BENCHMARK
-                    network.push_back((std::chrono::duration<double, std::milli>(network_ts - hc::now())).count());
+                    bench.network.push_back((std::chrono::duration<double, std::milli>(hc::now() - network_ts)).count());
 #endif
                     break;
                 }
@@ -335,7 +328,7 @@ int main(int argc, char** argv)
                     k4a_stream_result_t imu_result = k4a_playback_get_next_imu_sample(playback_handle, &imu_sample);
                     if (imu_result == K4A_STREAM_RESULT_SUCCEEDED) {
 #ifdef BENCHMARK
-                    imu.push_back((std::chrono::duration<double, std::milli>(camera_ts - hc::now())).count());
+                    bench.imu.push_back((std::chrono::duration<double, std::milli>(hc::now() - imu_ts)).count());
 #endif /* ifdef  */
                         imu_data_ready = true;
                     } else if (imu_result == K4A_STREAM_RESULT_EOF) {
@@ -379,7 +372,7 @@ int main(int argc, char** argv)
                 auto [joints, confidence_levels] = push_body_data_to_json(body_result_json, body_frame, num_bodies);
                 frame_result_json["bodies"].push_back(body_result_json);
 #ifdef BENCHMARK
-                save_body.push_back((std::chrono::duration<double, std::milli>(save_body_ts - hc::now())).count());
+                bench.save_body.push_back((std::chrono::duration<double, std::milli>(hc::now() - save_body_ts)).count());
 #endif /* ifdef  */
                 // END
 
@@ -398,7 +391,7 @@ int main(int argc, char** argv)
                         // break;
                     }
 #ifdef BENCHMARK
-                    bench_recording_imu.push_back((std::chrono::duration<double, std::milli>(recording_imu_ts - hc::now())).count());
+                    bench.recording_imu.push_back((std::chrono::duration<double, std::milli>(hc::now() - recording_imu_ts)).count());
 #endif /* ifdef  */
                 }
 
@@ -409,15 +402,27 @@ int main(int argc, char** argv)
                     push_imu_data_to_json(imu_result_json, imu_sample);
                     frame_result_json["imu"].push_back(imu_result_json);
 #ifdef BENCHMARK
-                    save_imu.push_back((std::chrono::duration<double, std::milli>(save_imu_ts - hc::now())).count());
+                    bench.save_imu.push_back((std::chrono::duration<double, std::milli>(hc::now() - save_imu_ts)).count());
 #endif /* ifdef  */
                 }
 
+#ifdef BENCHMARK
+                auto pointcloud_ts = hc::now();
+#endif /* ifdef  */
                 pointCloudGenerator.Update(depth_image);
                 const auto cloudPoints = pointCloudGenerator.GetCloudPoints(2);
+#ifdef BENCHMARK
+                bench.pointcloud.push_back((std::chrono::duration<double, std::milli>(hc::now() - pointcloud_ts)).count());
+#endif /* ifdef  */
 
+#ifdef BENCHMARK
+                auto queue_produce_ts = hc::now();
+#endif /* ifdef  */
                 measurement_queue.Produce(MeasuredFrame {
                     imu_sample, std::move(cloudPoints), std::move(joints), std::move(confidence_levels), (double)timestamp / 1e6 });
+#ifdef BENCHMARK
+                bench.measurement_queue_produce.push_back((std::chrono::duration<double, std::milli>(hc::now() - queue_produce_ts)).count());
+#endif /* ifdef  */
 
                 k4abt_frame_release(body_frame);
                 k4a_image_release(depth_image);
@@ -493,6 +498,9 @@ int main(int argc, char** argv)
     }
     // plotwrap.plot_all();
     //  plt::close();
+#if BENCHMARK
+    bench.save("result.json");
+#endif
     std::exit(0);
 }
 /*
