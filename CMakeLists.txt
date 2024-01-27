@@ -83,6 +83,14 @@ FetchContent_Declare(
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 FetchContent_MakeAvailable(filter)
 
+FetchContent_Declare(
+  iir1
+  GIT_REPOSITORY https://github.com/berndporr/iir1
+  GIT_TAG HEAD
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+FetchContent_MakeAvailable(iir1)
+
 set(EIGEN_BUILD_DIR   ${CMAKE_BINARY_DIR}/eigen)
 set(EIGEN_INSTALL_DIR ${CMAKE_SOURCE_DIR}/include/eigen3)
 set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
@@ -131,6 +139,7 @@ target_link_libraries(evaluate
     openGLPlotLive
     freetype
     alglib
+    iir::iir
     ${PYTHON_LIBRARIES}
 )
 

@@ -58,6 +58,10 @@ PlottingQueue plotting_queue;
 #define FPS_30 33
 #define FPS_15 66
 
+#ifndef BENCHMARK
+#define BENCHMARK 1
+#endif
+
 #ifndef BENCH_MEASUREMENT
 #define BENCH_MEASUREMENT 1
 #endif
@@ -68,6 +72,15 @@ boost::atomic<bool> s_isRunning(true);
 boost::atomic<bool> s_visualizeJointFrame(false);
 boost::atomic<int> s_layoutMode((int)Visualization::Layout3d::OnlyMainView);
 
+#ifdef BENCHMARK
+std::vector<double> camera;
+std::vector<double> bench_recording_body;
+std::vector<double> bench_recording_imu;
+std::vector<double> network;
+std::vector<double> imu;
+std::vector<double> save_body;
+std::vector<double> save_imu;
+#endif
 /*
 To do:
 1. Use TCLAP to add some command line options
@@ -208,6 +221,9 @@ int main(int argc, char** argv)
         k4a_wait_result_t pop_frame_result = K4A_WAIT_RESULT_SUCCEEDED;
         k4a_wait_result_t queue_capture_result;
 
+#ifdef BENCHMARK
+        auto camera_ts = hc::now();
+#endif
         // Extract capture
         if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
@@ -225,6 +241,9 @@ int main(int argc, char** argv)
                 std::cerr << "error: stream contains no depth image at " << frame_count
                           << std::endl;
                 capture_ready = false;
+#ifdef BENCHMARK
+                camera.push_back((std::chrono::duration<double, std::milli>(camera_ts - hc::now())).count());
+#endif
             }
 
         } else {
@@ -245,6 +264,9 @@ int main(int argc, char** argv)
         // Process the data
         if (capture_ready) {
 
+#ifdef BENCHMARK
+            auto network_ts = hc::now();
+#endif
             auto sa = hc::now();
             if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
                 queue_capture_result = k4abt_tracker_enqueue_capture(
@@ -255,6 +277,9 @@ int main(int argc, char** argv)
             k4a_image_t depth_image = k4a_capture_get_depth_image(sensor_capture);
 
             if (config.record_sensor_data) {
+#ifdef BENCHMARK
+                auto recording_body_ts = hc::now();
+#endif /* ifdef  */
                 k4a_result_t write_sensor_capture
                     = k4a_record_write_capture(recording, sensor_capture);
 
@@ -263,6 +288,9 @@ int main(int argc, char** argv)
                               << write_sensor_capture << std::endl;
                     break;
                 }
+#ifdef BENCHMARK
+                bench_recording_body.push_back((std::chrono::duration<double, std::milli>(recording_body_ts - hc::now())).count());
+#endif /* ifdef  */
             }
 
             // Remember to release the sensor capture once you finish using it
@@ -283,6 +311,9 @@ int main(int argc, char** argv)
             while (true) {
                 pop_frame_result = k4abt_tracker_pop_result(tracker, &body_frame, WAIT_MS);
                 if (pop_frame_result == K4A_WAIT_RESULT_SUCCEEDED) {
+#ifdef BENCHMARK
+                    network.push_back((std::chrono::duration<double, std::milli>(network_ts - hc::now())).count());
+#endif
                     break;
                 }
             }
@@ -298,8 +329,14 @@ int main(int argc, char** argv)
 
                 bool imu_data_ready = false;
                 if (config.process_sensor_file) {
+#ifdef BENCHMARK
+                    auto imu_ts = hc::now();
+#endif
                     k4a_stream_result_t imu_result = k4a_playback_get_next_imu_sample(playback_handle, &imu_sample);
                     if (imu_result == K4A_STREAM_RESULT_SUCCEEDED) {
+#ifdef BENCHMARK
+                    imu.push_back((std::chrono::duration<double, std::milli>(camera_ts - hc::now())).count());
+#endif /* ifdef  */
                         imu_data_ready = true;
                     } else if (imu_result == K4A_STREAM_RESULT_EOF) {
                         imu_data_ready = false;
@@ -336,14 +373,23 @@ int main(int argc, char** argv)
 
                 // Fetch and save the skeleton tracking data to a json object
                 nlohmann::json body_result_json;
+#ifdef BENCHMARK
+                auto save_body_ts = hc::now();
+#endif /* ifdef  */
                 auto [joints, confidence_levels] = push_body_data_to_json(body_result_json, body_frame, num_bodies);
                 frame_result_json["bodies"].push_back(body_result_json);
+#ifdef BENCHMARK
+                save_body.push_back((std::chrono::duration<double, std::milli>(save_body_ts - hc::now())).count());
+#endif /* ifdef  */
                 // END
 
                 // Fetch and save the imu data to a json object
                 nlohmann::json imu_result_json;
 
                 if (config.record_sensor_data) {
+#ifdef BENCHMARK
+                auto recording_imu_ts = hc::now();
+#endif /* ifdef  */
                     k4a_result_t write_imu_sample
                         = k4a_record_write_imu_sample(recording, imu_sample);
                     if (K4A_FAILED(write_imu_sample)) {
@@ -351,11 +397,20 @@ int main(int argc, char** argv)
                                   << write_imu_sample << std::endl;
                         // break;
                     }
+#ifdef BENCHMARK
+                    bench_recording_imu.push_back((std::chrono::duration<double, std::milli>(recording_imu_ts - hc::now())).count());
+#endif /* ifdef  */
                 }
 
                 if (imu_data_ready) {
+#ifdef BENCHMARK
+                    auto save_imu_ts = hc::now();
+#endif /* ifdef  */
                     push_imu_data_to_json(imu_result_json, imu_sample);
                     frame_result_json["imu"].push_back(imu_result_json);
+#ifdef BENCHMARK
+                    save_imu.push_back((std::chrono::duration<double, std::milli>(save_imu_ts - hc::now())).count());
+#endif /* ifdef  */
                 }
 
                 pointCloudGenerator.Update(depth_image);

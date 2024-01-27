@@ -18,6 +18,8 @@
 #include <tuple>
 #include <vector>
 
+#include <Iir.h>
+
 #include <libalglib/ap.h>
 #include <libalglib/fasttransforms.h>
 
@@ -34,7 +36,9 @@
 namespace plt = matplotlibcpp;
 
 std::vector<Point<double>> kinect_com;
+std::vector<double> kinect_com_ts;
 std::vector<Point<double>> qtm_cop;
+std::vector<double> qtm_cop_ts;
 auto MM = get_azure_kinect_com_matrix();
 
 bool s_isRunning = true;
@@ -127,7 +131,7 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     y = x.cross_product(z);
     y = y * (-1);
     y = y.normalized();
-    y = y * 0.01;
+    y = y * 0.025;
 
     mean_l_ak = mean_l_ak + y;
     mean_r_ak = mean_r_ak + y;
@@ -893,7 +897,7 @@ public:
                 if (time != frame_duration * down_i) {
                     auto before_time = kinect_ts.at(i - 1) - kinect_ts.front();
                     auto before_value = kinect_hle_y.at(i - 1);
-                    auto current_value = kinect_hle_y.at(i - 1);
+                    auto current_value = kinect_hle_y.at(i);
                     value = before_value + ((current_value - before_value) * ((frame_duration * down_i - before_time) / (time - before_time)));
                 } else {
                     value = kinect_hle_y.at(i);
@@ -1020,11 +1024,14 @@ public:
                 kinect_timestamp.push_back((1. / 15.) * i);
             }
 
+            auto front =  kinect_ts.front();
+            std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto e) {return e - front;});
+
             plt::title("Smooth QTM");
-            plt::named_plot("smooth qtm", qtm_timestamp, downsampled_qtm_hle_y);
-            plt::named_plot("normal qtm", qtm_timestamp, orig_downsampled_qtm_hle_y);
-            plt::named_plot("smooth kinect", kinect_timestamp, downsampled_kinect_hle_y);
-            plt::named_plot("normal kinect", kinect_timestamp, orig_downsampled_kinect_hle_y);
+            plt::named_plot("normal qtm", data.timestamps, qtm_hle_y);
+            plt::named_plot("downsampled qtm", qtm_timestamp, orig_downsampled_qtm_hle_y);
+            plt::named_plot("normal kinect", kinect_ts, kinect_hle_y);
+            plt::named_plot("downsampled kinect", kinect_timestamp, orig_downsampled_kinect_hle_y);
             plt::legend();
             plt::show(true);
             plt::cla();
@@ -1366,6 +1373,7 @@ public:
                     auto com = com_helper(points, MM);
                     com.z = 0;
                     kinect_com.push_back(com);
+                    kinect_com_ts.push_back(ts.at(j) - ts.front() - time_offset);
                     Color yellow = Color { 1, 0.9, 0, 1 };
                     add_qtm_point(window3d, com, yellow);
                     plot_ts.push_back(current);
@@ -1416,15 +1424,18 @@ public:
 
                 }
                 add_qtm_bone(window3d, center, cop, Color { 0, 1, 0, 1 });
-                cop.z = 0;
-                qtm_cop.push_back(cop);
+                center.z = 0;
+                if (i < data.timestamps.size()) {
+                    qtm_cop.push_back(center);
+                    qtm_cop_ts.push_back(data.timestamps.at(i));
+                }
                 Color blue = Color { 0, 0, 1, 1 };
-                add_qtm_point(window3d, cop, blue);
+                add_qtm_point(window3d, center, blue);
             }
 
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
-            window3d.Render();
+            // window3d.Render();
             window3d.CleanJointsAndBones();
             if (!s_isRunning) {
                 break;
@@ -1439,18 +1450,130 @@ public:
         plt::show(true);
         plt::cla();
 
-        std::vector<double> kx, ky, qx, qy;
+        std::vector<double> kx, ky, qx, qy, mean_kx, mean_ky, mean_qx, mean_qy;
         std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(kx), [](auto point) {return point.x;});
         std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(ky), [](auto point) {return point.y;});
-        plt::title("Kinect CoM");
-        plt::scatter(kx, ky);
-        plt::show(true);
-        plt::cla();
+
+        mean_kx.push_back(std::accumulate(kx.cbegin(), kx.cend(), 0.0) / kx.size());
+        mean_ky.push_back(std::accumulate(ky.cbegin(), ky.cend(), 0.0) / ky.size());
 
         std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qx), [](auto point) {return point.x;});
         std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qy), [](auto point) {return point.y;});
-        plt::title("QTM CoP");
-        plt::scatter(qx, qy);
+
+        mean_qx.push_back(std::accumulate(qx.cbegin(), qx.cend(), 0.0) / qx.size());
+        mean_qy.push_back(std::accumulate(qy.cbegin(), qy.cend(), 0.0) / qy.size());
+
+        plt::title("Projected Kinect CoM & QTM CoP");
+        plt::scatter(kx, ky, 1.0, {{"label", "Kinect"}});
+        plt::scatter(qx, qy, 1.0, {{"label", "QTM"}});
+        plt::scatter(mean_kx, mean_ky, 45.0, {{"label", "Mean Kinect"}, {"marker", "X"}});
+        plt::scatter(mean_qx, mean_qy, 45.0, {{"label", "Mean QTM"}, {"marker", "X"}});
+        plt::xlabel("X axis [meter]");
+        plt::ylabel("Y axis [meter]");
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        Iir::Butterworth::LowPass<3> bfqx, bfqy, bfkx, bfky;
+	const float samplingrate = 15; // Hz
+	const float cutoff_frequency = 0.5; // Hz
+
+        std::vector<double> dkx, dky, dqx, dqy;
+
+        double frame_duration = 1. / 15.;
+        for (int i = 0, down_i = 0; i < qtm_cop_ts.size(); ++i) {
+            auto time = qtm_cop_ts.at(i);
+            if (time >= frame_duration * down_i && time < frame_duration * (down_i + 1)) {
+                dqx.push_back(qx.at(i));
+                dqy.push_back(qy.at(i));
+                down_i++;
+            }
+        }
+
+        for (int i = 0, down_i = 0; i < kinect_com_ts.size(); ++i) {
+            auto time = kinect_com_ts.at(i) - kinect_com_ts.front();
+            double value;
+            if (time >= frame_duration * down_i) {
+                if (time != frame_duration * down_i) {
+                    auto before_time = kinect_com_ts.at(i - 1) - kinect_com_ts.front();
+                    auto before_value = kx.at(i - 1);
+                    auto current_value = kx.at(i);
+                    value = before_value + ((current_value - before_value) * ((frame_duration * down_i - before_time) / (time - before_time)));
+                } else {
+                    value = kx.at(i);
+                }
+                dkx.push_back(value);
+                down_i++;
+            }
+        }
+
+        for (int i = 0, down_i = 0; i < kinect_com_ts.size(); ++i) {
+            auto time = kinect_com_ts.at(i) - kinect_com_ts.front();
+            double value;
+            if (time >= frame_duration * down_i) {
+                if (time != frame_duration * down_i) {
+                    auto before_time = kinect_com_ts.at(i - 1) - kinect_com_ts.front();
+                    auto before_value = ky.at(i - 1);
+                    auto current_value = ky.at(i);
+                    value = before_value + ((current_value - before_value) * ((frame_duration * down_i - before_time) / (time - before_time)));
+                } else {
+                    value = ky.at(i);
+                }
+                dky.push_back(value);
+                down_i++;
+            }
+        }
+
+        std::vector<double> downsampled_kinect_ts, downsampled_qtm_ts;
+
+        for (int i = 0; i < dkx.size(); ++i) {
+            downsampled_kinect_ts.push_back((frame_duration * i) - time_offset);
+        }
+        for (int i = 0; i < dqx.size(); ++i) {
+            downsampled_qtm_ts.push_back(frame_duration * i);
+        }
+
+
+	// calc the coefficients
+	bfqx.setup(samplingrate, cutoff_frequency);
+	bfqy.setup(samplingrate, cutoff_frequency);
+	bfkx.setup(samplingrate, cutoff_frequency);
+	bfky.setup(samplingrate, cutoff_frequency);
+
+        double kx_mean = std::accumulate(dkx.cbegin(), dkx.cend(), 0.0) / dkx.size();
+        double ky_mean = std::accumulate(dky.cbegin(), dky.cend(), 0.0) / dky.size();
+        double qx_mean = std::accumulate(dqx.cbegin(), dqx.cend(), 0.0) / dqx.size();
+        double qy_mean = std::accumulate(dqy.cbegin(), dqy.cend(), 0.0) / dqy.size();
+
+        std::vector<double> fqx, fqy, fkx, fky;
+        for (int i = 0; i < downsampled_qtm_ts.size(); ++i) {
+            fqx.push_back(qx_mean+bfqx.filter(dqx.at(i)-qx_mean));
+            fqy.push_back(qy_mean+bfqy.filter(dqy.at(i)-qy_mean));
+        }
+        for (int i = 0; i < downsampled_kinect_ts.size(); ++i) {
+            fkx.push_back(kx_mean+bfkx.filter(dkx.at(i)-kx_mean));
+            fky.push_back(ky_mean+bfky.filter(dky.at(i)-ky_mean));
+        }
+
+        plt::title("CoM and CoP Movement X");
+        plt::named_plot("QTM", qtm_cop_ts, qx);
+        plt::named_plot("Kinect", kinect_com_ts, kx);
+        plt::named_plot("Butterworth QTM", downsampled_qtm_ts, fqx);
+        plt::named_plot("Butterworth Kinect", downsampled_kinect_ts, fkx);
+        plt::xlabel("Time");
+        plt::ylabel("X axis [meter]");
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
+        plt::title("CoM and CoP Movement Y");
+        plt::named_plot("QTM", qtm_cop_ts, qy);
+        plt::named_plot("Kinect", kinect_com_ts, ky);
+        plt::named_plot("Butterworth QTM", downsampled_qtm_ts, fqy);
+        plt::named_plot("Butterworth Kinect", downsampled_kinect_ts, fky);
+        plt::xlabel("Time");
+        plt::ylabel("Y axis [meter]");
+        plt::legend();
         plt::show(true);
         plt::cla();
 
