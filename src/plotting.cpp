@@ -263,6 +263,7 @@ void plotThread()
             std::this_thread::yield();
         }
     }
+    window2->preLoopDraw(true);
     glfwTerminate();
     std::cout << "Finish plotting thread" << std::endl;
 }

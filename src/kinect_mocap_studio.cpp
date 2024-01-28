@@ -221,6 +221,7 @@ int main(int argc, char** argv)
         if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
             if (stream_result == K4A_STREAM_RESULT_EOF) {
+                std::cout << "Reading EOF of recording" << std::endl;
                 break;
             } else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED) {
                 capture_ready = true;
@@ -448,6 +449,7 @@ int main(int argc, char** argv)
             std::cout << "Capture was not ready." << std::endl;
         }
 
+        std::cout << "Bottom of While loop" << std::endl;
     } while (s_isRunning);
     s_isRunning = false;
 

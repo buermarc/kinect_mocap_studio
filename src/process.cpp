@@ -96,7 +96,8 @@ std::tuple<
     std::map<uint32_t, Point<double>>>
 apply_filter(
     MeasuredFrame& frame,
-    std::map<uint32_t, CurrentFilterType>& filters)
+    std::map<uint32_t, CurrentFilterType>& filters,
+    Benchmark& bench)
 {
     std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
     std::vector<double> durations;
@@ -104,10 +105,16 @@ apply_filter(
     std::map<uint32_t, std::vector<Point<double>>> fpositions;
     std::map<uint32_t, std::vector<Point<double>>> fvelocities;
     for (const auto& element : frame.joints) {
+#if BENCHMARK
+        auto build_filter_ts = hc::now();
+#endif
         uint32_t i = element.first;
         if (filters.find(i) == filters.end()) {
             filters.insert(std::map<uint32_t, CurrentFilterType>::value_type(i, builder.build()));
         }
+#if BENCHMARK
+        bench.build_filter.push_back((std::chrono::duration<double, std::milli>(hc::now() - build_filter_ts)).count());
+#endif
 
         auto& filter = filters.at(i);
         if (!filter->is_initialized()) {
@@ -117,8 +124,17 @@ apply_filter(
 
         std::cout << "Duration: " << filter->time_diff(frame.timestamp) << std::endl;
         durations.push_back(filter->time_diff(frame.timestamp));
+#if BENCHMARK
+        auto step_ts = hc::now();
+#endif
         auto [filtered_positions, filtered_velocities] = filter->step(frame.joints.at(i), frame.timestamp);
+#if BENCHMARK
+        bench.step.push_back((std::chrono::duration<double, std::milli>(hc::now() - step_ts)).count());
+#endif
 
+#if BENCHMARK
+        auto extract_stability_metrics_ts = hc::now();
+#endif
         auto com = filter->calculate_com();
         auto ankle_left = filtered_positions[ANKLE_LEFT];
         auto ankle_right = filtered_positions[ANKLE_RIGHT];
@@ -135,6 +151,9 @@ apply_filter(
 
         auto xcom = filter->calculate_x_com(ankle_com_norm);
         Plane<double> bos_plane = azure_kinect_bos(filtered_positions);
+#if BENCHMARK
+        bench.extract_stability_metrics.push_back((std::chrono::duration<double, std::milli>(hc::now() - extract_stability_metrics_ts)).count());
+#endif
         stability_properties.insert(std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>>::value_type(i, std::make_tuple(com, xcom, bos_plane)));
         com_dots[i] = filter->calculate_com_dot();
 
@@ -165,7 +184,7 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
 #ifdef BENCHMARK
     auto apply_filter_ts = hc::now();
 #endif
-    auto [stability_properties, fpositions, fvelocities, durations, com_dots] = apply_filter(frame, filters);
+    auto [stability_properties, fpositions, fvelocities, durations, com_dots] = apply_filter(frame, filters, bench);
 #ifdef BENCHMARK
     bench.apply_filter.push_back((std::chrono::duration<double, std::milli>(hc::now() - apply_filter_ts)).count());
 #endif
