@@ -235,7 +235,7 @@ int main(int argc, char** argv)
                 std::cerr << "error: stream contains no depth image at " << frame_count
                           << std::endl;
                 capture_ready = false;
-#ifdef BENCHMARK
+#ifdef BENCHMAR
                 bench.camera.push_back((std::chrono::duration<double, std::milli>(hc::now() - camera_ts)).count());
 #endif
             }
@@ -501,7 +501,13 @@ int main(int argc, char** argv)
     // plotwrap.plot_all();
     //  plt::close();
 #if BENCHMARK
-    bench.save("result.json");
+    std::string benchmark_base_filename;
+    if (config.process_sensor_file) {
+        benchmark_base_filename = config.input_sensor_file_str;
+    } else {
+        benchmark_base_filename = config.output_json_file;
+    }
+    bench.save(benchmark_base_filename);
 #endif
     std::exit(0);
 }

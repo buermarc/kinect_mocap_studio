@@ -1,6 +1,9 @@
 #include <kinect_mocap_studio/benchmark.hpp>
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 void Benchmark::save(std::string experiment)  {
     nlohmann::json json;
@@ -21,6 +24,13 @@ void Benchmark::save(std::string experiment)  {
     json["process_queue_produce"] = std::accumulate(process_queue_produce.cbegin(), process_queue_produce.cend(), 0.0) / process_queue_produce.size();
     json["visualize"] = std::accumulate(visualize.cbegin(), visualize.cend(), 0.0) / visualize.size();
 
-    std::ofstream output_file(experiment);
+    if (!fs::is_directory("bench") || !fs::exists("bench")) { // Check if src folder existsb
+        fs::create_directory("bench"); // create src folder
+    }
+
+    std::stringstream file_name;
+    file_name << "bench/bench_" << experiment << ".json";
+
+    std::ofstream output_file(file_name.str());
     output_file << std::setw(4) << json << std::endl;
 }

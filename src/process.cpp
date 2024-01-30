@@ -356,5 +356,6 @@ void processThread(
         frame_result_json["filters"].push_back(filter->to_json());
     }
     // frame_result_json["filters"] = filters;
+    std::cout << "Process thread setting promise value." << std::endl;
     process_json_promise.set_value(std::make_tuple(frame_result_json, plotwrap));
 }

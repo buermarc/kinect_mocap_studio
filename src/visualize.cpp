@@ -307,6 +307,7 @@ void visualizeThread(
             std::this_thread::yield();
         }
     }
+    window3d.Render();
     std::cout << "Finish visualize thread" << std::endl;
 }
 
