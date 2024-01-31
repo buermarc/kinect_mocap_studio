@@ -329,7 +329,7 @@ int main(int argc, char** argv)
                     k4a_stream_result_t imu_result = k4a_playback_get_next_imu_sample(playback_handle, &imu_sample);
                     if (imu_result == K4A_STREAM_RESULT_SUCCEEDED) {
 #ifdef BENCHMARK
-                    bench.imu.push_back((std::chrono::duration<double, std::milli>(hc::now() - imu_ts)).count());
+                        bench.imu.push_back((std::chrono::duration<double, std::milli>(hc::now() - imu_ts)).count());
 #endif /* ifdef  */
                         imu_data_ready = true;
                     } else if (imu_result == K4A_STREAM_RESULT_EOF) {
@@ -382,7 +382,7 @@ int main(int argc, char** argv)
 
                 if (config.record_sensor_data) {
 #ifdef BENCHMARK
-                auto recording_imu_ts = hc::now();
+                    auto recording_imu_ts = hc::now();
 #endif /* ifdef  */
                     k4a_result_t write_imu_sample
                         = k4a_record_write_imu_sample(recording, imu_sample);

@@ -1,8 +1,8 @@
 #include "WindowController3d.h"
 #include "filter/com.hpp"
-#include <filesystem>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <filter/Point.hpp>
 #include <filter/Utils.hpp>
 #include <filter/com.hpp>
@@ -27,11 +27,11 @@
 #include <Window3dWrapper.h>
 #include <nlohmann/json.hpp>
 
+#include <cnpy/cnpy.h>
 #include <k4a/k4a.h>
 #include <k4a/k4atypes.h>
 #include <k4abt.h>
 #include <k4abttypes.h>
-#include <cnpy/cnpy.h>
 
 #include <matplotlibcpp/matplotlibcpp.h>
 
@@ -89,8 +89,8 @@ void add_data_for_output(
     int kinect_idx,
     Tensor<double, 3>& unfiltered_out,
     Tensor<double, 3>& filtered_out,
-    Tensor<double, 3>& truth_out
-) {
+    Tensor<double, 3>& truth_out)
+{
     double x_error, y_error, z_error;
     // root mean squared
     Point<double> true_shoulder = data.l_sae.at(qtm_index);
@@ -108,7 +108,7 @@ void add_data_for_output(
     truth_out(kinect_idx, 2, 0) = true_hand.x;
     truth_out(kinect_idx, 2, 1) = true_hand.y;
     truth_out(kinect_idx, 2, 2) = true_hand.z;
-    
+
     Point<double> filtered_shoulder = filtered_points.at(K4ABT_JOINT_SHOULDER_LEFT);
     Point<double> filtered_elbow = filtered_points.at(K4ABT_JOINT_ELBOW_LEFT);
     Point<double> filtered_hand = filtered_points.at(K4ABT_JOINT_HAND_LEFT);
@@ -1093,8 +1093,8 @@ public:
                 kinect_timestamp.push_back((1. / 15.) * i);
             }
 
-            auto front =  kinect_ts.front();
-            std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto e) {return e - front;});
+            auto front = kinect_ts.front();
+            std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto e) { return e - front; });
 
             plt::title("Smooth QTM");
             plt::named_plot("normal qtm", data.timestamps, qtm_hle_y);
@@ -1498,7 +1498,6 @@ public:
                     auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force_z));
                     center = middle;
                     cop = middle + total_force;
-
                 }
                 add_qtm_bone(window3d, center, cop, Color { 0, 1, 0, 1 });
                 center.z = 0;
@@ -1535,24 +1534,24 @@ public:
 
         // Scatter plot for cop/com
         std::vector<double> kx, ky, qx, qy, mean_kx, mean_ky, mean_qx, mean_qy;
-        std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(kx), [](auto point) {return point.x;});
-        std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(ky), [](auto point) {return point.y;});
+        std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(kx), [](auto point) { return point.x; });
+        std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(ky), [](auto point) { return point.y; });
 
         mean_kx.push_back(std::accumulate(kx.cbegin(), kx.cend(), 0.0) / kx.size());
         mean_ky.push_back(std::accumulate(ky.cbegin(), ky.cend(), 0.0) / ky.size());
 
-        std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qx), [](auto point) {return point.x;});
-        std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qy), [](auto point) {return point.y;});
+        std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qx), [](auto point) { return point.x; });
+        std::transform(qtm_cop.cbegin(), qtm_cop.cend(), std::back_inserter(qy), [](auto point) { return point.y; });
 
         mean_qx.push_back(std::accumulate(qx.cbegin(), qx.cend(), 0.0) / qx.size());
         mean_qy.push_back(std::accumulate(qy.cbegin(), qy.cend(), 0.0) / qy.size());
 
         if (plot) {
             plt::title("Projected Kinect CoM & QTM CoP");
-            plt::scatter(kx, ky, 1.0, {{"label", "Kinect"}});
-            plt::scatter(qx, qy, 1.0, {{"label", "QTM"}});
-            plt::scatter(mean_kx, mean_ky, 45.0, {{"label", "Mean Kinect"}, {"marker", "X"}});
-            plt::scatter(mean_qx, mean_qy, 45.0, {{"label", "Mean QTM"}, {"marker", "X"}});
+            plt::scatter(kx, ky, 1.0, { { "label", "Kinect" } });
+            plt::scatter(qx, qy, 1.0, { { "label", "QTM" } });
+            plt::scatter(mean_kx, mean_ky, 45.0, { { "label", "Mean Kinect" }, { "marker", "X" } });
+            plt::scatter(mean_qx, mean_qy, 45.0, { { "label", "Mean QTM" }, { "marker", "X" } });
             plt::xlabel("X axis [meter]");
             plt::ylabel("Y axis [meter]");
             plt::legend();
@@ -1562,8 +1561,8 @@ public:
 
         // Apply butterworth filter on cop/com plot
         Iir::Butterworth::LowPass<3> bfqx, bfqy, bfkx, bfky;
-	const float samplingrate = 15; // Hz
-	const float cutoff_frequency = 0.5; // Hz
+        const float samplingrate = 15; // Hz
+        const float cutoff_frequency = 0.5; // Hz
 
         std::vector<double> dkx, dky, dqx, dqy;
 
@@ -1620,12 +1619,11 @@ public:
             downsampled_qtm_ts.push_back(frame_duration * i);
         }
 
-
-	// calc the coefficients
-	bfqx.setup(samplingrate, cutoff_frequency);
-	bfqy.setup(samplingrate, cutoff_frequency);
-	bfkx.setup(samplingrate, cutoff_frequency);
-	bfky.setup(samplingrate, cutoff_frequency);
+        // calc the coefficients
+        bfqx.setup(samplingrate, cutoff_frequency);
+        bfqy.setup(samplingrate, cutoff_frequency);
+        bfkx.setup(samplingrate, cutoff_frequency);
+        bfky.setup(samplingrate, cutoff_frequency);
 
         double kx_mean = std::accumulate(dkx.cbegin(), dkx.cend(), 0.0) / dkx.size();
         double ky_mean = std::accumulate(dky.cbegin(), dky.cend(), 0.0) / dky.size();
@@ -1634,12 +1632,12 @@ public:
 
         std::vector<double> fqx, fqy, fkx, fky;
         for (int i = 0; i < downsampled_qtm_ts.size(); ++i) {
-            fqx.push_back(qx_mean+bfqx.filter(dqx.at(i)-qx_mean));
-            fqy.push_back(qy_mean+bfqy.filter(dqy.at(i)-qy_mean));
+            fqx.push_back(qx_mean + bfqx.filter(dqx.at(i) - qx_mean));
+            fqy.push_back(qy_mean + bfqy.filter(dqy.at(i) - qy_mean));
         }
         for (int i = 0; i < downsampled_kinect_ts.size(); ++i) {
-            fkx.push_back(kx_mean+bfkx.filter(dkx.at(i)-kx_mean));
-            fky.push_back(ky_mean+bfky.filter(dky.at(i)-ky_mean));
+            fkx.push_back(kx_mean + bfkx.filter(dkx.at(i) - kx_mean));
+            fky.push_back(ky_mean + bfky.filter(dky.at(i) - ky_mean));
         }
 
         if (plot) {
@@ -1685,7 +1683,6 @@ public:
         cnpy::npy_save(output_truth.str(), truth_out.data(), { (unsigned long)j, 3, 3 }, "w");
         cnpy::npy_save(output_filtered.str(), filtered_out.data(), { (unsigned long)j, 3, 3 }, "w");
         cnpy::npy_save(output_unfiltered.str(), unfiltered_out.data(), { (unsigned long)j, 3, 3 }, "w");
-
     }
 };
 
