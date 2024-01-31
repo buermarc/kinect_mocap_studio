@@ -91,6 +91,14 @@ FetchContent_Declare(
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 FetchContent_MakeAvailable(iir1)
 
+FetchContent_Declare(
+  cnpy
+  GIT_REPOSITORY https://github.com/rogersce/cnpy.git
+  GIT_TAG HEAD
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+FetchContent_MakeAvailable(cnpy)
+
 set(EIGEN_BUILD_DIR   ${CMAKE_BINARY_DIR}/eigen)
 set(EIGEN_INSTALL_DIR ${CMAKE_SOURCE_DIR}/include/eigen3)
 set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
@@ -141,6 +149,7 @@ target_link_libraries(evaluate
     freetype
     alglib
     iir::iir
+    cnpy
     ${PYTHON_LIBRARIES}
 )
 

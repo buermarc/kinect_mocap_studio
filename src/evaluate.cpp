@@ -1,5 +1,6 @@
 #include "WindowController3d.h"
 #include "filter/com.hpp"
+#include <filesystem>
 #include <algorithm>
 #include <cmath>
 #include <filter/Point.hpp>
@@ -30,10 +31,13 @@
 #include <k4a/k4atypes.h>
 #include <k4abt.h>
 #include <k4abttypes.h>
+#include <cnpy/cnpy.h>
 
 #include <matplotlibcpp/matplotlibcpp.h>
 
 namespace plt = matplotlibcpp;
+
+namespace fs = std::filesystem;
 
 std::vector<Point<double>> kinect_com;
 std::vector<double> kinect_com_ts;
@@ -76,6 +80,67 @@ struct QtmFrame {
     Point<double> r_hle;
     Point<double> r_usp;
 };
+
+void add_data_for_output(
+    std::vector<Point<double>>& filtered_points,
+    std::vector<Point<double>>& unfiltered_points,
+    Data data,
+    int qtm_index,
+    int kinect_idx,
+    Tensor<double, 3>& unfiltered_out,
+    Tensor<double, 3>& filtered_out,
+    Tensor<double, 3>& truth_out
+) {
+    double x_error, y_error, z_error;
+    // root mean squared
+    Point<double> true_shoulder = data.l_sae.at(qtm_index);
+    Point<double> true_elbow = data.l_hle.at(qtm_index) * 0.5 + data.r_hle.at(qtm_index) * 0.5;
+    Point<double> true_hand = data.l_usp.at(qtm_index) * 0.5 + data.r_usp.at(qtm_index) * 0.5;
+
+    truth_out(kinect_idx, 0, 0) = true_shoulder.x;
+    truth_out(kinect_idx, 0, 1) = true_shoulder.y;
+    truth_out(kinect_idx, 0, 2) = true_shoulder.z;
+
+    truth_out(kinect_idx, 1, 0) = true_elbow.x;
+    truth_out(kinect_idx, 1, 1) = true_elbow.y;
+    truth_out(kinect_idx, 1, 2) = true_elbow.z;
+
+    truth_out(kinect_idx, 2, 0) = true_hand.x;
+    truth_out(kinect_idx, 2, 1) = true_hand.y;
+    truth_out(kinect_idx, 2, 2) = true_hand.z;
+    
+    Point<double> filtered_shoulder = filtered_points.at(K4ABT_JOINT_SHOULDER_LEFT);
+    Point<double> filtered_elbow = filtered_points.at(K4ABT_JOINT_ELBOW_LEFT);
+    Point<double> filtered_hand = filtered_points.at(K4ABT_JOINT_HAND_LEFT);
+
+    filtered_out(kinect_idx, 0, 0) = filtered_shoulder.x;
+    filtered_out(kinect_idx, 0, 1) = filtered_shoulder.y;
+    filtered_out(kinect_idx, 0, 2) = filtered_shoulder.z;
+
+    filtered_out(kinect_idx, 1, 0) = filtered_elbow.x;
+    filtered_out(kinect_idx, 1, 1) = filtered_elbow.y;
+    filtered_out(kinect_idx, 1, 2) = filtered_elbow.z;
+
+    filtered_out(kinect_idx, 2, 0) = filtered_hand.x;
+    filtered_out(kinect_idx, 2, 1) = filtered_hand.y;
+    filtered_out(kinect_idx, 2, 2) = filtered_hand.z;
+
+    Point<double> unfiltered_shoulder = unfiltered_points.at(K4ABT_JOINT_SHOULDER_LEFT);
+    Point<double> unfiltered_elbow = unfiltered_points.at(K4ABT_JOINT_ELBOW_LEFT);
+    Point<double> unfiltered_hand = unfiltered_points.at(K4ABT_JOINT_HAND_LEFT);
+
+    unfiltered_out(kinect_idx, 0, 0) = unfiltered_shoulder.x;
+    unfiltered_out(kinect_idx, 0, 1) = unfiltered_shoulder.y;
+    unfiltered_out(kinect_idx, 0, 2) = unfiltered_shoulder.z;
+
+    unfiltered_out(kinect_idx, 1, 0) = unfiltered_elbow.x;
+    unfiltered_out(kinect_idx, 1, 1) = unfiltered_elbow.y;
+    unfiltered_out(kinect_idx, 1, 2) = unfiltered_elbow.z;
+
+    unfiltered_out(kinect_idx, 2, 0) = unfiltered_hand.x;
+    unfiltered_out(kinect_idx, 2, 1) = unfiltered_hand.y;
+    unfiltered_out(kinect_idx, 2, 2) = unfiltered_hand.z;
+}
 
 std::vector<double> smooth(std::vector<double> input, int window_size = 5)
 {
@@ -635,6 +700,7 @@ public:
     KinectRecording kinect_recording;
     bool hard_offset;
     double offset;
+    std::string name;
 
     Experiment(std::string experiment_json)
     {
@@ -653,6 +719,9 @@ public:
 
         qtm_recording = QtmRecording(qtm_file);
         kinect_recording = KinectRecording(kinect_file);
+
+        experiment_json.replace(experiment_json.find(".json"), sizeof(".json") - 1, "");
+        name = experiment_json;
     }
 
     Experiment(std::string qtm_file, std::string kinect_file)
@@ -1256,7 +1325,7 @@ public:
         return joints;
     }
 
-    void visualize()
+    void visualize(bool render, bool plot)
     {
         Data data = qtm_recording.read_marker_file();
         auto [force_data_f1, force_data_f2] = qtm_recording.read_force_plate_files();
@@ -1264,6 +1333,10 @@ public:
         auto ts = kinect_recording.timestamps;
         auto joints_in_kinect_system = kinect_recording.joints;
         auto unfiltered_joints_in_kinect_system = kinect_recording.unfiltered_joints;
+
+        Tensor<double, 3> unfiltered_out(ts.size(), 3, 3);
+        Tensor<double, 3> filtered_out(ts.size(), 3, 3);
+        Tensor<double, 3> truth_out(ts.size(), 3, 3);
 
         Window3dWrapper window3d;
         k4a_calibration_t sensor_calibration;
@@ -1283,7 +1356,7 @@ public:
         if (this->hard_offset) {
             time_offset = this->offset;
         }
-        time_offset = cross_correlation_lag(data, joints, ts, this->offset, false);
+        time_offset = cross_correlation_lag(data, joints, ts, this->offset, plot);
         std::cout << "Time offset: " << time_offset << std::endl;
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
@@ -1365,6 +1438,7 @@ public:
                             unfiltered_joints(j, k, 2)));
                     }
                     kinect_frame = KinectFrame { points, unfiltered_points };
+                    // Data for plotting
                     auto o = std::min(i, (int)data.timestamps.size() - 1);
                     auto m = data.l_usp.at(o) * 0.5 + data.r_usp.at(o) * 0.5;
                     y1.push_back(m.z);
@@ -1377,6 +1451,9 @@ public:
                     Color yellow = Color { 1, 0.9, 0, 1 };
                     add_qtm_point(window3d, com, yellow);
                     plot_ts.push_back(current);
+
+                    // Data for RMSE calc
+                    add_data_for_output(points, unfiltered_points, data, o, j, unfiltered_out, filtered_out, truth_out);
                     j++;
                 }
             }
@@ -1435,21 +1512,28 @@ public:
 
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
             window3d.SetJointFrameVisualization(s_visualizeJointFrame);
-            // window3d.Render();
+            if (render) {
+                window3d.Render();
+            }
             window3d.CleanJointsAndBones();
             if (!s_isRunning) {
                 break;
             }
         }
 
-        plt::title("Left Wrist Z");
-        plt::named_plot("qtm", plot_ts, y1);
-        plt::named_plot("kinect", plot_ts, y2);
-        plt::named_plot("unfiltered kinect", plot_ts, y3);
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        // Show left wrist z for all same rendered frames
+        // QTM has a higher sampling rate, so show only points which are from both
+        if (plot) {
+            plt::title("Left Wrist Z");
+            plt::named_plot("qtm", plot_ts, y1);
+            plt::named_plot("kinect", plot_ts, y2);
+            plt::named_plot("unfiltered kinect", plot_ts, y3);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+        }
 
+        // Scatter plot for cop/com
         std::vector<double> kx, ky, qx, qy, mean_kx, mean_ky, mean_qx, mean_qy;
         std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(kx), [](auto point) {return point.x;});
         std::transform(kinect_com.cbegin(), kinect_com.cend(), std::back_inserter(ky), [](auto point) {return point.y;});
@@ -1463,17 +1547,20 @@ public:
         mean_qx.push_back(std::accumulate(qx.cbegin(), qx.cend(), 0.0) / qx.size());
         mean_qy.push_back(std::accumulate(qy.cbegin(), qy.cend(), 0.0) / qy.size());
 
-        plt::title("Projected Kinect CoM & QTM CoP");
-        plt::scatter(kx, ky, 1.0, {{"label", "Kinect"}});
-        plt::scatter(qx, qy, 1.0, {{"label", "QTM"}});
-        plt::scatter(mean_kx, mean_ky, 45.0, {{"label", "Mean Kinect"}, {"marker", "X"}});
-        plt::scatter(mean_qx, mean_qy, 45.0, {{"label", "Mean QTM"}, {"marker", "X"}});
-        plt::xlabel("X axis [meter]");
-        plt::ylabel("Y axis [meter]");
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        if (plot) {
+            plt::title("Projected Kinect CoM & QTM CoP");
+            plt::scatter(kx, ky, 1.0, {{"label", "Kinect"}});
+            plt::scatter(qx, qy, 1.0, {{"label", "QTM"}});
+            plt::scatter(mean_kx, mean_ky, 45.0, {{"label", "Mean Kinect"}, {"marker", "X"}});
+            plt::scatter(mean_qx, mean_qy, 45.0, {{"label", "Mean QTM"}, {"marker", "X"}});
+            plt::xlabel("X axis [meter]");
+            plt::ylabel("Y axis [meter]");
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+        }
 
+        // Apply butterworth filter on cop/com plot
         Iir::Butterworth::LowPass<3> bfqx, bfqy, bfkx, bfky;
 	const float samplingrate = 15; // Hz
 	const float cutoff_frequency = 0.5; // Hz
@@ -1555,28 +1642,49 @@ public:
             fky.push_back(ky_mean+bfky.filter(dky.at(i)-ky_mean));
         }
 
-        plt::title("CoM and CoP Movement X");
-        plt::named_plot("QTM", qtm_cop_ts, qx);
-        plt::named_plot("Kinect", kinect_com_ts, kx);
-        plt::named_plot("Butterworth QTM", downsampled_qtm_ts, fqx);
-        plt::named_plot("Butterworth Kinect", downsampled_kinect_ts, fkx);
-        plt::xlabel("Time");
-        plt::ylabel("X axis [meter]");
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+        if (plot) {
+            plt::title("CoM and CoP Movement X");
+            plt::named_plot("QTM", qtm_cop_ts, qx);
+            plt::named_plot("Kinect", kinect_com_ts, kx);
+            plt::named_plot("Butterworth QTM", downsampled_qtm_ts, fqx);
+            plt::named_plot("Butterworth Kinect", downsampled_kinect_ts, fkx);
+            plt::xlabel("Time");
+            plt::ylabel("X axis [meter]");
+            plt::legend();
+            plt::show(true);
+            plt::cla();
 
-        plt::title("CoM and CoP Movement Y");
-        plt::named_plot("QTM", qtm_cop_ts, qy);
-        plt::named_plot("Kinect", kinect_com_ts, ky);
-        plt::named_plot("Butterworth QTM", downsampled_qtm_ts, fqy);
-        plt::named_plot("Butterworth Kinect", downsampled_kinect_ts, fky);
-        plt::xlabel("Time");
-        plt::ylabel("Y axis [meter]");
-        plt::legend();
-        plt::show(true);
-        plt::cla();
+            plt::title("CoM and CoP Movement Y");
+            plt::named_plot("QTM", qtm_cop_ts, qy);
+            plt::named_plot("Kinect", kinect_com_ts, ky);
+            plt::named_plot("Butterworth QTM", downsampled_qtm_ts, fqy);
+            plt::named_plot("Butterworth Kinect", downsampled_kinect_ts, fky);
+            plt::xlabel("Time");
+            plt::ylabel("Y axis [meter]");
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+        }
 
+        std::stringstream output_dir;
+        output_dir << "experiment_result/" << this->name << "/";
+        std::string base_dir = output_dir.str();
+        if (!fs::is_directory(base_dir) || !fs::exists(base_dir)) {
+            fs::create_directories(base_dir);
+        }
+
+        std::stringstream output_truth, output_filtered, output_unfiltered;
+        output_truth << base_dir << "truth.npy";
+        output_filtered << base_dir << "filtered.npy";
+        output_unfiltered << base_dir << "unfiltered.npy";
+        std::cout << "j at the end: " << j << std::endl;
+        std::cout << "kinect ts size: " << ts.size() << std::endl;
+        std::cout << "Saving to: " << output_truth.str() << std::endl;
+        std::cout << "Saving to: " << output_filtered.str() << std::endl;
+        std::cout << "Saving to: " << output_unfiltered.str() << std::endl;
+        cnpy::npy_save(output_truth.str(), truth_out.data(), { (unsigned long)j, 3, 3 }, "w");
+        cnpy::npy_save(output_filtered.str(), filtered_out.data(), { (unsigned long)j, 3, 3 }, "w");
+        cnpy::npy_save(output_unfiltered.str(), unfiltered_out.data(), { (unsigned long)j, 3, 3 }, "w");
 
     }
 };
@@ -1594,37 +1702,32 @@ int main(int argc, char** argv)
 
     TCLAP::CmdLine cmd("Read tsv file from Qualisys.");
 
-    TCLAP::ValueArg<std::string> tsv_file("q", "qtm_file",
-        "TSV File from qualisys", false, "",
-        "string");
-
-    cmd.add(tsv_file);
-
-    TCLAP::ValueArg<std::string> kinect_file("k", "kinect_file",
-        "Kniect MKV or JSON File from qualisys", false, "",
-        "string");
-    cmd.add(kinect_file);
-
     TCLAP::ValueArg<std::string> experiment_json("e", "experiment_json",
         "Experiment JSON containing info about experiment", false, "",
         "string");
 
     cmd.add(experiment_json);
 
+    TCLAP::ValueArg<bool> render("r", "render",
+        "Render visualization", false, true,
+        "bool");
+
+    cmd.add(render);
+
+    TCLAP::ValueArg<bool> plot("p", "plot",
+        "Plotos", false, true,
+        "bool");
+
+    cmd.add(plot);
+
     cmd.parse(argc, argv);
 
-    auto file = tsv_file.getValue();
-    Experiment experiment;
-    if (file != "") {
-        experiment = Experiment(tsv_file.getValue(), kinect_file.getValue());
-    } else {
-        experiment = Experiment(experiment_json.getValue());
-    }
+    Experiment experiment(experiment_json.getValue());
 
     // Data data = experiment.qtm_recording.read_marker_file();
     experiment.qtm_recording.read_force_plate_files();
 
     std::cout << experiment << std::endl;
 
-    experiment.visualize();
+    experiment.visualize(render.getValue(), plot.getValue());
 }
