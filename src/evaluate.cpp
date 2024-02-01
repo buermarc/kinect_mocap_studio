@@ -43,6 +43,8 @@ std::vector<Point<double>> kinect_com;
 std::vector<Point<double>> kinect_com_unfiltered;
 std::vector<double> kinect_com_ts;
 std::vector<Point<double>> qtm_cop;
+// Only insert qtm cop when we insert a kinect_ts, to get the same sample
+std::vector<Point<double>> qtm_cop_resampled;
 std::vector<double> qtm_cop_ts;
 auto MM = get_azure_kinect_com_matrix();
 
@@ -1481,6 +1483,13 @@ public:
 
                     // Data for RMSE calc
                     add_data_for_output(points, unfiltered_points, data, o, j, unfiltered_out, filtered_out, truth_out);
+                    int f = i * 6;
+                    if (f >= force_data_f1.cop.size()) {
+                        f = force_data_f1.cop.size() - 1;
+                    }
+
+                    auto [cop, _] = get_cop_force(force_data_f1, force_data_f2, f);
+                    qtm_cop_resampled.push_back(cop);
                     j++;
                 }
             }
@@ -1508,7 +1517,7 @@ public:
                     f = force_data_f1.cop.size() - 1;
                 }
 
-                auto [cop, force] = get_cop_force(force_data_f1, force_data_f2);
+                auto [cop, force] = get_cop_force(force_data_f1, force_data_f2, f);
 
                 add_qtm_bone(window3d, cop, force, Color { 0, 1, 0, 1 });
                 cop.z = 0;
@@ -1682,10 +1691,34 @@ public:
             fs::create_directories(base_dir);
         }
 
-        std::stringstream output_truth, output_filtered, output_unfiltered;
+        MatrixXd com(kinect_com.size(), 3);
+        MatrixXd com_unfiltered(kinect_com_unfiltered.size(), 3);
+        MatrixXd cop(qtm_cop_resampled.size(), 3);
+        for (int i = 0; i < kinect_com.size(); ++i) {
+            com(i, 0) = kinect_com.at(i).x;
+            com(i, 1) = kinect_com.at(i).y;
+            com(i, 2) = kinect_com.at(i).z;
+        }
+
+        for (int i = 0; i < kinect_com_unfiltered.size(); ++i) {
+            com_unfiltered(i, 0) = kinect_com_unfiltered.at(i).x;
+            com_unfiltered(i, 1) = kinect_com_unfiltered.at(i).y;
+            com_unfiltered(i, 2) = kinect_com_unfiltered.at(i).z;;
+        }
+
+        for (int i = 0; i < qtm_cop_resampled.size(); ++i) {
+            cop(i, 0) = qtm_cop_resampled.at(i).x;
+            cop(i, 1) = qtm_cop_resampled.at(i).y;
+            cop(i, 2) = qtm_cop_resampled.at(i).z;
+        }
+
+        std::stringstream output_truth, output_filtered, output_unfiltered, output_com, output_com_unfiltered, output_cop;
         output_truth << base_dir << "truth.npy";
         output_filtered << base_dir << "filtered.npy";
         output_unfiltered << base_dir << "unfiltered.npy";
+        output_com << base_dir << "com.npy";
+        output_com_unfiltered << base_dir << "com_unfiltered.npy";
+        output_cop << base_dir << "cop.npy";
         std::cout << "j at the end: " << j << std::endl;
         std::cout << "kinect ts size: " << ts.size() << std::endl;
         std::cout << "Saving to: " << output_truth.str() << std::endl;
@@ -1694,6 +1727,11 @@ public:
         cnpy::npy_save(output_truth.str(), truth_out.data(), { (unsigned long)j, 3, 3 }, "w");
         cnpy::npy_save(output_filtered.str(), filtered_out.data(), { (unsigned long)j, 3, 3 }, "w");
         cnpy::npy_save(output_unfiltered.str(), unfiltered_out.data(), { (unsigned long)j, 3, 3 }, "w");
+
+        cnpy::npy_save(output_com.str(), com.data(), { kinect_com.size(), 3}, "w");
+        cnpy::npy_save(output_com_unfiltered.str(), com_unfiltered.data(), { kinect_com_unfiltered.size(), 3 }, "w");
+        cnpy::npy_save(output_cop.str(), cop.data(), { qtm_cop_resampled.size(), 3}, "w");
+
     }
 };
 

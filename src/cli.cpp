@@ -96,6 +96,12 @@ CliConfig::CliConfig(int argc, char** argv)
 
         cmd.add(temporal_smoothing_arg);
 
+        TCLAP::ValueArg<double> measurement_error_factor_arg("m", "measurement_error_factor",
+            "Measurement error factor", false,
+            5.0, "double");
+
+        cmd.add(measurement_error_factor_arg);
+
         TCLAP::ValueArg<std::string> kalman_filter_type("k", "kalman_filter_type",
             "Which kalman filter to use. Options: 'constrained', 'basic', 'adaptive-constrained'; Default: 'constrained'",
             false, "constrained", "string");
@@ -171,6 +177,13 @@ CliConfig::CliConfig(int argc, char** argv)
             exit(1);
         }
 
+        measurement_error_factor = measurement_error_factor_arg.getValue();
+        if (measurement_error_factor < 0.0) {
+            std::cerr << "error: measurement_error_factor must be bigger then 0"
+                      << std::endl;
+            exit(1);
+        }
+
         input_sensor_file_str = input_sensor_file_arg.getValue();
         if (input_sensor_file_str.length() > 0) {
             std::string mkv_ext = ".mkv";
@@ -192,11 +205,11 @@ CliConfig::CliConfig(int argc, char** argv)
 
         kalman_filter_type_str = kalman_filter_type.getValue();
         if (std::strcmp(kalman_filter_type_str.c_str(), "constrained") == 0) {
-            filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32);
+            filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32, measurement_error_factor);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "basic") == 0) {
-            filter_builder = std::make_shared<SkeletonFilterBuilder<double>>(32, 5.0);
+            filter_builder = std::make_shared<SkeletonFilterBuilder<double>>(32, 5.0 ,measurement_error_factor);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "adaptive-constrained") == 0) {
-            filter_builder = std::make_shared<AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter>>(32, 5.0);
+            filter_builder = std::make_shared<AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter>>(32, 5.0, measurement_error_factor);
         } else {
             std::cerr << "error: filter_mode must be : 'constrained', 'basic', 'adaptive-constrained'" << std::endl;
             exit(1);
@@ -391,12 +404,13 @@ void CliConfig::printConfig()
     //
     // Echo the configuration to the command terminal
     //
-    // std::cout << "depth_mode         :" << k4a_depth_mode_str << std::endl;
-    // std::cout << "color_resolution   :" << k4a_color_resolution_str << std::endl;
-    // std::cout << "frames_per_second  :" << k4a_frames_per_second << std::endl;
-    // std::cout << "temporal smoothing :" << temporal_smoothing << std::endl;
-    // std::cout << "output file name   :" << output_json_file << std::endl;
+    std::cout << "depth_mode         :" << k4a_depth_mode_str << std::endl;
+    std::cout << "color_resolution   :" << k4a_color_resolution_str << std::endl;
+    std::cout << "frames_per_second  :" << k4a_frames_per_second << std::endl;
+    std::cout << "temporal smoothing :" << temporal_smoothing << std::endl;
+    std::cout << "output file name   :" << output_json_file << std::endl;
+    std::cout << "measu error factor :" << measurement_error_factor << std::endl;
     if (record_sensor_data) {
-        // std::cout << "video file name    :" << output_sensor_file << std::endl;
+        std::cout << "video file name    :" << output_sensor_file << std::endl;
     }
 }

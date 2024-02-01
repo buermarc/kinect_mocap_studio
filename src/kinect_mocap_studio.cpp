@@ -120,7 +120,7 @@ int main(int argc, char** argv)
     std::future<nlohmann::json> visualize_json_future = visualize_json_promise.get_future();
 
     // glfwInit();
-    std::thread process_thread(processThread, sensor_calibration, std::move(process_json_promise), std::ref(bench));
+    std::thread process_thread(processThread, sensor_calibration, std::move(process_json_promise), config.filter_builder, std::ref(bench));
     std::thread visualize_thread(visualizeThread, sensor_calibration, std::move(visualize_json_promise), std::ref(bench));
     std::thread plot_thread(plotThread);
 
@@ -197,12 +197,6 @@ int main(int argc, char** argv)
     int frame_count = 0;
 
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
-
-    /**
-     * Skeleton Filter setup
-     */
-    int joint_count = 32;
-    SkeletonFilterBuilder<double> skeleton_filter_builder(joint_count, 2.0);
 
     do {
 #ifdef BENCH_MEASUREMENT

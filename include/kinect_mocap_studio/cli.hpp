@@ -9,6 +9,7 @@ struct CliConfig {
     public:
     std::string output_file_name;
     double temporal_smoothing = 0.;
+    double measurement_error_factor = 5.0;
     // bool save_camera_data = false;
     int k4a_depth_mode = 0;
     std::string k4a_depth_mode_str;

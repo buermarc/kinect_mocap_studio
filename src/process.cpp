@@ -38,7 +38,7 @@ typedef std::chrono::high_resolution_clock hc;
 typedef AdaptivePointFilter3D<double, AdaptiveZarchanFilter1D<double>> ZarPointFilter;
 // typedef SkeletonFilter<double> CurrentFilterType;
 // typedef ConstrainedSkeletonFilter<double> CurrentFilterType;
-typedef std::shared_ptr<AbstractSkeletonFilter<double>> CurrentFilterType;
+// typedef std::shared_ptr<AbstractSkeletonFilter<double>> CurrentFilterType;
 // typedef AdaptiveConstrainedSkeletonFilter<double, ZarPointFilter> CurrentFilterType;
 /*
  * For the FloorDetector:
@@ -48,7 +48,7 @@ typedef std::shared_ptr<AbstractSkeletonFilter<double>> CurrentFilterType;
  * This uses code from teh floor_detector example code
  */
 
-ConstrainedSkeletonFilterBuilder<double> builder(32);
+// ConstrainedSkeletonFilterBuilder<double> builder(32);
 // AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter> builder(32, 2.0);
 
 std::optional<Samples::Plane> detect_floor(MeasuredFrame frame, k4a_calibration_t sensor_calibration, Samples::FloorDetector& floorDetector, nlohmann::json& frame_result_json, MovingAverage& moving_average)
@@ -97,6 +97,7 @@ std::tuple<
 apply_filter(
     MeasuredFrame& frame,
     std::map<uint32_t, CurrentFilterType>& filters,
+    std::shared_ptr<AbstractSkeletonFilterBuilder<double>> builder,
     Benchmark& bench)
 {
     std::map<uint32_t, std::tuple<Point<double>, Point<double>, Plane<double>>> stability_properties;
@@ -110,7 +111,7 @@ apply_filter(
 #endif
         uint32_t i = element.first;
         if (filters.find(i) == filters.end()) {
-            filters.insert(std::map<uint32_t, CurrentFilterType>::value_type(i, builder.build()));
+            filters.insert(std::map<uint32_t, CurrentFilterType>::value_type(i, builder->build()));
         }
 #if BENCHMARK
         bench.build_filter.push_back((std::chrono::duration<double, std::milli>(hc::now() - build_filter_ts)).count());
@@ -170,6 +171,7 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
     std::map<uint32_t, CurrentFilterType>& filters,
     nlohmann::json& frame_result_json,
     MovingAverage& moving_average,
+    std::shared_ptr<AbstractSkeletonFilterBuilder<double>> builder,
     Benchmark& bench)
 {
     // Can we detect the floor
@@ -184,7 +186,7 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
 #ifdef BENCHMARK
     auto apply_filter_ts = hc::now();
 #endif
-    auto [stability_properties, fpositions, fvelocities, durations, com_dots] = apply_filter(frame, filters, bench);
+    auto [stability_properties, fpositions, fvelocities, durations, com_dots] = apply_filter(frame, filters, builder, bench);
 #ifdef BENCHMARK
     bench.apply_filter.push_back((std::chrono::duration<double, std::milli>(hc::now() - apply_filter_ts)).count());
 #endif
@@ -198,6 +200,7 @@ std::tuple<ProcessedFrame, PlottingFrame> processLogic(
 void processThread(
     k4a_calibration_t sensor_calibration,
     std::promise<std::tuple<nlohmann::json, PlotWrap<double>>> process_json_promise,
+    std::shared_ptr<AbstractSkeletonFilterBuilder<double>> builder,
     Benchmark& bench)
 {
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
@@ -216,7 +219,7 @@ void processThread(
         bool retrieved = measurement_queue.Consume(frame);
         if (retrieved) {
             auto start = hc::now();
-            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json, moving_average, bench);
+            auto [processed_frame, plotting_frame] = processLogic(frame, sensor_calibration, floorDetector, filters, frame_result_json, moving_average, builder, bench);
 #ifdef BENCHMARK
             auto process_queue_ts = hc::now();
 #endif
