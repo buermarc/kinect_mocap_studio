@@ -40,6 +40,7 @@ namespace plt = matplotlibcpp;
 namespace fs = std::filesystem;
 
 std::vector<Point<double>> kinect_com;
+std::vector<Point<double>> kinect_com_unfiltered;
 std::vector<double> kinect_com_ts;
 std::vector<Point<double>> qtm_cop;
 std::vector<double> qtm_cop_ts;
@@ -730,6 +731,30 @@ public:
     {
     }
     friend std::ostream& operator<<(std::ostream& out, Experiment const& recording);
+
+    std::tuple<Point<double>, Point<double>> get_cop_force(ForcePlateData& force_data_f1, ForcePlateData& force_data_f2, int index) {
+        Point<double> cop, force;
+        if (force_data_f1.used && !force_data_f2.used) {
+            cop = force_data_f1.cop.at(index);
+            force = force_data_f1.cop.at(index) + force_data_f1.force.at(index);
+        } else if (!force_data_f1.used && force_data_f2.used) {
+            cop = force_data_f2.cop.at(index);
+            force = force_data_f2.cop.at(index) + force_data_f2.force.at(index);
+        } else if (force_data_f1.used && force_data_f2.used) {
+            auto cop1 = force_data_f1.cop.at(index);
+            auto cop2 = force_data_f2.cop.at(index);
+
+            auto force1 = force_data_f1.force.at(index).z;
+            auto force2 = force_data_f2.force.at(index).z;
+            auto total_force_z = force1 + force2;
+            auto total_force = force_data_f1.force.at(index) + force_data_f2.force.at(index);
+
+            auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force_z));
+            cop = middle;
+            force = middle + total_force;
+        }
+        return std::make_tuple(cop, force);
+    }
 
     void _min_max_for_one_point(
         std::vector<int>& qtm_min_events,
@@ -1445,8 +1470,10 @@ public:
                     y2.push_back(points.at(K4ABT_JOINT_WRIST_LEFT).z);
                     y3.push_back(unfiltered_points.at(K4ABT_JOINT_WRIST_LEFT).z);
                     auto com = com_helper(points, MM);
+                    auto com_unfiltered = com_helper(unfiltered_points, MM);
                     com.z = 0;
                     kinect_com.push_back(com);
+                    kinect_com_unfiltered.push_back(com_unfiltered);
                     kinect_com_ts.push_back(ts.at(j) - ts.front() - time_offset);
                     Color yellow = Color { 1, 0.9, 0, 1 };
                     add_qtm_point(window3d, com, yellow);
@@ -1475,38 +1502,22 @@ public:
                 add_qtm_point(window3d, force_data_f2.plate.c, Color { 0, 1, 0, 1 });
                 add_qtm_point(window3d, force_data_f2.plate.d, Color { 0, 1, 0, 1 });
 
+                // we assume the force plate takes 6 measurements during 1 qtm measurement
                 int f = i * 6;
                 if (f >= force_data_f1.cop.size()) {
                     f = force_data_f1.cop.size() - 1;
                 }
-                Point<double> center, cop;
-                if (force_data_f1.used && !force_data_f2.used) {
-                    center = force_data_f1.cop.at(f);
-                    cop = force_data_f1.cop.at(f) + force_data_f1.force.at(f);
-                } else if (!force_data_f1.used && force_data_f2.used) {
-                    center = force_data_f2.cop.at(f);
-                    cop = force_data_f2.cop.at(f) + force_data_f2.force.at(f);
-                } else if (force_data_f1.used && force_data_f2.used) {
-                    auto cop1 = force_data_f1.cop.at(f);
-                    auto cop2 = force_data_f2.cop.at(f);
 
-                    auto force1 = force_data_f1.force.at(f).z;
-                    auto force2 = force_data_f2.force.at(f).z;
-                    auto total_force_z = force1 + force2;
-                    auto total_force = force_data_f1.force.at(f) + force_data_f2.force.at(f);
+                auto [cop, force] = get_cop_force(force_data_f1, force_data_f2);
 
-                    auto middle = cop1 + ((cop2 - cop1) * (force2 / total_force_z));
-                    center = middle;
-                    cop = middle + total_force;
-                }
-                add_qtm_bone(window3d, center, cop, Color { 0, 1, 0, 1 });
-                center.z = 0;
+                add_qtm_bone(window3d, cop, force, Color { 0, 1, 0, 1 });
+                cop.z = 0;
                 if (i < data.timestamps.size()) {
-                    qtm_cop.push_back(center);
+                    qtm_cop.push_back(cop);
                     qtm_cop_ts.push_back(data.timestamps.at(i));
                 }
                 Color blue = Color { 0, 0, 1, 1 };
-                add_qtm_point(window3d, center, blue);
+                add_qtm_point(window3d, cop, blue);
             }
 
             window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
