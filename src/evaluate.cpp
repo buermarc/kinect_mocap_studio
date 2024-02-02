@@ -90,9 +90,9 @@ void add_data_for_output(
     Data data,
     int qtm_index,
     int kinect_idx,
-    Tensor<double, 3>& unfiltered_out,
-    Tensor<double, 3>& filtered_out,
-    Tensor<double, 3>& truth_out)
+    Tensor<double, 3, Eigen::RowMajor>& unfiltered_out,
+    Tensor<double, 3, Eigen::RowMajor>& filtered_out,
+    Tensor<double, 3, Eigen::RowMajor>& truth_out)
 {
     double x_error, y_error, z_error;
     // root mean squared
@@ -1361,9 +1361,9 @@ public:
         auto joints_in_kinect_system = kinect_recording.joints;
         auto unfiltered_joints_in_kinect_system = kinect_recording.unfiltered_joints;
 
-        Tensor<double, 3> unfiltered_out(ts.size(), 3, 3);
-        Tensor<double, 3> filtered_out(ts.size(), 3, 3);
-        Tensor<double, 3> truth_out(ts.size(), 3, 3);
+        Tensor<double, 3, Eigen::RowMajor> unfiltered_out(ts.size(), 3, 3);
+        Tensor<double, 3, Eigen::RowMajor> filtered_out(ts.size(), 3, 3);
+        Tensor<double, 3, Eigen::RowMajor> truth_out(ts.size(), 3, 3);
 
         Window3dWrapper window3d;
         k4a_calibration_t sensor_calibration;
@@ -1582,7 +1582,7 @@ public:
         // Apply butterworth filter on cop/com plot
         Iir::Butterworth::LowPass<3> bfqx, bfqy, bfkx, bfky;
         const float samplingrate = 15; // Hz
-        const float cutoff_frequency = 0.5; // Hz
+        const float cutoff_frequency = 6; // Hz
 
         std::vector<double> dkx, dky, dqx, dqy;
 
@@ -1684,41 +1684,61 @@ public:
             plt::cla();
         }
 
-        std::stringstream output_dir;
-        output_dir << "experiment_result/" << this->name << "/";
-        std::string base_dir = output_dir.str();
-        if (!fs::is_directory(base_dir) || !fs::exists(base_dir)) {
-            fs::create_directories(base_dir);
-        }
+        int counter = 0;
+        bool collision = false;
+        std::string base_dir;
+        do {
+            std::stringstream output_dir;
+            output_dir << "experiment_result/" << this->name << "/" << counter << "/";
+            base_dir = output_dir.str();
+            if (fs::exists(base_dir))  {
+                collision = true;
+            } else {
+                collision = false;
+            }
+            counter++;
+        }  while (collision);
 
-        MatrixXd com(kinect_com.size(), 3);
-        MatrixXd com_unfiltered(kinect_com_unfiltered.size(), 3);
-        MatrixXd cop(qtm_cop_resampled.size(), 3);
+        fs::create_directories(base_dir);
+
+        // MatrixXd com(kinect_com.size(), 3);
+        std::vector<double>com;
+        std::vector<double> com_unfiltered;
+        // Eigen::Array<int, Eigen::Dynamic, 1> com_ts(kinect_com_ts.size());
+        std::vector<double> cop;
         for (int i = 0; i < kinect_com.size(); ++i) {
-            com(i, 0) = kinect_com.at(i).x;
-            com(i, 1) = kinect_com.at(i).y;
-            com(i, 2) = kinect_com.at(i).z;
+            com.push_back(kinect_com.at(i).x);
+            com.push_back(kinect_com.at(i).y);
+            com.push_back(kinect_com.at(i).z);
         }
 
         for (int i = 0; i < kinect_com_unfiltered.size(); ++i) {
-            com_unfiltered(i, 0) = kinect_com_unfiltered.at(i).x;
-            com_unfiltered(i, 1) = kinect_com_unfiltered.at(i).y;
-            com_unfiltered(i, 2) = kinect_com_unfiltered.at(i).z;;
+            com_unfiltered.push_back(kinect_com_unfiltered.at(i).x);
+            com_unfiltered.push_back(kinect_com_unfiltered.at(i).y);
+            com_unfiltered.push_back(kinect_com_unfiltered.at(i).z);
         }
+
+        /*
+        for (int i = 0; i < kinect_com_ts.size(); ++i) {
+            com_ts(i) = kinect_com_ts.at(i);
+        }
+        */
 
         for (int i = 0; i < qtm_cop_resampled.size(); ++i) {
-            cop(i, 0) = qtm_cop_resampled.at(i).x;
-            cop(i, 1) = qtm_cop_resampled.at(i).y;
-            cop(i, 2) = qtm_cop_resampled.at(i).z;
+            cop.push_back(qtm_cop_resampled.at(i).x);
+            cop.push_back(qtm_cop_resampled.at(i).y);
+            cop.push_back(qtm_cop_resampled.at(i).z);
         }
 
-        std::stringstream output_truth, output_filtered, output_unfiltered, output_com, output_com_unfiltered, output_cop;
+        std::stringstream output_truth, output_filtered, output_unfiltered, output_com, output_com_unfiltered, output_com_ts, output_cop, config;
         output_truth << base_dir << "truth.npy";
         output_filtered << base_dir << "filtered.npy";
         output_unfiltered << base_dir << "unfiltered.npy";
         output_com << base_dir << "com.npy";
         output_com_unfiltered << base_dir << "com_unfiltered.npy";
+        output_com_ts << base_dir << "com_ts.npy";
         output_cop << base_dir << "cop.npy";
+        config << base_dir << "config.json";
         std::cout << "j at the end: " << j << std::endl;
         std::cout << "kinect ts size: " << ts.size() << std::endl;
         std::cout << "Saving to: " << output_truth.str() << std::endl;
@@ -1730,8 +1750,32 @@ public:
 
         cnpy::npy_save(output_com.str(), com.data(), { kinect_com.size(), 3}, "w");
         cnpy::npy_save(output_com_unfiltered.str(), com_unfiltered.data(), { kinect_com_unfiltered.size(), 3 }, "w");
+        cnpy::npy_save(output_com_ts.str(), kinect_com_ts.data(), { kinect_com_ts.size() }, "w");
         cnpy::npy_save(output_cop.str(), cop.data(), { qtm_cop_resampled.size(), 3}, "w");
 
+        /*
+        std::cout << com(0, 0) << std::endl;
+        std::cout << com(0, 1) << std::endl;
+        std::cout << com(0, 2) << std::endl;
+        std::cout << com(1, 0) << std::endl;
+        std::cout << com(1, 1) << std::endl;
+        std::cout << com(1, 2) << std::endl;
+        */
+
+        std::cout << "with data" << std::endl;
+        std::cout << com.data()[0] << std::endl;
+        std::cout << com.data()[1] << std::endl;
+        std::cout << com.data()[2] << std::endl;
+        std::cout << com.data()[3] << std::endl;
+        std::cout << com.data()[4] << std::endl;
+        std::cout << com.data()[5] << std::endl;
+
+        nlohmann::json config_json;
+        std::ofstream output_file(config.str());
+        config_json["filter_type"] = kinect_recording.json_data["filters"][0]["filter_type"];
+        config_json["measurement_error_factor"] = kinect_recording.json_data["filters"][0]["measurement_error_factor"];
+        config_json["json_file_path"] =  kinect_recording.json_file;
+        output_file << std::setw(4) << config_json << std::endl;
     }
 };
 
