@@ -1,5 +1,6 @@
 #include "WindowController3d.h"
 #include "filter/com.hpp"
+#include <Eigen/src/Core/util/Constants.h>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -51,6 +52,39 @@ auto MM = get_azure_kinect_com_matrix();
 bool s_isRunning = true;
 bool s_visualizeJointFrame = false;
 int s_layoutMode = 0;
+
+Tensor<double, 2, Eigen::RowMajor> convert_point_vector(std::vector<Point<double>> data) {
+    Tensor<double, 2, Eigen::RowMajor> result(data.size(), 3);
+    for (int i = 0; i < data.size(); ++i) {
+        result(i, 0) = data.at(i).x;
+        result(i, 1) = data.at(i).y;
+        result(i, 2) = data.at(i).z;
+    }
+    return result;
+}
+
+Tensor<double, 3, Eigen::RowMajor> combine_3_vectors_to_tensor(
+    std::vector<Point<double>> a,
+    std::vector<Point<double>> b,
+    std::vector<Point<double>> c
+) {
+    assert(a.size() == b.size() && b.size() == c.size());
+    Tensor<double, 3, Eigen::RowMajor> combination(a.size(), 3, 3);
+    for (int i = 0; i < a.size(); ++i) {
+        combination(i, 0, 0) = a.at(i).x;
+        combination(i, 0, 1) = a.at(i).y;
+        combination(i, 0, 2) = a.at(i).z;
+
+        combination(i, 1, 0) = b.at(i).x;
+        combination(i, 1, 1) = b.at(i).y;
+        combination(i, 1, 2) = b.at(i).z;
+
+        combination(i, 2, 0) = c.at(i).x;
+        combination(i, 2, 1) = c.at(i).y;
+        combination(i, 2, 2) = c.at(i).z;
+    }
+    return combination;
+}
 
 struct Data {
     std::vector<double> timestamps;
@@ -1491,21 +1525,6 @@ public:
         ForcePlateData force_data_f2,
         double time_offset
     ) {
-        int counter = 0;
-        bool collision = false;
-        std::string base_dir;
-        do {
-            std::stringstream output_dir;
-            output_dir << "experiment_result/" << this->name << "/" << counter << "/";
-            base_dir = output_dir.str();
-            if (fs::exists(base_dir))  {
-                collision = true;
-            } else {
-                collision = false;
-            }
-            counter++;
-        }  while (collision);
-
         // First check offset
         //
         // i is for qtm
@@ -1627,17 +1646,42 @@ public:
         auto down_joints_com = downsample(joints_com, kinect_ts, frequency, true);
         auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, kinect_ts, frequency, true);
 
+        std::vector<double> down_kinect_ts;
+        for (int i = 0; i < down_joints.dimension(0); ++i) {
+            down_kinect_ts.push_back((1./(double)frequency) * i);
+        }
+
         // QTM Joints
+
+        // Take middle for usp and hle
+        std::vector<Point<double>> hle;
+        for (int i = 0; i < data.l_hle.size(); ++i) {
+            auto middle = data.l_hle.at(i) * 0.5 + data.r_hle.at(i) * 0.5;
+            hle.push_back(middle);
+        }
+
+        std::vector<Point<double>> usp;
+        for (int i = 0; i < data.l_usp.size(); ++i) {
+            auto middle = data.l_usp.at(i) * 0.5 + data.r_usp.at(i) * 0.5;
+            usp.push_back(middle);
+        }
+
+        auto qtm_joints = combine_3_vectors_to_tensor(data.l_sae, hle, usp);
+
         std::cout << "Downsampling QTM Joints" << std::endl;
+        auto down_qtm_joints = downsample(qtm_joints, data.timestamps, frequency);
+
+        /*
         auto down_l_sae = downsample(data.l_sae, data.timestamps, frequency);
         auto down_l_hle = downsample(data.l_hle, data.timestamps, frequency);
         auto down_l_usp = downsample(data.l_usp, data.timestamps, frequency);
         auto down_r_hle = downsample(data.r_hle, data.timestamps, frequency);
         auto down_r_usp = downsample(data.r_usp, data.timestamps, frequency);
+        */
 
-        std::vector<double> down_ts;
-        for (int i = 0; i < down_r_usp.size(); ++i) {
-            down_ts.push_back((1./(double)frequency) * i);
+        std::vector<double> down_qtm_ts;
+        for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
+            down_qtm_ts.push_back((1./(double)frequency) * i);
         }
 
         // QTM Force Plate
@@ -1645,6 +1689,22 @@ public:
         auto down_cop = downsample(vcop, force_data_f1.timestamps);
         auto down_force = downsample(vforce, force_data_f1.timestamps);
 
+
+        int counter = 0;
+        bool collision = false;
+        std::string base_dir;
+        do {
+            std::stringstream output_dir;
+            output_dir << "experiment_result/" << this->name << "/" << counter << "/";
+            base_dir = output_dir.str();
+            if (fs::exists(base_dir))  {
+                collision = true;
+            } else {
+                collision = false;
+            }
+            counter++;
+        }  while (collision);
+        fs::create_directories(base_dir);
 
         // Write out all the stuff:
         // Kinect joints, ts, com
@@ -1655,7 +1715,51 @@ public:
         // tensor -> can be written out directly
         // vector<double> -> can be written out directly
         // vector<Point<double>> -> convert to tensor -> helper function
- 
+        std::stringstream path_kinect_joints, path_kinect_unfiltered_joints, path_kinect_ts, path_kinect_com, path_kinect_unfiltered_com;
+        std::stringstream down_path_kinect_joints, down_path_kinect_unfiltered_joints, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_unfiltered_com;
+
+        std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop;
+        std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop;
+
+        path_kinect_joints << base_dir << "kinect_joints.npy";
+        path_kinect_unfiltered_joints << base_dir << "kinect_unfiltered_joints.npy";
+        path_kinect_ts << base_dir << "kinect_ts.npy";
+        path_kinect_com << base_dir << "kinect_com.npy";
+        path_kinect_unfiltered_com << base_dir << "kinect_unfiltered_com.npy";
+        down_path_kinect_joints << base_dir << "down_kinect_joints.npy";
+        down_path_kinect_unfiltered_joints << base_dir << "down_kinect_unfiltered_joints.npy";
+        down_path_kinect_ts << base_dir << "down_kinect_ts.npy";
+        down_path_kinect_com << base_dir << "down_kinect_com.npy";
+        down_path_kinect_unfiltered_com << base_dir << "down_kinect_unfiltered_com.npy";
+
+        path_qtm_joints << base_dir << "qtm_joints.npy";
+        path_qtm_ts << base_dir << "qtm_ts.npy";
+        path_qtm_cop << base_dir << "qtm_cop.npy";
+        down_path_qtm_joints << base_dir << "down_qtm_joints.npy";
+        down_path_qtm_ts << base_dir << "down_qtm_ts.npy";
+        down_path_qtm_cop << base_dir << "down_qtm_cop.npy";
+        std::cout << "Writting to: " << base_dir << std::endl;
+
+        cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 3, 3}, "w");
+        cnpy::npy_save(path_kinect_unfiltered_joints.str(), unfiltered_joints.data(), { (unsigned long)unfiltered_joints.dimension(0), 3, 3}, "w");
+        cnpy::npy_save(path_kinect_ts.str(), kinect_ts.data(), { kinect_ts.size() }, "w");
+        cnpy::npy_save(path_kinect_com.str(), convert_point_vector(joints_com).data(), { joints_com.size(), 3 }, "w");
+        cnpy::npy_save(path_kinect_unfiltered_com.str(), convert_point_vector(unfiltered_joints_com).data(), { unfiltered_joints_com.size(), 3 }, "w");
+
+        cnpy::npy_save(down_path_kinect_joints.str(), down_joints.data(), { (unsigned long)down_joints.dimension(0), 3, 3}, "w");
+        cnpy::npy_save(down_path_kinect_unfiltered_joints.str(), down_unfiltered_joints.data(), { (unsigned long)down_unfiltered_joints.dimension(0), 3, 3}, "w");
+        cnpy::npy_save(down_path_kinect_ts.str(), down_kinect_ts.data(), { down_kinect_ts.size() }, "w");
+        cnpy::npy_save(down_path_kinect_com.str(), convert_point_vector(down_joints_com).data(), { down_joints_com.size(), 3 }, "w");
+        cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
+
+        cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
+        cnpy::npy_save(path_qtm_ts.str(), data.timestamps.data(), { data.timestamps.size() }, "w");
+        cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3}, "w");
+
+        cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
+        cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
+        cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3}, "w");
+
     }
 
     void visualize(bool render, bool plot)
