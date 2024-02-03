@@ -207,7 +207,7 @@ CliConfig::CliConfig(int argc, char** argv)
         if (std::strcmp(kalman_filter_type_str.c_str(), "constrained") == 0) {
             filter_builder = std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32, measurement_error_factor);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "basic") == 0) {
-            filter_builder = std::make_shared<SkeletonFilterBuilder<double>>(32, 5.0 ,measurement_error_factor);
+            filter_builder = std::make_shared<SkeletonFilterBuilder<double>>(32, 5.0, measurement_error_factor);
         } else if (std::strcmp(kalman_filter_type_str.c_str(), "adaptive-constrained") == 0) {
             filter_builder = std::make_shared<AdaptiveConstrainedSkeletonFilterBuilder<double, ZarPointFilter>>(32, 5.0, measurement_error_factor);
         } else {

@@ -53,7 +53,8 @@ bool s_isRunning = true;
 bool s_visualizeJointFrame = false;
 int s_layoutMode = 0;
 
-Tensor<double, 2, Eigen::RowMajor> convert_point_vector(std::vector<Point<double>> data) {
+Tensor<double, 2, Eigen::RowMajor> convert_point_vector(std::vector<Point<double>> data)
+{
     Tensor<double, 2, Eigen::RowMajor> result(data.size(), 3);
     for (int i = 0; i < data.size(); ++i) {
         result(i, 0) = data.at(i).x;
@@ -66,8 +67,8 @@ Tensor<double, 2, Eigen::RowMajor> convert_point_vector(std::vector<Point<double
 Tensor<double, 3, Eigen::RowMajor> combine_3_vectors_to_tensor(
     std::vector<Point<double>> a,
     std::vector<Point<double>> b,
-    std::vector<Point<double>> c
-) {
+    std::vector<Point<double>> c)
+{
     assert(a.size() == b.size() && b.size() == c.size());
     Tensor<double, 3, Eigen::RowMajor> combination(a.size(), 3, 3);
     for (int i = 0; i < a.size(); ++i) {
@@ -211,135 +212,137 @@ std::vector<double> smooth(std::vector<double> input, int window_size = 5)
     return result;
 }
 
-std::vector<double> downsample(std::vector<double> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps=false) {
-        assert(values.size() == timestamps.size());
+std::vector<double> downsample(std::vector<double> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps = false)
+{
+    assert(values.size() == timestamps.size());
 
-        auto ts(timestamps);
+    auto ts(timestamps);
 
-        double front = timestamps.front();
-        if (non_zero_timestamps) {
-            std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) {return element - front;});
+    double front = timestamps.front();
+    if (non_zero_timestamps) {
+        std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) { return element - front; });
+    }
+
+    std::vector<double> downsampled_values;
+
+    double frame_duration = 1. / (double)target_frequency;
+
+    for (int i = 0, down_i = 0; i < values.size(); ++i) {
+        auto next_frame_ts = frame_duration * down_i;
+        if (ts.at(i) == next_frame_ts) {
+            downsampled_values.push_back(values.at(i));
+            down_i++;
         }
+        if (ts.at(i) < next_frame_ts) {
+            continue;
+        }
+        if (ts.at(i) > next_frame_ts) {
+            // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
+            auto before_ts = ts.at(i - 1);
+            auto current_ts = ts.at(i);
+            auto before_value = values.at(i - 1);
+            auto current_value = values.at(i);
+            auto value = before_value + ((current_value - before_value) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
+            downsampled_values.push_back(value);
+            down_i++;
+        }
+    }
+    return downsampled_values;
+}
 
-        std::vector<double> downsampled_values;
+std::vector<Point<double>> downsample(std::vector<Point<double>> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps = false)
+{
+    assert(values.size() == timestamps.size());
 
-        double frame_duration = 1. / (double)target_frequency;
+    auto ts(timestamps);
 
-        for (int i = 0, down_i = 0; i < values.size(); ++i) {
-            auto next_frame_ts = frame_duration * down_i;
+    double front = timestamps.front();
+    if (non_zero_timestamps) {
+        std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) { return element - front; });
+    }
+
+    std::vector<Point<double>> downsampled_values;
+
+    double frame_duration = 1. / target_frequency;
+
+    for (int i = 0, down_i = 0; i < values.size(); ++i) {
+        auto next_frame_ts = frame_duration * down_i;
+        if (ts.at(i) == next_frame_ts) {
+            downsampled_values.push_back(values.at(i));
+            down_i++;
+        }
+        if (ts.at(i) < next_frame_ts) {
+            continue;
+        }
+        if (ts.at(i) > next_frame_ts) {
+            // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
+            auto before_ts = ts.at(i - 1);
+            auto current_ts = ts.at(i);
+            auto before_value = values.at(i - 1);
+            auto current_value = values.at(i);
+            auto value = before_value + ((current_value - before_value) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
+            downsampled_values.push_back(value);
+            down_i++;
+        }
+    }
+    return downsampled_values;
+}
+
+Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps = false)
+{
+    assert(values.dimension(0) == timestamps.size());
+
+    auto ts(timestamps);
+
+    double front = timestamps.front();
+    if (non_zero_timestamps) {
+        std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) { return element - front; });
+    }
+
+    double frame_duration = 1. / target_frequency;
+
+    int downsampled_values_length = timestamps.back() / frame_duration;
+
+    Tensor<double, 3, Eigen::RowMajor> downsampled_values(downsampled_values_length, 3, 3);
+
+    for (int i = 0, down_i = 0; i < values.dimension(0); ++i) {
+        auto next_frame_ts = frame_duration * down_i;
+        for (int j = 0; j < values.dimension(1); ++j) {
             if (ts.at(i) == next_frame_ts) {
-                downsampled_values.push_back(values.at(i));
+                downsampled_values(down_i, j, 0) = values(i, j, 0);
+                downsampled_values(down_i, j, 1) = values(i, j, 1);
+                downsampled_values(down_i, j, 2) = values(i, j, 2);
                 down_i++;
             }
-            if (ts.at(i) <  next_frame_ts) {
+            if (ts.at(i) < next_frame_ts) {
                 continue;
             }
             if (ts.at(i) > next_frame_ts) {
                 // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
-                auto before_ts = ts.at(i-1);
+                auto before_ts = ts.at(i - 1);
                 auto current_ts = ts.at(i);
-                auto before_value = values.at(i-1);
-                auto current_value = values.at(i);
-                auto value = before_value + ((current_value - before_value) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
-                downsampled_values.push_back(value);
+
+                auto before_value_x = values(i - 1, j, 0);
+                auto current_value_x = values(i, j, 0);
+                auto value_x = before_value_x + ((current_value_x - before_value_x) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
+
+                auto before_value_y = values(i - 1, j, 1);
+                auto current_value_y = values(i, j, 1);
+                auto value_y = before_value_y + ((current_value_y - before_value_y) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
+
+                auto before_value_z = values(i - 1, j, 2);
+                auto current_value_z = values(i, j, 2);
+                auto value_z = before_value_z + ((current_value_z - before_value_z) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
+
+                downsampled_values(down_i, j, 0) = value_x;
+                downsampled_values(down_i, j, 1) = value_y;
+                downsampled_values(down_i, j, 2) = value_z;
                 down_i++;
             }
         }
+    }
     return downsampled_values;
 }
-
-std::vector<Point<double>> downsample(std::vector<Point<double>> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps=false) {
-        assert(values.size() == timestamps.size());
-
-        auto ts(timestamps);
-
-        double front = timestamps.front();
-        if (non_zero_timestamps) {
-            std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) {return element - front;});
-        }
-
-        std::vector<Point<double>> downsampled_values;
-
-        double frame_duration = 1. / target_frequency;
-
-        for (int i = 0, down_i = 0; i < values.size(); ++i) {
-            auto next_frame_ts = frame_duration * down_i;
-            if (ts.at(i) == next_frame_ts) {
-                downsampled_values.push_back(values.at(i));
-                down_i++;
-            }
-            if (ts.at(i) <  next_frame_ts) {
-                continue;
-            }
-            if (ts.at(i) > next_frame_ts) {
-                // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
-                auto before_ts = ts.at(i-1);
-                auto current_ts = ts.at(i);
-                auto before_value = values.at(i-1);
-                auto current_value = values.at(i);
-                auto value = before_value + ((current_value - before_value) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
-                downsampled_values.push_back(value);
-                down_i++;
-            }
-        }
-    return downsampled_values;
-}
-
-Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps=false) {
-        assert(values.dimension(0) == timestamps.size());
-
-        auto ts(timestamps);
-
-        double front = timestamps.front();
-        if (non_zero_timestamps) {
-            std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) {return element - front;});
-        }
-
-        double frame_duration = 1. / target_frequency;
-
-        int downsampled_values_length = timestamps.back() / frame_duration;
-
-        Tensor<double, 3, Eigen::RowMajor> downsampled_values(downsampled_values_length, 3, 3);
-
-        for (int i = 0, down_i = 0; i < values.dimension(0); ++i) {
-            auto next_frame_ts = frame_duration * down_i;
-            for (int j = 0; j < values.dimension(1); ++j) {
-                if (ts.at(i) == next_frame_ts) {
-                    downsampled_values(down_i, j, 0) = values(i, j, 0);
-                    downsampled_values(down_i, j, 1) = values(i, j, 1);
-                    downsampled_values(down_i, j, 2) = values(i, j, 2);
-                    down_i++;
-                }
-                if (ts.at(i) <  next_frame_ts) {
-                    continue;
-                }
-                if (ts.at(i) > next_frame_ts) {
-                    // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
-                    auto before_ts = ts.at(i-1);
-                    auto current_ts = ts.at(i);
-
-                    auto before_value_x = values(i-1, j, 0);
-                    auto current_value_x = values(i, j, 0);
-                    auto value_x = before_value_x + ((current_value_x- before_value_x) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
-
-                    auto before_value_y = values(i-1, j, 1);
-                    auto current_value_y = values(i, j, 1);
-                    auto value_y = before_value_y + ((current_value_y- before_value_y) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
-
-                    auto before_value_z = values(i-1, j, 2);
-                    auto current_value_z = values(i, j, 2);
-                    auto value_z = before_value_z + ((current_value_z- before_value_z) * ((next_frame_ts - before_ts) / (current_ts - before_ts)));
-
-                    downsampled_values(down_i, j, 0) = value_x;
-                    downsampled_values(down_i, j, 1) = value_y;
-                    downsampled_values(down_i, j, 2) = value_z;
-                    down_i++;
-                }
-            }
-        }
-    return downsampled_values;
-}
-
 
 std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     std::vector<Point<double>> l_ak,
@@ -898,7 +901,8 @@ public:
     }
     friend std::ostream& operator<<(std::ostream& out, Experiment const& recording);
 
-    std::tuple<Point<double>, Point<double>> get_cop_force(ForcePlateData& force_data_f1, ForcePlateData& force_data_f2, int index) {
+    std::tuple<Point<double>, Point<double>> get_cop_force(ForcePlateData& force_data_f1, ForcePlateData& force_data_f2, int index)
+    {
         Point<double> cop, force;
         if (force_data_f1.used && !force_data_f2.used) {
             cop = force_data_f1.cop.at(index);
@@ -1523,8 +1527,8 @@ public:
         Data data,
         ForcePlateData force_data_f1,
         ForcePlateData force_data_f2,
-        double time_offset
-    ) {
+        double time_offset)
+    {
         // First check offset
         //
         // i is for qtm
@@ -1556,12 +1560,12 @@ public:
             std::vector<double> shortened_kinect_ts(kinect_ts.size() - i);
             for (int k = 0; k < joints.dimension(0) - i; ++k) {
                 for (int q = 0; q < joints.dimension(1); ++q) {
-                    shortened_joints(k, q, 0) =  joints(k + i, q, 0);
-                    shortened_joints(k, q, 1) =  joints(k + i, q, 1);
-                    shortened_joints(k, q, 2) =  joints(k + i, q, 2);
-                    shortened_unfiltered_joints(k, q, 0) =  unfiltered_joints(k + i, q, 0);
-                    shortened_unfiltered_joints(k, q, 1) =  unfiltered_joints(k + i, q, 1);
-                    shortened_unfiltered_joints(k, q, 2) =  unfiltered_joints(k + i, q, 2);
+                    shortened_joints(k, q, 0) = joints(k + i, q, 0);
+                    shortened_joints(k, q, 1) = joints(k + i, q, 1);
+                    shortened_joints(k, q, 2) = joints(k + i, q, 2);
+                    shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + i, q, 0);
+                    shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + i, q, 1);
+                    shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + i, q, 2);
                 }
             }
             for (int k = 0; k < kinect_ts.size() - i; ++k) {
@@ -1648,7 +1652,7 @@ public:
 
         std::vector<double> down_kinect_ts;
         for (int i = 0; i < down_joints.dimension(0); ++i) {
-            down_kinect_ts.push_back((1./(double)frequency) * i);
+            down_kinect_ts.push_back((1. / (double)frequency) * i);
         }
 
         // QTM Joints
@@ -1681,14 +1685,13 @@ public:
 
         std::vector<double> down_qtm_ts;
         for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
-            down_qtm_ts.push_back((1./(double)frequency) * i);
+            down_qtm_ts.push_back((1. / (double)frequency) * i);
         }
 
         // QTM Force Plate
         std::cout << "Downsampling QTM COP" << std::endl;
         auto down_cop = downsample(vcop, force_data_f1.timestamps);
         auto down_force = downsample(vforce, force_data_f1.timestamps);
-
 
         int counter = 0;
         bool collision = false;
@@ -1697,13 +1700,13 @@ public:
             std::stringstream output_dir;
             output_dir << "experiment_result/" << this->name << "/" << counter << "/";
             base_dir = output_dir.str();
-            if (fs::exists(base_dir))  {
+            if (fs::exists(base_dir)) {
                 collision = true;
             } else {
                 collision = false;
             }
             counter++;
-        }  while (collision);
+        } while (collision);
         fs::create_directories(base_dir);
 
         // Write out all the stuff:
@@ -1740,26 +1743,25 @@ public:
         down_path_qtm_cop << base_dir << "down_qtm_cop.npy";
         std::cout << "Writting to: " << base_dir << std::endl;
 
-        cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 3, 3}, "w");
-        cnpy::npy_save(path_kinect_unfiltered_joints.str(), unfiltered_joints.data(), { (unsigned long)unfiltered_joints.dimension(0), 3, 3}, "w");
+        cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 3, 3 }, "w");
+        cnpy::npy_save(path_kinect_unfiltered_joints.str(), unfiltered_joints.data(), { (unsigned long)unfiltered_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(path_kinect_ts.str(), kinect_ts.data(), { kinect_ts.size() }, "w");
         cnpy::npy_save(path_kinect_com.str(), convert_point_vector(joints_com).data(), { joints_com.size(), 3 }, "w");
         cnpy::npy_save(path_kinect_unfiltered_com.str(), convert_point_vector(unfiltered_joints_com).data(), { unfiltered_joints_com.size(), 3 }, "w");
 
-        cnpy::npy_save(down_path_kinect_joints.str(), down_joints.data(), { (unsigned long)down_joints.dimension(0), 3, 3}, "w");
-        cnpy::npy_save(down_path_kinect_unfiltered_joints.str(), down_unfiltered_joints.data(), { (unsigned long)down_unfiltered_joints.dimension(0), 3, 3}, "w");
+        cnpy::npy_save(down_path_kinect_joints.str(), down_joints.data(), { (unsigned long)down_joints.dimension(0), 3, 3 }, "w");
+        cnpy::npy_save(down_path_kinect_unfiltered_joints.str(), down_unfiltered_joints.data(), { (unsigned long)down_unfiltered_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(down_path_kinect_ts.str(), down_kinect_ts.data(), { down_kinect_ts.size() }, "w");
         cnpy::npy_save(down_path_kinect_com.str(), convert_point_vector(down_joints_com).data(), { down_joints_com.size(), 3 }, "w");
         cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
 
         cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(path_qtm_ts.str(), data.timestamps.data(), { data.timestamps.size() }, "w");
-        cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3}, "w");
+        cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3 }, "w");
 
         cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
-        cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3}, "w");
-
+        cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
     }
 
     void visualize(bool render, bool plot)
@@ -2105,18 +2107,18 @@ public:
             std::stringstream output_dir;
             output_dir << "experiment_result/" << this->name << "/" << counter << "/";
             base_dir = output_dir.str();
-            if (fs::exists(base_dir))  {
+            if (fs::exists(base_dir)) {
                 collision = true;
             } else {
                 collision = false;
             }
             counter++;
-        }  while (collision);
+        } while (collision);
 
         fs::create_directories(base_dir);
 
         // MatrixXd com(kinect_com.size(), 3);
-        std::vector<double>com;
+        std::vector<double> com;
         std::vector<double> com_unfiltered;
         // Eigen::Array<int, Eigen::Dynamic, 1> com_ts(kinect_com_ts.size());
         std::vector<double> cop;
@@ -2162,10 +2164,10 @@ public:
         cnpy::npy_save(output_filtered.str(), filtered_out.data(), { (unsigned long)j, 3, 3 }, "w");
         cnpy::npy_save(output_unfiltered.str(), unfiltered_out.data(), { (unsigned long)j, 3, 3 }, "w");
 
-        cnpy::npy_save(output_com.str(), com.data(), { kinect_com.size(), 3}, "w");
+        cnpy::npy_save(output_com.str(), com.data(), { kinect_com.size(), 3 }, "w");
         cnpy::npy_save(output_com_unfiltered.str(), com_unfiltered.data(), { kinect_com_unfiltered.size(), 3 }, "w");
         cnpy::npy_save(output_com_ts.str(), kinect_com_ts.data(), { kinect_com_ts.size() }, "w");
-        cnpy::npy_save(output_cop.str(), cop.data(), { qtm_cop_resampled.size(), 3}, "w");
+        cnpy::npy_save(output_cop.str(), cop.data(), { qtm_cop_resampled.size(), 3 }, "w");
 
         /*
         std::cout << com(0, 0) << std::endl;
@@ -2188,7 +2190,7 @@ public:
         std::ofstream output_file(config.str());
         config_json["filter_type"] = kinect_recording.json_data["filters"][0]["filter_type"];
         config_json["measurement_error_factor"] = kinect_recording.json_data["filters"][0]["measurement_error_factor"];
-        config_json["json_file_path"] =  kinect_recording.json_file;
+        config_json["json_file_path"] = kinect_recording.json_file;
         output_file << std::setw(4) << config_json << std::endl;
     }
 };
