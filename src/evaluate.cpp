@@ -288,39 +288,40 @@ std::vector<Point<double>> downsample(std::vector<Point<double>> values, std::ve
     return downsampled_values;
 }
 
-Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor> values, std::vector<double> timestamps, int target_frequency = 15, bool non_zero_timestamps = false)
+Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor>& values, std::vector<double>& timestamps, int target_frequency = 15, bool non_zero_timestamps = false)
 {
     assert(values.dimension(0) == timestamps.size());
+    assert(timestamps.at(0) == 0);
 
-    auto ts(timestamps);
+    // auto ts(timestamps);
 
-    double front = timestamps.front();
-    if (non_zero_timestamps) {
-        std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) { return element - front; });
-    }
+    // double front = timestamps.front();
+    // if (non_zero_timestamps) {
+    //     std::transform(timestamps.cbegin(), timestamps.cend(), ts.begin(), [front](auto element) { return element - front; });
+    // }
 
     double frame_duration = 1. / target_frequency;
 
     int downsampled_values_length = timestamps.back() / frame_duration;
 
-    Tensor<double, 3, Eigen::RowMajor> downsampled_values(downsampled_values_length, 3, 3);
+    Tensor<double, 3, Eigen::RowMajor> downsampled_values(downsampled_values_length, values.dimension(1), 3);
 
     for (int i = 0, down_i = 0; i < values.dimension(0); ++i) {
         auto next_frame_ts = frame_duration * down_i;
         for (int j = 0; j < values.dimension(1); ++j) {
-            if (ts.at(i) == next_frame_ts) {
+            if (timestamps.at(i) == next_frame_ts) {
                 downsampled_values(down_i, j, 0) = values(i, j, 0);
                 downsampled_values(down_i, j, 1) = values(i, j, 1);
                 downsampled_values(down_i, j, 2) = values(i, j, 2);
                 down_i++;
             }
-            if (ts.at(i) < next_frame_ts) {
+            if (timestamps.at(i) < next_frame_ts) {
                 continue;
             }
-            if (ts.at(i) > next_frame_ts) {
+            if (timestamps.at(i) > next_frame_ts) {
                 // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
-                auto before_ts = ts.at(i - 1);
-                auto current_ts = ts.at(i);
+                auto before_ts = timestamps.at(i - 1);
+                auto current_ts = timestamps.at(i);
 
                 auto before_value_x = values(i - 1, j, 0);
                 auto current_value_x = values(i, j, 0);
@@ -1524,11 +1525,12 @@ public:
         std::vector<double> kinect_ts,
         Tensor<double, 3, Eigen::RowMajor> joints,
         Tensor<double, 3, Eigen::RowMajor> unfiltered_joints,
-        Data data,
+        Data outer_data,
         ForcePlateData force_data_f1,
         ForcePlateData force_data_f2,
         double time_offset)
     {
+        Data data(outer_data);
         // First check offset
         //
         // i is for qtm
@@ -1539,10 +1541,10 @@ public:
         if (time_offset < 0) {
             // QTM events are a bit later then the Kinect events, therefore, skip
             // a few qtm frames in the beginning
-            while (data.timestamps.at(i) < time_offset) {
+            while (data.timestamps.at(i) < std::abs(time_offset)) {
                 i++;
             };
-            while (force_data_f1.timestamps.at(f) < time_offset) {
+            while (force_data_f1.timestamps.at(f) < std::abs(time_offset)) {
                 f++;
             };
         } else if (time_offset > 0) {
@@ -1552,60 +1554,140 @@ public:
                 j++;
             };
         }
+        std::cout << "write out : i=" << i << ", j=" << j << ", f:" << f << std::endl;
+        double front = kinect_ts.front();
+        std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto element) { return element - front; });
+        assert(kinect_ts.front() == 0);
 
+        std::vector<double> short_timestamps;
+        std::vector<Point<double>> short_l_sae;
+        std::vector<Point<double>> short_l_hle;
+        std::vector<Point<double>> short_l_usp;
+        std::vector<Point<double>> short_r_hle;
+        std::vector<Point<double>> short_r_usp;
+        /*
+        std::vector<Point<double>> l, r, b;
+        std::vector<double> fp_ts_1;
+        std::vector<Point<double>> fp_force_1;
+        std::vector<Point<double>> fp_moment_1;
+        std::vector<Point<double>> fp_cop_1;
+
+        std::vector<double> fp_ts_2;
+        std::vector<Point<double>> fp_force_2;
+        std::vector<Point<double>> fp_moment_2;
+        std::vector<Point<double>> fp_cop_2;
+        Data short_data { short_timestamps, l, r, b, short_l_sae, short_l_hle, short_l_usp, short_r_hle, short_r_usp };
+        */
         // Shorten data based on offset
-        if (i != 0) {
-            Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - i, joints.dimension(1), joints.dimension(2));
-            Tensor<double, 3, Eigen::RowMajor> shortened_unfiltered_joints(unfiltered_joints.dimension(0) - i, unfiltered_joints.dimension(1), unfiltered_joints.dimension(2));
-            std::vector<double> shortened_kinect_ts(kinect_ts.size() - i);
-            for (int k = 0; k < joints.dimension(0) - i; ++k) {
+        std::cout << "data.timestamps.size(): " << short_timestamps.size() << std::endl;
+        std::cout << "data.l_hle.size(): " << short_l_hle.size() << std::endl;
+
+        if (j != 0) {
+            Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
+            Tensor<double, 3, Eigen::RowMajor> shortened_unfiltered_joints(unfiltered_joints.dimension(0) - j, unfiltered_joints.dimension(1), unfiltered_joints.dimension(2));
+            std::vector<double> shortened_kinect_ts(kinect_ts.size() - j);
+            for (int k = 0; k < joints.dimension(0) - j; ++k) {
                 for (int q = 0; q < joints.dimension(1); ++q) {
-                    shortened_joints(k, q, 0) = joints(k + i, q, 0);
-                    shortened_joints(k, q, 1) = joints(k + i, q, 1);
-                    shortened_joints(k, q, 2) = joints(k + i, q, 2);
-                    shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + i, q, 0);
-                    shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + i, q, 1);
-                    shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + i, q, 2);
+                    shortened_joints(k, q, 0) = joints(k + j, q, 0);
+                    shortened_joints(k, q, 1) = joints(k + j, q, 1);
+                    shortened_joints(k, q, 2) = joints(k + j, q, 2);
+                    shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + j, q, 0);
+                    shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + j, q, 1);
+                    shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + j, q, 2);
                 }
             }
-            for (int k = 0; k < kinect_ts.size() - i; ++k) {
-                shortened_kinect_ts.at(k) = kinect_ts.at(k + i);
+            for (int k = 0; k < kinect_ts.size() - j; ++k) {
+                shortened_kinect_ts.at(k) = kinect_ts.at(k);
             }
             kinect_ts = shortened_kinect_ts;
             joints = shortened_joints;
             unfiltered_joints = shortened_unfiltered_joints;
-        } else if (j != 0) {
-            Data shortened_data;
-            ForcePlateData shortened_force_data_1;
-            ForcePlateData shortened_force_data_2;
-            shortened_force_data_1.used = force_data_f1.used;
-            shortened_force_data_2.used = force_data_f2.used;
+        } 
+        if (i != 0) {
 
-            for (int k = j; k < data.timestamps.size(); ++k) {
-                shortened_data.timestamps.push_back(data.timestamps.at(k));
-                shortened_data.l_sae.push_back(data.l_sae.at(k));
-                shortened_data.l_hle.push_back(data.l_hle.at(k));
-                shortened_data.l_usp.push_back(data.l_usp.at(k));
-
-                shortened_data.r_hle.push_back(data.r_hle.at(k));
-                shortened_data.r_usp.push_back(data.r_usp.at(k));
+            /*
+            for (int k = 0; k < i; ++k) {
+                data.timestamps.pop_back();
+                data.l_sae.erase(data.l_sae.begin());
+                data.l_hle.erase(data.l_hle.begin());
+                data.l_usp.erase(data.l_usp.begin());
+                data.r_hle.erase(data.r_hle.begin());
+                data.r_usp.erase(data.r_usp.begin());
             }
+            */
+            for (int k = i; k < data.timestamps.size(); ++k) {
+                short_timestamps.push_back(data.timestamps.at(k-i));
+                short_l_sae.push_back(data.l_sae.at(k));
+                short_l_hle.push_back(data.l_hle.at(k));
+                short_l_usp.push_back(data.l_usp.at(k));
 
+                short_r_hle.push_back(data.r_hle.at(k));
+                short_r_usp.push_back(data.r_usp.at(k));
+            }
+            /*
+            data.timestamps = short_timestamps;
+            data.l_sae = short_l_sae;
+            data.l_hle = short_l_hle;
+            data.l_usp = short_l_usp;
+            data.r_hle = short_r_hle;
+            data.r_usp = short_r_usp;
+            */
+
+            // data = short_data;
+
+            /*
+            for (int k = 0; k < f; ++k) {
+                force_data_f1.timestamps.pop_back();
+                force_data_f1.force.erase(force_data_f1.force.begin());
+                force_data_f1.cop.erase(force_data_f1.cop.begin());
+                force_data_f1.moment.erase(force_data_f1.moment.begin());
+
+                force_data_f2.timestamps.pop_back();
+                force_data_f2.force.erase(force_data_f2.force.begin());
+                force_data_f2.cop.erase(force_data_f2.cop.begin());
+                force_data_f2.moment.erase(force_data_f2.moment.begin());
+            }
+            */
+            /*
             for (int k = f; k < force_data_f1.timestamps.size(); ++k) {
-                shortened_force_data_1.timestamps.push_back(force_data_f1.timestamps.at(k));
-                shortened_force_data_1.force.push_back(force_data_f1.force.at(k));
-                shortened_force_data_1.moment.push_back(force_data_f1.moment.at(k));
-                shortened_force_data_1.cop.push_back(force_data_f1.cop.at(k));
+                fp_ts_1.push_back(force_data_f1.timestamps.at(k-f));
+                fp_force_1.push_back(force_data_f1.force.at(k));
+                fp_moment_1.push_back(force_data_f1.moment.at(k));
+                fp_cop_1.push_back(force_data_f1.cop.at(k));
 
-                shortened_force_data_2.timestamps.push_back(force_data_f2.timestamps.at(k));
-                shortened_force_data_2.force.push_back(force_data_f2.force.at(k));
-                shortened_force_data_2.moment.push_back(force_data_f2.moment.at(k));
-                shortened_force_data_2.cop.push_back(force_data_f2.cop.at(k));
+                fp_ts_2.push_back(force_data_f2.timestamps.at(k-f));
+                fp_force_2.push_back(force_data_f2.force.at(k));
+                fp_moment_2.push_back(force_data_f2.moment.at(k));
+                fp_cop_2.push_back(force_data_f2.cop.at(k));
             }
-            data = shortened_data;
-            force_data_f1 = shortened_force_data_1;
-            force_data_f2 = shortened_force_data_2;
+            force_data_f1.timestamps = fp_ts_1;
+            force_data_f1.force = fp_force_1;
+            force_data_f1.moment = fp_moment_1;
+            force_data_f1.cop = fp_cop_1;
+
+            force_data_f2.timestamps = fp_ts_2;
+            force_data_f2.force = fp_force_2;
+            force_data_f2.moment = fp_moment_2;
+            force_data_f2.cop = fp_cop_2;
+            */
+        } else {
+            short_l_sae = data.l_sae;
+            short_l_hle = data.l_hle;
+            short_r_hle = data.r_hle;
+            short_l_usp = data.l_usp;
+            short_r_usp = data.r_usp;
+            short_timestamps = data.timestamps;
         }
+        /*
+        short_l_sae = data.l_sae;
+        short_l_hle = data.l_hle;
+        short_r_hle = data.r_hle;
+        short_l_usp = data.l_usp;
+        short_r_usp = data.r_usp;
+        short_timestamps = data.timestamps;
+        */
+        std::cout << "data.timestamps.size(): " << data.timestamps.size() << std::endl;
+        std::cout << "data.l_hle.size(): " << data.l_hle.size() << std::endl;
 
         // Calcualte com filtered and unfiltered
         std::vector<Point<double>> joints_com;
@@ -1642,13 +1724,13 @@ public:
 
         // Kinect Joints
         std::cout << "Downsampling Kinect Joints" << std::endl;
-        auto down_joints = downsample(joints, kinect_ts, frequency, true);
-        auto down_unfiltered_joints = downsample(unfiltered_joints, kinect_ts, frequency, true);
+        auto down_joints = downsample(joints, kinect_ts, frequency);
+        auto down_unfiltered_joints = downsample(unfiltered_joints, kinect_ts, frequency);
 
         // Kinect com
         std::cout << "Downsampling Kinect COM" << std::endl;
-        auto down_joints_com = downsample(joints_com, kinect_ts, frequency, true);
-        auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, kinect_ts, frequency, true);
+        auto down_joints_com = downsample(joints_com, kinect_ts, frequency);
+        auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, kinect_ts, frequency);
 
         std::vector<double> down_kinect_ts;
         for (int i = 0; i < down_joints.dimension(0); ++i) {
@@ -1659,21 +1741,21 @@ public:
 
         // Take middle for usp and hle
         std::vector<Point<double>> hle;
-        for (int i = 0; i < data.l_hle.size(); ++i) {
-            auto middle = data.l_hle.at(i) * 0.5 + data.r_hle.at(i) * 0.5;
+        for (int i = 0; i < short_l_hle.size(); ++i) {
+            auto middle = short_l_hle.at(i) * 0.5 + short_r_hle.at(i) * 0.5;
             hle.push_back(middle);
         }
 
         std::vector<Point<double>> usp;
-        for (int i = 0; i < data.l_usp.size(); ++i) {
-            auto middle = data.l_usp.at(i) * 0.5 + data.r_usp.at(i) * 0.5;
+        for (int i = 0; i < short_l_usp.size(); ++i) {
+            auto middle = short_l_usp.at(i) * 0.5 + short_r_usp.at(i) * 0.5;
             usp.push_back(middle);
         }
 
-        auto qtm_joints = combine_3_vectors_to_tensor(data.l_sae, hle, usp);
+        auto qtm_joints = combine_3_vectors_to_tensor(short_l_sae, hle, usp);
 
         std::cout << "Downsampling QTM Joints" << std::endl;
-        auto down_qtm_joints = downsample(qtm_joints, data.timestamps, frequency);
+        auto down_qtm_joints = downsample(qtm_joints, short_timestamps, frequency);
 
         /*
         auto down_l_sae = downsample(data.l_sae, data.timestamps, frequency);
@@ -1683,8 +1765,10 @@ public:
         auto down_r_usp = downsample(data.r_usp, data.timestamps, frequency);
         */
 
+        std::cout << "create qtm ts" << std::endl;
         std::vector<double> down_qtm_ts;
         for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
+            std::cout << i << std::endl;
             down_qtm_ts.push_back((1. / (double)frequency) * i);
         }
 
@@ -1756,7 +1840,7 @@ public:
         cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
 
         cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
-        cnpy::npy_save(path_qtm_ts.str(), data.timestamps.data(), { data.timestamps.size() }, "w");
+        cnpy::npy_save(path_qtm_ts.str(), short_timestamps.data(), { short_timestamps.size() }, "w");
         cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3 }, "w");
 
         cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
