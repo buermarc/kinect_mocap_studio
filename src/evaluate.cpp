@@ -1586,8 +1586,8 @@ public:
         std::vector<Point<double>> short_l_usp;
         std::vector<Point<double>> short_r_hle;
         std::vector<Point<double>> short_r_usp;
-        /*
-        std::vector<Point<double>> l, r, b;
+
+        // std::vector<Point<double>> l, r, b;
         std::vector<double> fp_ts_1;
         std::vector<Point<double>> fp_force_1;
         std::vector<Point<double>> fp_moment_1;
@@ -1597,8 +1597,8 @@ public:
         std::vector<Point<double>> fp_force_2;
         std::vector<Point<double>> fp_moment_2;
         std::vector<Point<double>> fp_cop_2;
-        Data short_data { timestamps, l, r, b, l_sae, l_hle, short_l_usp, short_r_hle, short_r_usp };
-        */
+
+        // Data short_data { timestamps, l, r, b, l_sae, l_hle, short_l_usp, short_r_hle, short_r_usp };
         // Shorten data based on offset
         std::cout << "data.timestamps.size(): " << timestamps.size() << std::endl;
         std::cout << "data.l_hle.size(): " << l_hle.size() << std::endl;
@@ -1671,7 +1671,7 @@ public:
                 force_data_f2.moment.erase(force_data_f2.moment.begin());
             }
             */
-            /*
+
             for (int k = f; k < force_data_f1.timestamps.size(); ++k) {
                 fp_ts_1.push_back(force_data_f1.timestamps.at(k-f));
                 fp_force_1.push_back(force_data_f1.force.at(k));
@@ -1683,6 +1683,7 @@ public:
                 fp_moment_2.push_back(force_data_f2.moment.at(k));
                 fp_cop_2.push_back(force_data_f2.cop.at(k));
             }
+
             force_data_f1.timestamps = fp_ts_1;
             force_data_f1.force = fp_force_1;
             force_data_f1.moment = fp_moment_1;
@@ -1692,7 +1693,7 @@ public:
             force_data_f2.force = fp_force_2;
             force_data_f2.moment = fp_moment_2;
             force_data_f2.cop = fp_cop_2;
-            */
+
         } else {
             short_l_sae = l_sae;
             l_hle = l_hle;
@@ -1779,7 +1780,8 @@ public:
         auto qtm_joints = combine_3_vectors_to_tensor(short_l_sae, hle, usp);
 
         std::cout << "Downsampling QTM Joints" << std::endl;
-        auto down_qtm_joints = downsample(qtm_joints, short_timestamps, frequency);
+        int qtm_joints_frequency = 75;
+        auto down_qtm_joints = downsample(qtm_joints, short_timestamps, qtm_joints_frequency);
 
         /*
         auto down_l_sae = downsample(data.l_sae, data.timestamps, frequency);
@@ -1792,13 +1794,19 @@ public:
         std::cout << "create qtm ts" << std::endl;
         std::vector<double> down_qtm_ts;
         for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
-            down_qtm_ts.push_back((1. / (double)frequency) * i);
+            down_qtm_ts.push_back((1. / (double)qtm_joints_frequency) * i);
         }
 
         // QTM Force Plate
+        int force_plate_frequency = 450;
         std::cout << "Downsampling QTM COP" << std::endl;
-        auto down_cop = downsample(vcop, force_data_f1.timestamps);
-        auto down_force = downsample(vforce, force_data_f1.timestamps);
+        auto down_cop = downsample(vcop, force_data_f1.timestamps, force_plate_frequency);
+        auto down_force = downsample(vforce, force_data_f1.timestamps, force_plate_frequency);
+
+        std::vector<double> down_qtm_cop_ts;
+        for (int i = 0; i < down_cop.size(); ++i) {
+            down_qtm_cop_ts.push_back((1. / (double)force_plate_frequency) * i);
+        }
 
         int counter = 0;
         bool collision = false;
@@ -1828,8 +1836,8 @@ public:
         std::stringstream path_kinect_joints, path_kinect_unfiltered_joints, path_kinect_ts, path_kinect_com, path_kinect_unfiltered_com;
         std::stringstream down_path_kinect_joints, down_path_kinect_unfiltered_joints, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_unfiltered_com;
 
-        std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop;
-        std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop;
+        std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop, path_qtm_cop_ts;
+        std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop, down_path_qtm_cop_ts;
 
         path_kinect_joints << base_dir << "kinect_joints.npy";
         path_kinect_unfiltered_joints << base_dir << "kinect_unfiltered_joints.npy";
@@ -1845,9 +1853,11 @@ public:
         path_qtm_joints << base_dir << "qtm_joints.npy";
         path_qtm_ts << base_dir << "qtm_ts.npy";
         path_qtm_cop << base_dir << "qtm_cop.npy";
+        path_qtm_cop_ts << base_dir << "qtm_cop_ts.npy";
         down_path_qtm_joints << base_dir << "down_qtm_joints.npy";
         down_path_qtm_ts << base_dir << "down_qtm_ts.npy";
         down_path_qtm_cop << base_dir << "down_qtm_cop.npy";
+        down_path_qtm_cop_ts << base_dir << "down_qtm_cop_ts.npy";
         std::cout << "Writting to: " << base_dir << std::endl;
 
         cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 32, 3 }, "w");
@@ -1865,10 +1875,12 @@ public:
         cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(path_qtm_ts.str(), short_timestamps.data(), { short_timestamps.size() }, "w");
         cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3 }, "w");
+        cnpy::npy_save(path_qtm_cop_ts.str(), force_data_f1.timestamps.data(), { force_data_f1.timestamps.size() }, "w");
 
         cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
         cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
+        cnpy::npy_save(down_path_qtm_cop_ts.str(), down_qtm_cop_ts.data(), { down_qtm_cop_ts.size() }, "w");
 
         /*
         std::vector<double> ksl, qsl;
