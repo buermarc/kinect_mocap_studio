@@ -1870,6 +1870,7 @@ public:
         cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
         cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
 
+        /*
         std::vector<double> ksl, qsl;
         for (int i = 0; i < joints.dimension(0); ++i) {
             ksl.push_back(joints(i, K4ABT_JOINT_SHOULDER_LEFT, 2));
@@ -1884,6 +1885,7 @@ public:
         plt::legend();
         plt::show(true);
         plt::cla();
+        */
     }
 
     void visualize(bool render, bool plot)
