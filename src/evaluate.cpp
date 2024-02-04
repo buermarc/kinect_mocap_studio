@@ -302,24 +302,37 @@ Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor>
 
     double frame_duration = 1. / target_frequency;
 
-    int downsampled_values_length = timestamps.back() / frame_duration;
+    int downsampled_values_length = (timestamps.back() / frame_duration)+1;
 
     Tensor<double, 3, Eigen::RowMajor> downsampled_values(downsampled_values_length, values.dimension(1), 3);
 
-    for (int i = 0, down_i = 0; i < values.dimension(0); ++i) {
+    int down_i = 0;
+    for (int i = 0; i < values.dimension(0); ++i) {
         auto next_frame_ts = frame_duration * down_i;
-        for (int j = 0; j < values.dimension(1); ++j) {
-            if (timestamps.at(i) == next_frame_ts) {
+        if (timestamps.at(i) == next_frame_ts) {
+            for (int j = 0; j < values.dimension(1); ++j) {
+                if (down_i >= downsampled_values_length) {
+                    std::cout << "Downsample target Tensor is full did not expect that to happen, in ==: " << down_i << std::endl;
+                    break;
+                    // break;
+                }
                 downsampled_values(down_i, j, 0) = values(i, j, 0);
                 downsampled_values(down_i, j, 1) = values(i, j, 1);
                 downsampled_values(down_i, j, 2) = values(i, j, 2);
-                down_i++;
             }
-            if (timestamps.at(i) < next_frame_ts) {
-                continue;
-            }
-            if (timestamps.at(i) > next_frame_ts) {
-                // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
+            down_i++;
+        }
+        if (timestamps.at(i) < next_frame_ts) {
+            continue;
+        }
+        if (timestamps.at(i) > next_frame_ts) {
+            // std::cout << "Interpolating for downsampled frame: " << down_i << std::endl;
+            for (int j = 0; j < values.dimension(1); ++j) {
+                if (down_i >= downsampled_values_length) {
+                    std::cout << "Downsample target Tensor is full did not expect that to happen, in >: " << down_i << std::endl;
+                    break;
+                    // break;
+                }
                 auto before_ts = timestamps.at(i - 1);
                 auto current_ts = timestamps.at(i);
 
@@ -338,10 +351,11 @@ Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor>
                 downsampled_values(down_i, j, 0) = value_x;
                 downsampled_values(down_i, j, 1) = value_y;
                 downsampled_values(down_i, j, 2) = value_z;
-                down_i++;
             }
+            down_i++;
         }
     }
+    std::cout << "down_i: " << down_i << ", downsampled_values_length: " << downsampled_values_length << std::endl;
     return downsampled_values;
 }
 
@@ -1525,12 +1539,11 @@ public:
         std::vector<double> kinect_ts,
         Tensor<double, 3, Eigen::RowMajor> joints,
         Tensor<double, 3, Eigen::RowMajor> unfiltered_joints,
-        Data outer_data,
+        Data data,
         ForcePlateData force_data_f1,
         ForcePlateData force_data_f2,
         double time_offset)
     {
-        Data data(outer_data);
         // First check offset
         //
         // i is for qtm
@@ -1559,6 +1572,14 @@ public:
         std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto element) { return element - front; });
         assert(kinect_ts.front() == 0);
 
+        // First copy from data into stuff
+        std::vector<double> timestamps(data.timestamps);
+        std::vector<Point<double>> l_sae(data.l_sae);
+        std::vector<Point<double>> l_hle(data.l_hle);
+        std::vector<Point<double>> l_usp(data.l_usp);
+        std::vector<Point<double>> r_hle(data.r_hle);
+        std::vector<Point<double>> r_usp(data.r_usp);
+
         std::vector<double> short_timestamps;
         std::vector<Point<double>> short_l_sae;
         std::vector<Point<double>> short_l_hle;
@@ -1576,11 +1597,11 @@ public:
         std::vector<Point<double>> fp_force_2;
         std::vector<Point<double>> fp_moment_2;
         std::vector<Point<double>> fp_cop_2;
-        Data short_data { short_timestamps, l, r, b, short_l_sae, short_l_hle, short_l_usp, short_r_hle, short_r_usp };
+        Data short_data { timestamps, l, r, b, l_sae, l_hle, short_l_usp, short_r_hle, short_r_usp };
         */
         // Shorten data based on offset
-        std::cout << "data.timestamps.size(): " << short_timestamps.size() << std::endl;
-        std::cout << "data.l_hle.size(): " << short_l_hle.size() << std::endl;
+        std::cout << "data.timestamps.size(): " << timestamps.size() << std::endl;
+        std::cout << "data.l_hle.size(): " << l_hle.size() << std::endl;
 
         if (j != 0) {
             Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
@@ -1602,32 +1623,34 @@ public:
             kinect_ts = shortened_kinect_ts;
             joints = shortened_joints;
             unfiltered_joints = shortened_unfiltered_joints;
-        } 
+        }
         if (i != 0) {
 
+            assert(i < timestamps.size());
             /*
             for (int k = 0; k < i; ++k) {
-                data.timestamps.pop_back();
-                data.l_sae.erase(data.l_sae.begin());
-                data.l_hle.erase(data.l_hle.begin());
-                data.l_usp.erase(data.l_usp.begin());
-                data.r_hle.erase(data.r_hle.begin());
-                data.r_usp.erase(data.r_usp.begin());
+                timestamps.pop_back();
             }
+            l_sae.erase(l_sae.begin(), l_sae.begin() + i);
+            l_hle.erase(l_hle.begin(), l_hle.begin() + i);
+            l_usp.erase(l_usp.begin(), l_usp.begin() + i);
+            r_hle.erase(r_hle.begin(), r_hle.begin() + i);
+            r_usp.erase(r_usp.begin(), r_usp.begin() + i);
             */
-            for (int k = i; k < data.timestamps.size(); ++k) {
-                short_timestamps.push_back(data.timestamps.at(k-i));
-                short_l_sae.push_back(data.l_sae.at(k));
-                short_l_hle.push_back(data.l_hle.at(k));
-                short_l_usp.push_back(data.l_usp.at(k));
+            // for (int k = i; k < timestamps.size(); ++k) {
+            for (int k = i; k < timestamps.size(); ++k) {
+                short_timestamps.push_back(timestamps.at(k-i));
+                short_l_sae.push_back(l_sae.at(k));
+                short_l_hle.push_back(l_hle.at(k));
+                short_l_usp.push_back(l_usp.at(k));
 
-                short_r_hle.push_back(data.r_hle.at(k));
-                short_r_usp.push_back(data.r_usp.at(k));
+                short_r_hle.push_back(r_hle.at(k));
+                short_r_usp.push_back(r_usp.at(k));
             }
             /*
-            data.timestamps = short_timestamps;
-            data.l_sae = short_l_sae;
-            data.l_hle = short_l_hle;
+            data.timestamps = timestamps;
+            data.l_sae = l_sae;
+            data.l_hle = l_hle;
             data.l_usp = short_l_usp;
             data.r_hle = short_r_hle;
             data.r_usp = short_r_usp;
@@ -1671,23 +1694,23 @@ public:
             force_data_f2.cop = fp_cop_2;
             */
         } else {
-            short_l_sae = data.l_sae;
-            short_l_hle = data.l_hle;
-            short_r_hle = data.r_hle;
-            short_l_usp = data.l_usp;
-            short_r_usp = data.r_usp;
-            short_timestamps = data.timestamps;
+            short_l_sae = l_sae;
+            l_hle = l_hle;
+            short_r_hle = r_hle;
+            short_l_usp = l_usp;
+            short_r_usp = r_usp;
+            short_timestamps = timestamps;
         }
         /*
         short_l_sae = data.l_sae;
-        short_l_hle = data.l_hle;
+        l_hle = data.l_hle;
         short_r_hle = data.r_hle;
         short_l_usp = data.l_usp;
         short_r_usp = data.r_usp;
-        short_timestamps = data.timestamps;
+        timestamps = data.timestamps;
         */
-        std::cout << "data.timestamps.size(): " << data.timestamps.size() << std::endl;
-        std::cout << "data.l_hle.size(): " << data.l_hle.size() << std::endl;
+        std::cout << "timestamps.size(): " << timestamps.size() << std::endl;
+        std::cout << "l_hle.size(): " << l_hle.size() << std::endl;
 
         // Calcualte com filtered and unfiltered
         std::vector<Point<double>> joints_com;
@@ -1723,8 +1746,9 @@ public:
         // Downsample
 
         // Kinect Joints
-        std::cout << "Downsampling Kinect Joints" << std::endl;
+        std::cout << "Downsampling Kinect Filtered Joints" << std::endl;
         auto down_joints = downsample(joints, kinect_ts, frequency);
+        std::cout << "Downsampling Kinect Unfiltered Joints" << std::endl;
         auto down_unfiltered_joints = downsample(unfiltered_joints, kinect_ts, frequency);
 
         // Kinect com
@@ -1768,7 +1792,6 @@ public:
         std::cout << "create qtm ts" << std::endl;
         std::vector<double> down_qtm_ts;
         for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
-            std::cout << i << std::endl;
             down_qtm_ts.push_back((1. / (double)frequency) * i);
         }
 
@@ -1846,6 +1869,22 @@ public:
         cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
         cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
         cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
+
+        std::vector<double> ksl, qsl;
+        for (int i = 0; i < joints.dimension(0); ++i) {
+            ksl.push_back(joints(i, K4ABT_JOINT_SHOULDER_LEFT, 2));
+        }
+        for (int i = 0; i < qtm_joints.dimension(0); ++i) {
+            qsl.push_back(qtm_joints(i, 0, 2));
+        }
+
+        plt::title("Left Shoulder x");
+        plt::named_plot("kinect", kinect_ts, ksl);
+        plt::named_plot("qtm", short_timestamps, qsl);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+
     }
 
     void visualize(bool render, bool plot)
