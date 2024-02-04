@@ -302,7 +302,7 @@ Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor>
 
     double frame_duration = 1. / target_frequency;
 
-    int downsampled_values_length = (timestamps.back() / frame_duration)+1;
+    int downsampled_values_length = (timestamps.back() / frame_duration) + 1;
 
     Tensor<double, 3, Eigen::RowMajor> downsampled_values(downsampled_values_length, values.dimension(1), 3);
 
@@ -1639,7 +1639,7 @@ public:
             */
             // for (int k = i; k < timestamps.size(); ++k) {
             for (int k = i; k < timestamps.size(); ++k) {
-                short_timestamps.push_back(timestamps.at(k-i));
+                short_timestamps.push_back(timestamps.at(k - i));
                 short_l_sae.push_back(l_sae.at(k));
                 short_l_hle.push_back(l_hle.at(k));
                 short_l_usp.push_back(l_usp.at(k));
@@ -1884,7 +1884,6 @@ public:
         plt::legend();
         plt::show(true);
         plt::cla();
-
     }
 
     void visualize(bool render, bool plot)
