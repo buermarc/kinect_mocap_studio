@@ -1296,20 +1296,21 @@ public:
         ae_vector_init(&result, 0, alglib_impl::DT_REAL, &state, ae_true);
 
         ae_vector_set_length(&qtm, downsampled_qtm_hle_y.size(), &state);
-        std::cout << "signal = [";
+
+        //std::cout << "signal = [";
         for (int i = 0; i < downsampled_qtm_hle_y.size(); ++i) {
             qtm.ptr.p_double[i] = downsampled_qtm_hle_y.at(i);
-            std::cout << downsampled_qtm_hle_y.at(i) << ",";
+            //std::cout << downsampled_qtm_hle_y.at(i) << ",";
         }
-        std::cout << "]" << std::endl;
+        // std::cout << "]" << std::endl;
 
         ae_vector_set_length(&kinect, downsampled_kinect_hle_y.size(), &state);
-        std::cout << "sample = [";
+        // std::cout << "sample = [";
         for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
             kinect.ptr.p_double[i] = downsampled_kinect_hle_y.at(i);
-            std::cout << downsampled_kinect_hle_y.at(i) << ",";
+            // std::cout << downsampled_kinect_hle_y.at(i) << ",";
         }
-        std::cout << "]" << std::endl;
+        // std::cout << "]" << std::endl;
 
         ae_vector_set_length(&result, downsampled_kinect_hle_y.size() + downsampled_qtm_hle_y.size(), &state);
         corrr1d(&qtm, downsampled_qtm_hle_y.size(), &kinect, downsampled_kinect_hle_y.size(), &result, &state);
@@ -1320,17 +1321,17 @@ public:
             if (tmp < result.ptr.p_double[i]) {
                 tmp = result.ptr.p_double[i];
                 arg_max = i;
-                std::cout << "Max : " << tmp;
+                // std::cout << "Max : " << tmp;
             }
         }
 
-        std::cout << "Initial arg max: " << arg_max << std::endl;
+        // std::cout << "Initial arg max: " << arg_max << std::endl;
         if (arg_max >= downsampled_qtm_hle_y.size()) {
             arg_max = arg_max - (downsampled_qtm_hle_y.size() + downsampled_kinect_hle_y.size() - 1);
         }
-        std::cout << "N" << downsampled_qtm_hle_y.size() << std::endl;
-        std::cout << "M" << downsampled_kinect_hle_y.size() << std::endl;
-        std::cout << "Arg max: " << arg_max << std::endl;
+        // std::cout << "N" << downsampled_qtm_hle_y.size() << std::endl;
+        // std::cout << "M" << downsampled_kinect_hle_y.size() << std::endl;
+        // std::cout << "Arg max: " << arg_max << std::endl;
 
         /*
         std::cout << "Other way" << std::endl;
@@ -1392,7 +1393,7 @@ public:
             int before_size = qtm_timestamp.size();
 
             std::vector<double> shifted_kinect_timestamp;
-            std::cout << "downsampled size :" << downsampled_kinect_hle_y.size() << std::endl;
+            // std::cout << "downsampled size :" << downsampled_kinect_hle_y.size() << std::endl;
             for (int i = arg_max; i < (arg_max + (int)downsampled_kinect_hle_y.size()); ++i) {
                 shifted_kinect_timestamp.push_back((1. / 15.) * (i));
             }
@@ -1897,6 +1898,8 @@ public:
         std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop, path_qtm_cop_ts;
         std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop, down_path_qtm_cop_ts;
 
+        std::stringstream config;
+
         path_kinect_joints << base_dir << "kinect_joints.npy";
         path_kinect_unfiltered_joints << base_dir << "kinect_unfiltered_joints.npy";
         path_kinect_ts << base_dir << "kinect_ts.npy";
@@ -1916,6 +1919,9 @@ public:
         down_path_qtm_ts << base_dir << "down_qtm_ts.npy";
         down_path_qtm_cop << base_dir << "down_qtm_cop.npy";
         down_path_qtm_cop_ts << base_dir << "down_qtm_cop_ts.npy";
+
+        config << base_dir << "config.json";
+
         std::cout << "Writting to: " << base_dir << std::endl;
 
         cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 32, 3 }, "w");
@@ -1940,6 +1946,13 @@ public:
         cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
         cnpy::npy_save(down_path_qtm_cop_ts.str(), down_qtm_cop_ts.data(), { down_qtm_cop_ts.size() }, "w");
 
+        nlohmann::json config_json;
+        std::ofstream output_file(config.str());
+        config_json["filter_type"] = kinect_recording.json_data["filters"][0]["filter_type"];
+        config_json["measurement_error_factor"] = kinect_recording.json_data["filters"][0]["measurement_error_factor"];
+        config_json["json_file_path"] = kinect_recording.json_file;
+        output_file << std::setw(4) << config_json << std::endl;
+
         /*
         std::vector<double> ksl, qsl;
         for (int i = 0; i < joints.dimension(0); ++i) {
@@ -1958,7 +1971,7 @@ public:
         */
     }
 
-    void visualize(bool render, bool plot)
+    void visualize(bool render, bool plot, bool early_exit)
     {
         Data data = qtm_recording.read_marker_file();
         auto [force_data_f1, force_data_f2] = qtm_recording.read_force_plate_files();
@@ -1989,6 +2002,10 @@ public:
         // Write out
         // I want to have the downsampled stuff already with the correct offset from the correlation
         write_out(ts, joints, unfiltered_joints, data, force_data_f1, force_data_f2, time_offset);
+
+        // If we refilter then we only want to write out
+        if (early_exit)
+            return;
 
         // i is for qtm
         int i = 0;
@@ -2426,6 +2443,12 @@ int main(int argc, char** argv)
 
     cmd.add(refilter);
 
+    TCLAP::ValueArg<bool> early_exit("x", "early_exit",
+        "early_exit", false, false,
+        "bool");
+
+    cmd.add(early_exit);
+
     TCLAP::ValueArg<double> measurement_error_factor("m", "measurement_error_factor",
         "Refilter with measurement error factor", false,
         5.0, "double");
@@ -2442,5 +2465,5 @@ int main(int argc, char** argv)
 
     std::cout << experiment << std::endl;
 
-    experiment.visualize(render.getValue(), plot.getValue());
+    experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue());
 }
