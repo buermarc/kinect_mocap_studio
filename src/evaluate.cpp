@@ -1,5 +1,7 @@
 #include "WindowController3d.h"
 #include "filter/com.hpp"
+#include "filter/AbstractSkeletonFilter.hpp"
+#include "filter/ConstrainedSkeletonFilter.hpp"
 #include <Eigen/src/Core/util/Constants.h>
 #include <algorithm>
 #include <cmath>
@@ -52,6 +54,20 @@ auto MM = get_azure_kinect_com_matrix();
 bool s_isRunning = true;
 bool s_visualizeJointFrame = false;
 int s_layoutMode = 0;
+
+Tensor<double, 3, Eigen::RowMajor> _to_tensor(std::vector<std::vector<Point<double>>> data) {
+    assert(data.size() > 0);
+    assert(data.at(0).size() > 0);
+    Tensor<double, 3, Eigen::RowMajor> result(data.size(), data.at(0).size(), 3);
+    for (int i = 0; i < data.size(); ++i) {
+        for (int j = 0; j < data.at(i).size(); ++j) {
+            result(i, j, 0) = data.at(i).at(j).x;
+            result(i, j, 1) = data.at(i).at(j).y;
+            result(i, j, 2) = data.at(i).at(j).z;
+        }
+    } 
+    return result;
+}
 
 Tensor<double, 2, Eigen::RowMajor> convert_point_vector(std::vector<Point<double>> data)
 {
@@ -178,6 +194,32 @@ void add_data_for_output(
     unfiltered_out(kinect_idx, 2, 0) = unfiltered_hand.x;
     unfiltered_out(kinect_idx, 2, 1) = unfiltered_hand.y;
     unfiltered_out(kinect_idx, 2, 2) = unfiltered_hand.z;
+}
+
+void refilter_data(Tensor<double, 3, Eigen::RowMajor> joints, std::vector<double> timestamps, std::shared_ptr<AbstractSkeletonFilter<double>> filter) {
+    assert(joints.dimension(0) == timestamps.size());
+
+    std::vector<Point<double>> points;
+    for (int j = 0; j < joints.dimension(1); ++j) {
+        points.push_back(Point<double>(
+            joints(0, j, 0),
+            joints(0, j, 1),
+            joints(0, j, 2)
+        ));
+    }
+    filter->init(points, timestamps.at(0));
+    points.clear();
+    for (int i = 1; i < joints.dimension(0); ++i) {
+        for (int j = 0; j < joints.dimension(1); ++j) {
+            points.push_back(Point<double>(
+                joints(i, j, 0),
+                joints(i, j, 1),
+                joints(i, j, 2)
+            ));
+        }
+        filter->step(points, timestamps.at(i));
+        points.clear();
+    }
 }
 
 std::vector<double> smooth(std::vector<double> input, int window_size = 5)
@@ -583,7 +625,7 @@ public:
 
     KinectRecording() { }
 
-    KinectRecording(std::string file)
+    KinectRecording(std::string file, bool refilter = false, double measurement_error_factor = 5.0)
     {
         auto trimmed_file(file);
         std::cout << trimmed_file << std::endl;
@@ -606,7 +648,23 @@ public:
 
         json_data = nlohmann::json::parse(std::ifstream(json_file));
         auto [un_var_joints, fn_frames, ftimestamps, _f_is_null] = load_data(json_file, 32);
-        auto [var_joints, n_frames, timestamps, _is_null] = load_filtered_data(json_file, 32);
+        Tensor<double, 3, Eigen::RowMajor> var_joints;
+        std::vector<double> timestamps;
+        int n_frames;
+        if (refilter) {
+            auto filter = ConstrainedSkeletonFilterBuilder<double>(32, measurement_error_factor).build();
+            refilter_data(un_var_joints, ftimestamps, filter);
+            var_joints = _to_tensor(filter->get_filtered_positions());
+            n_frames = filter->get_timestamps().size();
+            timestamps = filter->get_timestamps();
+            // Override info in json to make writeout correct
+            json_data["filters"][0]["measurement_error_factor"] = filter->get_measurement_error_factor();
+        } else {
+            auto [lvar_joints, ln_frames, ltimestamps, _is_null] = load_filtered_data(json_file, 32);
+            var_joints = lvar_joints;
+            n_frames = ln_frames;
+            timestamps = ltimestamps;
+        }
 
         this->unfiltered_joints = un_var_joints;
         this->joints = var_joints;
@@ -614,7 +672,7 @@ public:
         this->timestamps = timestamps;
     }
 
-    friend std::ostream& operator<<(std::ostream& out, KinectRecording const& recording);
+
 };
 
 std::ostream& operator<<(std::ostream& out, KinectRecording const& recording)
@@ -887,7 +945,7 @@ public:
     double offset;
     std::string name;
 
-    Experiment(std::string experiment_json)
+    Experiment(std::string experiment_json, bool refilter = false, double measurement_error_factor = 5.0)
     {
         std::ifstream file(experiment_json);
         json data = json::parse(file);
@@ -903,7 +961,7 @@ public:
         }
 
         qtm_recording = QtmRecording(qtm_file);
-        kinect_recording = KinectRecording(kinect_file);
+        kinect_recording = KinectRecording(kinect_file, refilter, measurement_error_factor);
 
         experiment_json.replace(experiment_json.find(".json"), sizeof(".json") - 1, "");
         name = experiment_json;
@@ -2357,14 +2415,27 @@ int main(int argc, char** argv)
     cmd.add(render);
 
     TCLAP::ValueArg<bool> plot("p", "plot",
-        "Plotos", false, true,
+        "Plot", false, true,
         "bool");
 
     cmd.add(plot);
 
+    TCLAP::ValueArg<bool> refilter("f", "refilter",
+        "Refilter", false, false,
+        "bool");
+
+    cmd.add(refilter);
+
+    TCLAP::ValueArg<double> measurement_error_factor("m", "measurement_error_factor",
+        "Refilter with measurement error factor", false,
+        5.0, "double");
+
+    cmd.add(measurement_error_factor);
+
+
     cmd.parse(argc, argv);
 
-    Experiment experiment(experiment_json.getValue());
+    Experiment experiment(experiment_json.getValue(), refilter.getValue(), measurement_error_factor.getValue());
 
     // Data data = experiment.qtm_recording.read_marker_file();
     experiment.qtm_recording.read_force_plate_files();
