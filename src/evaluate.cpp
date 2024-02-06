@@ -1755,7 +1755,7 @@ public:
 
         } else {
             short_l_sae = l_sae;
-            l_hle = l_hle;
+            short_l_hle = l_hle;
             short_r_hle = r_hle;
             short_l_usp = l_usp;
             short_r_usp = r_usp;
