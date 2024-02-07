@@ -52,7 +52,7 @@ std::optional<Samples::Plane> MovingAverage::get_average(std::optional<Samples::
         current.C = plane->C;
 
         for (int i = 1; i < m_fill; ++i) {
-            int offset = (m_idx + i) % m_window_size;
+            int offset = (i) % m_window_size;
             Samples::Plane& current = m_window[offset];
             plane->Normal.X += current.Normal.X;
             plane->Normal.Y += current.Normal.Y;
