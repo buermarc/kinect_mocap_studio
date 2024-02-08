@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-START=${START:-0}
-STOP=${STOP:-0.6}
+START=${START:-0.6}
+STOP=${STOP:-1.0}
 STEP=${STEP:-0.01}
 EXPERIMENT_JSON=${EXPERIMENT_JSON:-"./experiments/s20003.json"}
 for i in $(python -c "import numpy as np; [print(i) for i in np.arange(${START}, ${STOP}, ${STEP})]"); do
