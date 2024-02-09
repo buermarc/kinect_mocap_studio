@@ -620,6 +620,7 @@ public:
     std::string mkv_file;
     Tensor<double, 3, Eigen::RowMajor> unfiltered_joints;
     Tensor<double, 3, Eigen::RowMajor> joints;
+    Tensor<double, 3, Eigen::RowMajor> velocities;
     double n_frames;
     std::vector<double> timestamps;
 
@@ -649,25 +650,29 @@ public:
         json_data = nlohmann::json::parse(std::ifstream(json_file));
         auto [un_var_joints, fn_frames, ftimestamps, _f_is_null] = load_data(json_file, 32);
         Tensor<double, 3, Eigen::RowMajor> var_joints;
+        Tensor<double, 3, Eigen::RowMajor> var_velocities;
         std::vector<double> timestamps;
         int n_frames;
         if (refilter) {
             auto filter = ConstrainedSkeletonFilterBuilder<double>(32, measurement_error_factor).build();
             refilter_data(un_var_joints, ftimestamps, filter);
             var_joints = _to_tensor(filter->get_filtered_positions());
+            var_velocities = _to_tensor(filter->get_filtered_velocities());
             n_frames = filter->get_timestamps().size();
             timestamps = filter->get_timestamps();
             // Override info in json to make writeout correct
             json_data["filters"][0]["measurement_error_factor"] = filter->get_measurement_error_factor();
         } else {
-            auto [lvar_joints, ln_frames, ltimestamps, _is_null] = load_filtered_data(json_file, 32);
+            auto [lvar_joints, lvar_velocities, ln_frames, ltimestamps, _is_null] = load_filtered_data(json_file, 32);
             var_joints = lvar_joints;
+            var_velocities = lvar_velocities;
             n_frames = ln_frames;
             timestamps = ltimestamps;
         }
 
         this->unfiltered_joints = un_var_joints;
         this->joints = var_joints;
+        this->velocities = var_velocities;
         this->n_frames = n_frames;
         this->timestamps = timestamps;
     }
@@ -1598,6 +1603,7 @@ public:
         std::vector<double> kinect_ts,
         Tensor<double, 3, Eigen::RowMajor> joints,
         Tensor<double, 3, Eigen::RowMajor> unfiltered_joints,
+        Tensor<double, 3, Eigen::RowMajor> velocities,
         Data data,
         ForcePlateData force_data_f1,
         ForcePlateData force_data_f2,
@@ -1665,6 +1671,7 @@ public:
         if (j != 0) {
             Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
             Tensor<double, 3, Eigen::RowMajor> shortened_unfiltered_joints(unfiltered_joints.dimension(0) - j, unfiltered_joints.dimension(1), unfiltered_joints.dimension(2));
+            Tensor<double, 3, Eigen::RowMajor> shortened_velocities(velocities.dimension(0) - j, velocities.dimension(1), velocities.dimension(2));
             std::vector<double> shortened_kinect_ts(kinect_ts.size() - j);
             for (int k = 0; k < joints.dimension(0) - j; ++k) {
                 for (int q = 0; q < joints.dimension(1); ++q) {
@@ -1674,6 +1681,9 @@ public:
                     shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + j, q, 0);
                     shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + j, q, 1);
                     shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + j, q, 2);
+                    shortened_velocities(k, q, 0) = velocities(k + j, q, 0);
+                    shortened_velocities(k, q, 1) = velocities(k + j, q, 1);
+                    shortened_velocities(k, q, 2) = velocities(k + j, q, 2);
                 }
             }
             for (int k = 0; k < kinect_ts.size() - j; ++k) {
@@ -1682,6 +1692,7 @@ public:
             kinect_ts = shortened_kinect_ts;
             joints = shortened_joints;
             unfiltered_joints = shortened_unfiltered_joints;
+            velocities = shortened_velocities;
         }
         if (i != 0) {
 
@@ -1810,6 +1821,8 @@ public:
         auto down_joints = downsample(joints, kinect_ts, frequency);
         std::cout << "Downsampling Kinect Unfiltered Joints" << std::endl;
         auto down_unfiltered_joints = downsample(unfiltered_joints, kinect_ts, frequency);
+        std::cout << "Downsampling Kinect Velocities" << std::endl;
+        auto down_velocities = downsample(velocities, kinect_ts, frequency);
 
         // Kinect com
         std::cout << "Downsampling Kinect COM" << std::endl;
@@ -1892,8 +1905,8 @@ public:
         // tensor -> can be written out directly
         // vector<double> -> can be written out directly
         // vector<Point<double>> -> convert to tensor -> helper function
-        std::stringstream path_kinect_joints, path_kinect_unfiltered_joints, path_kinect_ts, path_kinect_com, path_kinect_unfiltered_com;
-        std::stringstream down_path_kinect_joints, down_path_kinect_unfiltered_joints, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_unfiltered_com;
+        std::stringstream path_kinect_joints, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_kinect_com, path_kinect_unfiltered_com;
+        std::stringstream down_path_kinect_joints, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_unfiltered_com;
 
         std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop, path_qtm_cop_ts;
         std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop, down_path_qtm_cop_ts;
@@ -1902,11 +1915,13 @@ public:
 
         path_kinect_joints << base_dir << "kinect_joints.npy";
         path_kinect_unfiltered_joints << base_dir << "kinect_unfiltered_joints.npy";
+        path_kinect_velocities << base_dir << "kinect_velocities.npy";
         path_kinect_ts << base_dir << "kinect_ts.npy";
         path_kinect_com << base_dir << "kinect_com.npy";
         path_kinect_unfiltered_com << base_dir << "kinect_unfiltered_com.npy";
         down_path_kinect_joints << base_dir << "down_kinect_joints.npy";
         down_path_kinect_unfiltered_joints << base_dir << "down_kinect_unfiltered_joints.npy";
+        down_path_kinect_velocities << base_dir << "down_kinect_velocities.npy";
         down_path_kinect_ts << base_dir << "down_kinect_ts.npy";
         down_path_kinect_com << base_dir << "down_kinect_com.npy";
         down_path_kinect_unfiltered_com << base_dir << "down_kinect_unfiltered_com.npy";
@@ -1926,12 +1941,14 @@ public:
 
         cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(path_kinect_unfiltered_joints.str(), unfiltered_joints.data(), { (unsigned long)unfiltered_joints.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(path_kinect_velocities.str(), velocities.data(), { (unsigned long)velocities.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(path_kinect_ts.str(), kinect_ts.data(), { kinect_ts.size() }, "w");
         cnpy::npy_save(path_kinect_com.str(), convert_point_vector(joints_com).data(), { joints_com.size(), 3 }, "w");
         cnpy::npy_save(path_kinect_unfiltered_com.str(), convert_point_vector(unfiltered_joints_com).data(), { unfiltered_joints_com.size(), 3 }, "w");
 
         cnpy::npy_save(down_path_kinect_joints.str(), down_joints.data(), { (unsigned long)down_joints.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(down_path_kinect_unfiltered_joints.str(), down_unfiltered_joints.data(), { (unsigned long)down_unfiltered_joints.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(down_path_kinect_velocities.str(), down_velocities.data(), { (unsigned long)down_velocities.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(down_path_kinect_ts.str(), down_kinect_ts.data(), { down_kinect_ts.size() }, "w");
         cnpy::npy_save(down_path_kinect_com.str(), convert_point_vector(down_joints_com).data(), { down_joints_com.size(), 3 }, "w");
         cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
@@ -2001,7 +2018,7 @@ public:
 
         // Write out
         // I want to have the downsampled stuff already with the correct offset from the correlation
-        write_out(ts, joints, unfiltered_joints, data, force_data_f1, force_data_f2, time_offset);
+        write_out(ts, joints, unfiltered_joints, kinect_recording.velocities, data, force_data_f1, force_data_f2, time_offset);
 
         // If we refilter then we only want to write out
         if (early_exit)
