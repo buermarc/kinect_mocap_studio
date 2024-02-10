@@ -2005,6 +2005,7 @@ public:
 
         auto joints = transform_and_rotate(joints_in_kinect_system, translation, rotation);
         auto unfiltered_joints = transform_and_rotate(unfiltered_joints_in_kinect_system, translation, rotation);
+        auto velocities = transform_and_rotate(kinect_recording.velocities, Point<double>(), rotation);
 
         double time_offset = 0;
         if (this->hard_offset) {
@@ -2018,7 +2019,7 @@ public:
 
         // Write out
         // I want to have the downsampled stuff already with the correct offset from the correlation
-        write_out(ts, joints, unfiltered_joints, kinect_recording.velocities, data, force_data_f1, force_data_f2, time_offset);
+        write_out(ts, joints, unfiltered_joints, velocities, data, force_data_f1, force_data_f2, time_offset);
 
         // If we refilter then we only want to write out
         if (early_exit)
