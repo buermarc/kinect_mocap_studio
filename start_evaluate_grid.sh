@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-START=${START:-10}
+START=${START:-0}
 STOP=${STOP:-30.02}
 STEP=${STEP:-0.1}
 EXPERIMENT_JSON=${EXPERIMENT_JSON:-"./experiments/s20003.json"}
