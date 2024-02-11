@@ -419,8 +419,14 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     x = mean_r_ak - mean_l_ak;
     z = translation - mean_b_ak;
 
+    std::cout << "Z before: " << z << std::endl;
+    auto r2 = z * x;
+    z = z - r2;
+    std::cout << "Z after: " << z << std::endl;
+
     // Shift both down N cm
     y = x.cross_product(z);
+
     y = y * (-1);
     y = y.normalized();
     y = y * 0.025;
@@ -1572,7 +1578,7 @@ public:
         */
     }
 
-    Tensor<double, 3, Eigen::RowMajor> transform_and_rotate(Tensor<double, 3, Eigen::RowMajor> joints_in_kinect_system, Point<double> translation, MatrixXd rotation)
+    Tensor<double, 3, Eigen::RowMajor> translate_and_rotate(Tensor<double, 3, Eigen::RowMajor> joints_in_kinect_system, Point<double> translation, MatrixXd rotation)
     {
 
         int frames = joints_in_kinect_system.dimension(0);
@@ -2003,9 +2009,9 @@ public:
 
         auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
 
-        auto joints = transform_and_rotate(joints_in_kinect_system, translation, rotation);
-        auto unfiltered_joints = transform_and_rotate(unfiltered_joints_in_kinect_system, translation, rotation);
-        auto velocities = transform_and_rotate(kinect_recording.velocities, Point<double>(), rotation);
+        auto joints = translate_and_rotate(joints_in_kinect_system, translation, rotation);
+        auto unfiltered_joints = translate_and_rotate(unfiltered_joints_in_kinect_system, translation, rotation);
+        auto velocities = translate_and_rotate(kinect_recording.velocities, Point<double>(), rotation);
 
         double time_offset = 0;
         if (this->hard_offset) {
