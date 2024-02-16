@@ -229,7 +229,7 @@ int main(int argc, char** argv)
                 std::cerr << "error: stream contains no depth image at " << frame_count
                           << std::endl;
                 capture_ready = false;
-#ifdef BENCHMAR
+#ifdef BENCHMARK
                 bench.camera.push_back((std::chrono::duration<double, std::milli>(hc::now() - camera_ts)).count());
 #endif
             }
