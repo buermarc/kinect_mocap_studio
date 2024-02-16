@@ -153,5 +153,15 @@ target_link_libraries(evaluate
     ${PYTHON_LIBRARIES}
 )
 
+add_executable(baseline src/baseline.cpp)
+target_link_libraries(baseline
+    k4a
+    k4abt
+    k4arecord
+    nlohmann_json::nlohmann_json
+    filter
+)
+
+
 add_custom_command(TARGET kinect_mocap_studio PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/../openGLPlotLive/Shaders $<TARGET_FILE_DIR:kinect_mocap_studio>/Shaders)
 add_custom_command(TARGET kinect_mocap_studio PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/../openGLPlotLive/textures $<TARGET_FILE_DIR:kinect_mocap_studio>/textures)
