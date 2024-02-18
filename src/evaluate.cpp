@@ -630,6 +630,7 @@ public:
     double n_frames;
     std::vector<double> timestamps;
 
+
     KinectRecording() { }
 
     KinectRecording(std::string file, bool refilter = false, double measurement_error_factor = 5.0)
@@ -661,6 +662,7 @@ public:
         int n_frames;
         if (refilter) {
             auto filter = ConstrainedSkeletonFilterBuilder<double>(32, measurement_error_factor).build();
+            std::cout << "Refilter: " << measurement_error_factor << std::endl;
             refilter_data(un_var_joints, ftimestamps, filter);
             var_joints = _to_tensor(filter->get_filtered_positions());
             var_velocities = _to_tensor(filter->get_filtered_velocities());
@@ -683,6 +685,22 @@ public:
         this->timestamps = timestamps;
     }
 
+    void refilter(double measurement_error_factor) {
+        Tensor<double, 3, Eigen::RowMajor> var_joints;
+        Tensor<double, 3, Eigen::RowMajor> var_velocities;
+
+        auto filter = ConstrainedSkeletonFilterBuilder<double>(32, measurement_error_factor).build();
+        refilter_data(unfiltered_joints, timestamps, filter);
+        var_joints = _to_tensor(filter->get_filtered_positions());
+        var_velocities = _to_tensor(filter->get_filtered_velocities());
+        n_frames = filter->get_timestamps().size();
+        timestamps = filter->get_timestamps();
+        // Override info in json to make writeout correct
+        json_data["filters"][0]["measurement_error_factor"] = filter->get_measurement_error_factor();
+
+        this->joints = var_joints;
+        this->velocities = var_velocities;
+    }
 
 };
 
@@ -1994,11 +2012,8 @@ public:
         */
     }
 
-    void visualize(bool render, bool plot, bool early_exit)
+    void visualize(bool render, bool plot, bool early_exit, Data data, ForcePlateData force_data_f1, ForcePlateData force_data_f2)
     {
-        Data data = qtm_recording.read_marker_file();
-        auto [force_data_f1, force_data_f2] = qtm_recording.read_force_plate_files();
-
         auto ts = kinect_recording.timestamps;
         auto joints_in_kinect_system = kinect_recording.joints;
         auto unfiltered_joints_in_kinect_system = kinect_recording.unfiltered_joints;
@@ -2489,5 +2504,15 @@ int main(int argc, char** argv)
 
     std::cout << experiment << std::endl;
 
-    experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue());
+    Data data = experiment.qtm_recording.read_marker_file();
+    auto [force_data_f1, force_data_f2] = experiment.qtm_recording.read_force_plate_files();
+
+
+    experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
+
+    for (double i = measurement_error_factor+0.1; i < 30; i += 0.1) {
+        std::cout << "Refilter: " << i << std::endl;
+        experiment.kinect_recording.refilter(i);
+        experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
+    }
 }
