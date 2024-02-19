@@ -336,9 +336,15 @@ int main(int argc, char** argv)
 
                 } else {
                     // Maybe move this out into the front? Is there any advantage of having it in here?
+#ifdef BENCHMARK
+                    auto imu_ts = hc::now();
+#endif
                     VERIFY_WAIT(k4a_device_get_imu_sample(device, &imu_sample,
                                     WAIT_MS),
                         "Timed out waiting for IMU data");
+#ifdef BENCHMARK
+                        bench.imu.push_back((std::chrono::duration<double, std::milli>(hc::now() - imu_ts)).count());
+#endif /* ifdef  */
                     imu_data_ready = true;
                 }
 
