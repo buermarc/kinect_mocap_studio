@@ -419,6 +419,9 @@ std::tuple<Point<double>, MatrixXd> translation_and_rotation(
     x = mean_r_ak - mean_l_ak;
     z = translation - mean_b_ak;
 
+    x = x.normalized();
+    z = z.normalized();
+
     std::cout << "Z before: " << z << std::endl;
     auto r2 = z * x;
     z = z - r2;
