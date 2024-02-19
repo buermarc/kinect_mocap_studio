@@ -2513,9 +2513,11 @@ int main(int argc, char** argv)
 
     experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
 
-    for (double i = measurement_error_factor+0.1; i < 30; i += 0.1) {
-        std::cout << "Refilter: " << i << std::endl;
-        experiment.kinect_recording.refilter(i);
-        experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
+    if (refilter.getValue()) {
+        for (double i = measurement_error_factor+0.1; i < 30; i += 0.1) {
+            std::cout << "Refilter: " << i << std::endl;
+            experiment.kinect_recording.refilter(i);
+            experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
+        }
     }
 }
