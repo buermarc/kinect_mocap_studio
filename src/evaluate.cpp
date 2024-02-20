@@ -2,6 +2,7 @@
 #include "filter/com.hpp"
 #include "filter/AbstractSkeletonFilter.hpp"
 #include "filter/ConstrainedSkeletonFilter.hpp"
+#include "filter/SkeletonFilter.hpp"
 #include <Eigen/src/Core/util/Constants.h>
 #include <algorithm>
 #include <cmath>
@@ -534,21 +535,32 @@ void visualizeKinectLogic(Window3dWrapper& window3d, KinectFrame frame, Point<do
 {
     Color pink = Color { 1, 0, 0.8, 1 };
     Color yellow = Color { 1, 0.9, 0, 1 };
+    Color green = Color { 0, 1, 0, 1 };
+    /*
     for (auto joint : frame.unfiltered_joints) {
-        ;
         add_qtm_point(window3d, joint, pink);
     }
 
     if (frame.unfiltered_joints.size() == 32) {
         add_qtm_point(window3d, com_helper(frame.unfiltered_joints, MM), yellow);
     }
+    */
 
-    for (auto joint : frame.joints) {
-        add_qtm_point(window3d, joint);
-    }
-
-    if (frame.joints.size() == 32) {
-        add_qtm_point(window3d, com_helper(frame.joints, MM), Color { 0, 1, 0, 1 });
+    std::vector<int> left_joint_idx = {SHOULDER_LEFT, ELBOW_LEFT, WRIST_LEFT};
+    std::vector<int> right_joint_idx = {SHOULDER_RIGHT, ELBOW_RIGHT, WRIST_RIGHT};
+    if (frame.joints.size() == 32)  {
+        auto com = com_helper(frame.joints, MM);
+        add_qtm_point(window3d, com, Color { 0, 1, 0, 1 });
+        for (auto idx : left_joint_idx) {
+            add_qtm_point(window3d, frame.joints.at(idx));
+            // add_qtm_point(window3d, frame.unfiltered_joints.at(idx), pink);
+        }
+        for (auto idx : right_joint_idx) {
+            auto point = frame.joints.at(idx);
+            auto x_diff = point.x - com.x;
+            point.x -= 2*x_diff;
+            add_qtm_point(window3d, point, green);
+        }
     }
 }
 
@@ -664,7 +676,8 @@ public:
         std::vector<double> timestamps;
         int n_frames;
         if (refilter) {
-            auto filter = ConstrainedSkeletonFilterBuilder<double>(32, measurement_error_factor).build();
+            // auto filter = ConstrainedSkeletonFilterBuilder<double>(32, measurement_error_factor).build();
+            auto filter = SkeletonFilterBuilder<double>(32, 10e9, measurement_error_factor).build();
             std::cout << "Refilter: " << measurement_error_factor << std::endl;
             refilter_data(un_var_joints, ftimestamps, filter);
             var_joints = _to_tensor(filter->get_filtered_positions());
@@ -1812,21 +1825,28 @@ public:
 
         // Calcualte com filtered and unfiltered
         std::vector<Point<double>> joints_com;
+        std::vector<Point<double>> velocities_com;
         std::vector<Point<double>> unfiltered_joints_com;
         for (int j = 0; j < joints.dimension(0); ++j) {
             std::vector<Point<double>> points;
+            std::vector<Point<double>> pvelocities;
             std::vector<Point<double>> unfiltered_points;
             for (int k = 0; k < 32; ++k) {
                 points.push_back(Point<double>(
                     joints(j, k, 0),
                     joints(j, k, 1),
                     joints(j, k, 2)));
+                pvelocities.push_back(Point<double>(
+                    velocities(j, k, 0),
+                    velocities(j, k, 1),
+                    velocities(j, k, 2)));
                 unfiltered_points.push_back(Point<double>(
                     unfiltered_joints(j, k, 0),
                     unfiltered_joints(j, k, 1),
                     unfiltered_joints(j, k, 2)));
             }
             joints_com.push_back(com_helper(points, MM));
+            velocities_com.push_back(com_helper(pvelocities, MM));
             unfiltered_joints_com.push_back(com_helper(unfiltered_points, MM));
         }
 
@@ -1854,6 +1874,7 @@ public:
         // Kinect com
         std::cout << "Downsampling Kinect COM" << std::endl;
         auto down_joints_com = downsample(joints_com, kinect_ts, frequency);
+        auto down_velocities_com = downsample(velocities_com, kinect_ts, frequency);
         auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, kinect_ts, frequency);
 
         std::vector<double> down_kinect_ts;
@@ -1932,8 +1953,8 @@ public:
         // tensor -> can be written out directly
         // vector<double> -> can be written out directly
         // vector<Point<double>> -> convert to tensor -> helper function
-        std::stringstream path_kinect_joints, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_kinect_com, path_kinect_unfiltered_com;
-        std::stringstream down_path_kinect_joints, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_unfiltered_com;
+        std::stringstream path_kinect_joints, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_kinect_com, path_kinect_com_velocities, path_kinect_unfiltered_com;
+        std::stringstream down_path_kinect_joints, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_com_velocities, down_path_kinect_unfiltered_com;
 
         std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop, path_qtm_cop_ts;
         std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop, down_path_qtm_cop_ts;
@@ -1945,12 +1966,14 @@ public:
         path_kinect_velocities << base_dir << "kinect_velocities.npy";
         path_kinect_ts << base_dir << "kinect_ts.npy";
         path_kinect_com << base_dir << "kinect_com.npy";
+        path_kinect_com_velocities << base_dir << "kinect_com_velocities.npy";
         path_kinect_unfiltered_com << base_dir << "kinect_unfiltered_com.npy";
         down_path_kinect_joints << base_dir << "down_kinect_joints.npy";
         down_path_kinect_unfiltered_joints << base_dir << "down_kinect_unfiltered_joints.npy";
         down_path_kinect_velocities << base_dir << "down_kinect_velocities.npy";
         down_path_kinect_ts << base_dir << "down_kinect_ts.npy";
         down_path_kinect_com << base_dir << "down_kinect_com.npy";
+        down_path_kinect_com_velocities << base_dir << "down_kinect_com_velocities.npy";
         down_path_kinect_unfiltered_com << base_dir << "down_kinect_unfiltered_com.npy";
 
         path_qtm_joints << base_dir << "qtm_joints.npy";
@@ -1971,6 +1994,7 @@ public:
         cnpy::npy_save(path_kinect_velocities.str(), velocities.data(), { (unsigned long)velocities.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(path_kinect_ts.str(), kinect_ts.data(), { kinect_ts.size() }, "w");
         cnpy::npy_save(path_kinect_com.str(), convert_point_vector(joints_com).data(), { joints_com.size(), 3 }, "w");
+        cnpy::npy_save(path_kinect_com_velocities.str(), convert_point_vector(velocities_com).data(), { velocities_com.size(), 3 }, "w");
         cnpy::npy_save(path_kinect_unfiltered_com.str(), convert_point_vector(unfiltered_joints_com).data(), { unfiltered_joints_com.size(), 3 }, "w");
 
         cnpy::npy_save(down_path_kinect_joints.str(), down_joints.data(), { (unsigned long)down_joints.dimension(0), 32, 3 }, "w");
@@ -1978,6 +2002,7 @@ public:
         cnpy::npy_save(down_path_kinect_velocities.str(), down_velocities.data(), { (unsigned long)down_velocities.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(down_path_kinect_ts.str(), down_kinect_ts.data(), { down_kinect_ts.size() }, "w");
         cnpy::npy_save(down_path_kinect_com.str(), convert_point_vector(down_joints_com).data(), { down_joints_com.size(), 3 }, "w");
+        cnpy::npy_save(down_path_kinect_com_velocities.str(), convert_point_vector(down_velocities_com).data(), { down_velocities_com.size(), 3 }, "w");
         cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
 
         cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
@@ -2497,6 +2522,18 @@ int main(int argc, char** argv)
 
     cmd.add(measurement_error_factor);
 
+    TCLAP::ValueArg<double> stop_measurement_error_factor("n", "stop_measurement_error_factor",
+        "Stop at measurement error factor", false,
+        30.0, "double");
+
+    cmd.add(stop_measurement_error_factor);
+
+    TCLAP::ValueArg<double> step_size_arg("s", "step_size",
+        "Step size for measurement error factor", false,
+        0.1, "double");
+
+    cmd.add(step_size_arg);
+
 
     cmd.parse(argc, argv);
 
@@ -2514,7 +2551,9 @@ int main(int argc, char** argv)
     experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
 
     if (refilter.getValue()) {
-        for (double i = measurement_error_factor+0.1; i < 30; i += 0.1) {
+        double stop = stop_measurement_error_factor.getValue();
+        double step_size = step_size_arg.getValue();
+        for (double i = measurement_error_factor+step_size; i <= stop; i += step_size) {
             std::cout << "Refilter: " << i << std::endl;
             experiment.kinect_recording.refilter(i);
             experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
