@@ -58,6 +58,34 @@ bool s_isRunning = true;
 bool s_visualizeJointFrame = false;
 int s_layoutMode = 0;
 
+std::string replace_all(std::string str, const std::string &from, const std::string &to)
+{
+    size_t start_pos = 0;
+    while ((start_pos = str.find(from, start_pos)) != std::string::npos)
+    {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+    }
+    return str;
+}
+
+std::string int_to_filter_name(int type) {
+    if (type == 1) {
+        return "ConstrainedSkeletonFilter";
+    }
+    if (type == 2) {
+        return "SkeletonFilter";
+    }
+    if (type == 3) {
+        return "SimpleConstrainedSkeletonFilter";
+    }
+    if (type == 4) {
+        return "SimpleSkeletonFilter";
+    }
+    std::cout << "Fallback to ConstrainedSkeletonFilter" << std::endl;
+    return "ConstrainedSkeletonFilter";
+}
+
 std::shared_ptr<AbstractSkeletonFilter<double>> to_filter(int type, double measurement_error_factor) {
     if (type == 1) {
         return std::make_shared<ConstrainedSkeletonFilterBuilder<double>>(32, measurement_error_factor)->build();
@@ -1665,7 +1693,9 @@ public:
         Data data,
         ForcePlateData force_data_f1,
         ForcePlateData force_data_f2,
-        double time_offset)
+        double time_offset,
+        std::string filter_name
+        )
     {
         // First check offset
         //
@@ -1951,7 +1981,7 @@ public:
         std::string base_dir;
         do {
             std::stringstream output_dir;
-            output_dir << "experiment_result/" << this->name << "/" << counter << "/";
+            output_dir << "experiment_result/" << filter_name << "/" << replace_all(fs::path(this->name).filename(), "\"", "") << "/" << counter << "/";
             base_dir = output_dir.str();
             if (fs::exists(base_dir)) {
                 collision = true;
@@ -2058,7 +2088,7 @@ public:
         */
     }
 
-    void visualize(bool render, bool plot, bool early_exit, Data data, ForcePlateData force_data_f1, ForcePlateData force_data_f2)
+    void visualize(bool render, bool plot, bool early_exit, Data data, ForcePlateData force_data_f1, ForcePlateData force_data_f2, std::string filter_name)
     {
         auto ts = kinect_recording.timestamps;
         auto joints_in_kinect_system = kinect_recording.joints;
@@ -2086,7 +2116,7 @@ public:
 
         // Write out
         // I want to have the downsampled stuff already with the correct offset from the correlation
-        write_out(ts, joints, unfiltered_joints, velocities, data, force_data_f1, force_data_f2, time_offset);
+        write_out(ts, joints, unfiltered_joints, velocities, data, force_data_f1, force_data_f2, time_offset, filter_name);
 
         // If we refilter then we only want to write out
         if (early_exit)
@@ -2552,7 +2582,7 @@ int main(int argc, char** argv)
 
     cmd.add(step_size_arg);
 
-    TCLAP::ValueArg<int> filter_type("t", "filter type",
+    TCLAP::ValueArg<int> filter_type("t", "filter_type",
         "Filter type: 1-4 Constraint, Unconstraint, SimpleConstraint, SimpleUnconstraint", false,
         1, "int");
 
@@ -2560,7 +2590,7 @@ int main(int argc, char** argv)
 
     cmd.parse(argc, argv);
 
-    Experiment experiment(experiment_json.getValue(), refilter.getValue(), measurement_error_factor.getValue());
+    Experiment experiment(experiment_json.getValue(), refilter.getValue(), filter_type.getValue(), measurement_error_factor.getValue());
 
     // Data data = experiment.qtm_recording.read_marker_file();
     experiment.qtm_recording.read_force_plate_files();
@@ -2571,7 +2601,7 @@ int main(int argc, char** argv)
     auto [force_data_f1, force_data_f2] = experiment.qtm_recording.read_force_plate_files();
 
 
-    experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
+    experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2, int_to_filter_name(filter_type.getValue()));
 
     if (refilter.getValue()) {
         double stop = stop_measurement_error_factor.getValue();
@@ -2579,7 +2609,7 @@ int main(int argc, char** argv)
         for (double i = measurement_error_factor+step_size; i <= stop; i += step_size) {
             std::cout << "Refilter: " << i << std::endl;
             experiment.kinect_recording.refilter(filter_type.getValue(), i);
-            experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2);
+            experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2, int_to_filter_name(filter_type.getValue()));
         }
     }
 }
