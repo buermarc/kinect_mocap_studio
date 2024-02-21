@@ -37,11 +37,17 @@ void Benchmark::save(std::string experiment)
 
     if (camera.size() != 0) {
         json["min"]["camera"] = *std::min_element(camera.cbegin(), camera.cend());
-        json["min"]["recording_body"] = *std::min_element(recording_body.cbegin(), recording_body.cend());
-        json["min"]["recording_imu"] = *std::min_element(recording_imu.cbegin(), recording_imu.cend());
     } else {
         json["min"]["camera"] = nullptr;
+    }
+    if (recording_body.size() != 0) {
+        json["min"]["recording_body"] = *std::min_element(recording_body.cbegin(), recording_body.cend());
+    } else {
         json["min"]["recording_body"] = nullptr;
+    }
+    if (recording_imu.size() != 0) {
+        json["min"]["recording_imu"] = *std::min_element(recording_imu.cbegin(), recording_imu.cend());
+    } else {
         json["min"]["recording_imu"] = nullptr;
     }
     json["min"]["network"] = *std::min_element(network.cbegin(), network.cend());
@@ -60,11 +66,17 @@ void Benchmark::save(std::string experiment)
 
     if (camera.size() != 0) {
         json["max"]["camera"] = *std::max_element(camera.cbegin(), camera.cend());
-        json["max"]["recording_body"] = *std::max_element(recording_body.cbegin(), recording_body.cend());
-        json["max"]["recording_imu"] = *std::max_element(recording_imu.cbegin(), recording_imu.cend());
     } else {
         json["max"]["camera"] = nullptr;
+    }
+    if (recording_body.size() != 0) {
+        json["max"]["recording_body"] = *std::max_element(recording_body.cbegin(), recording_body.cend());
+    } else {
         json["max"]["recording_body"] = nullptr;
+    }
+    if (recording_imu.size() != 0) {
+        json["max"]["recording_imu"] = *std::max_element(recording_imu.cbegin(), recording_imu.cend());
+    } else {
         json["max"]["recording_imu"] = nullptr;
     }
     json["max"]["network"] = *std::max_element(network.cbegin(), network.cend());

@@ -129,7 +129,7 @@ int main(int argc, char** argv)
     //
     k4abt_tracker_t tracker = NULL;
     // k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
-    k4abt_tracker_configuration_t tracker_config = { K4ABT_SENSOR_ORIENTATION_DEFAULT, K4ABT_TRACKER_PROCESSING_MODE_GPU, 0 };
+    k4abt_tracker_configuration_t tracker_config = { K4ABT_SENSOR_ORIENTATION_DEFAULT, K4ABT_TRACKER_PROCESSING_MODE_GPU, 0, "/usr/bin/dnn_model_2_0_lite_op11.onnx"};
     VERIFY(k4abt_tracker_create(&sensor_calibration, tracker_config, &tracker),
         "Body tracker initialization failed!");
     k4abt_tracker_set_temporal_smoothing(tracker, config.temporal_smoothing);
@@ -198,6 +198,9 @@ int main(int argc, char** argv)
 
     Samples::PointCloudGenerator pointCloudGenerator { sensor_calibration };
 
+#ifdef BENCHMARK
+        auto camera_ts = hc::now();
+#endif
     do {
 #ifdef BENCH_MEASUREMENT
         auto start = hc::now();
@@ -208,9 +211,6 @@ int main(int argc, char** argv)
         k4a_wait_result_t pop_frame_result = K4A_WAIT_RESULT_SUCCEEDED;
         k4a_wait_result_t queue_capture_result;
 
-#ifdef BENCHMARK
-        auto camera_ts = hc::now();
-#endif
         // Extract capture
         if (config.process_sensor_file) {
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(playback_handle, &sensor_capture);
@@ -219,6 +219,10 @@ int main(int argc, char** argv)
                 break;
             } else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED) {
                 capture_ready = true;
+#ifdef BENCHMARK
+                bench.camera.push_back((std::chrono::duration<double, std::milli>(hc::now() - camera_ts)).count());
+                camera_ts = hc::now();
+#endif
             } else {
                 std::cerr << "error: k4a_playback_get_next_capture() failed at "
                           << frame_count << std::endl;
@@ -229,9 +233,6 @@ int main(int argc, char** argv)
                 std::cerr << "error: stream contains no depth image at " << frame_count
                           << std::endl;
                 capture_ready = false;
-#ifdef BENCHMARK
-                bench.camera.push_back((std::chrono::duration<double, std::milli>(hc::now() - camera_ts)).count());
-#endif
             }
 
         } else {
@@ -240,6 +241,10 @@ int main(int argc, char** argv)
 
             if (get_capture_result == K4A_WAIT_RESULT_SUCCEEDED) {
                 capture_ready = true;
+#ifdef BENCHMARK
+                bench.camera.push_back((std::chrono::duration<double, std::milli>(hc::now() - camera_ts)).count());
+                camera_ts = hc::now();
+#endif
             } else if (get_capture_result == K4A_WAIT_RESULT_TIMEOUT) {
                 printf("error: k4a_device_get_capture() timed out \n");
                 // break;
