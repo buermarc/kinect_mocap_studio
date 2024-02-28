@@ -151,6 +151,37 @@ Tensor<double, 3, Eigen::RowMajor> combine_3_vectors_to_tensor(
     return combination;
 }
 
+struct TheiaData {
+    std::vector<double> timestamps;
+    std::vector<Point<double>> l_ak;
+    std::vector<Point<double>> r_ak;
+    std::vector<Point<double>> b_ak;
+
+    std::vector<Point<double>> head;
+
+    std::vector<Point<double>> l_sae;
+
+    std::vector<Point<double>> l_hle;
+    std::vector<Point<double>> l_usp;
+
+    std::vector<Point<double>> r_sae;
+    std::vector<Point<double>> r_hle;
+    std::vector<Point<double>> r_usp;
+
+    std::vector<Point<double>> l_hip;
+    std::vector<Point<double>> l_knee;
+    std::vector<Point<double>> l_ankle;
+    std::vector<Point<double>> l_foot;
+
+    std::vector<Point<double>> r_hip;
+    std::vector<Point<double>> r_knee;
+    std::vector<Point<double>> r_ankle;
+    std::vector<Point<double>> r_foot;
+
+    std::vector<Point<double>> com;
+    std::vector<Point<double>> com_vel;
+};
+
 struct Data {
     std::vector<double> timestamps;
     std::vector<Point<double>> l_ak;
@@ -793,9 +824,270 @@ struct ForcePlateData {
 
 class TheiaRecording {
 public:
+    std::string joint_file;
+    std::string com_file;
+    TheiaRecording() {};
     TheiaRecording(std::string file) {
+        std::stringstream com_file_ss;
+
+        joint_file = file;
+        file.replace(file.find("segmentproximaljointpositions.txt"), sizeof("segmentproximaljointpositions.txt") - 1, "");
+        com_file_ss << file << "cog_cogvelocity.txt";
+        com_file = com_file_ss.str();
     }
-}
+
+    TheiaData read_joint_file()
+    {
+
+        std::ifstream joint_csv_file(joint_file);
+        std::ifstream com_csv_file(com_file);
+
+        // Go through headers
+        std::string key = "";
+        do {
+            auto header = getNextLineAndSplitIntoTokens(joint_csv_file);
+            if (header.size() > 0) {
+                key = header.at(0);
+            }
+        } while (key != "ITEM");
+
+        // Go through headers
+        key = "";
+        do {
+            auto header = getNextLineAndSplitIntoTokens(com_csv_file);
+            if (header.size() > 0) {
+                key = header.at(0);
+            }
+        } while (key != "ITEM");
+
+        std::vector<double> timestamps;
+        std::vector<Point<double>> l_ak;
+        std::vector<Point<double>> r_ak;
+        std::vector<Point<double>> b_ak;
+
+        std::vector<Point<double>> head;
+
+        std::vector<Point<double>> l_sae;
+
+        std::vector<Point<double>> l_hle;
+        std::vector<Point<double>> l_usp;
+
+        std::vector<Point<double>> r_sae;
+        std::vector<Point<double>> r_hle;
+        std::vector<Point<double>> r_usp;
+
+        std::vector<Point<double>> l_hip;
+        std::vector<Point<double>> l_knee;
+        std::vector<Point<double>> l_ankle;
+        std::vector<Point<double>> l_foot;
+
+        std::vector<Point<double>> r_hip;
+        std::vector<Point<double>> r_knee;
+        std::vector<Point<double>> r_ankle;
+        std::vector<Point<double>> r_foot;
+
+        std::vector<Point<double>> com;
+        std::vector<Point<double>> com_vel;
+
+        while (!joint_csv_file.eof()) {
+            auto results = getNextLineAndSplitIntoTokens(joint_csv_file);
+            if (results.size() == 1) {
+                break;
+            }
+            timestamps.push_back((std::stod(results.at(0))- 1) * (1./60.));
+            int i;
+
+            // Head
+            i = 1;
+            head.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left Ankle
+            i += 3;
+            l_ankle.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left Elbow
+            i += 3;
+            l_hle.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left Wrist
+            i += 3;
+            l_usp.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left Knee
+            i += 3;
+            l_knee.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left Hip
+            i += 3;
+            l_hip.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left Foot
+            i += 3;
+            l_foot.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Left shoulder
+            i += 3;
+            l_sae.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Pelvis
+            i += 3;
+
+            // Right Ankle
+            i += 3;
+            r_ankle.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right Ankle
+            i += 3;
+            r_ankle.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right Elbow
+            i += 3;
+            r_hle.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right Wrist
+            i += 3;
+            r_usp.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right Knee
+            i += 3;
+            r_knee.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right Hip
+            i += 3;
+            r_hip.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right Foot
+            i += 3;
+            r_foot.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // Right shoulder
+            i += 3;
+            r_sae.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+        }
+
+        while (!com_csv_file.eof()) {
+            auto results = getNextLineAndSplitIntoTokens(com_csv_file);
+            if (results.size() == 1) {
+                break;
+            }
+            int i;
+
+            // com
+            i = 1;
+            com.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+
+            // com vel
+            i += 3;
+            com_vel.push_back(
+                Point<double>(
+                    std::stod(results.at(i + 0)),
+                    std::stod(results.at(i + 1)),
+                    std::stod(results.at(i + 2))));
+        }
+
+        // print_vec("timestamps", timestamps);
+        // print_vec("l_ak", l_ak);
+        // print_vec("r_ak", r_ak);
+        // print_vec("b_ak", b_ak);
+        // print_vec("l_sae", l_sae);
+        // print_vec("l_hle", l_hle);
+        // print_vec("l_usp", l_usp);
+        // print_vec("r_hle", r_hle);
+        // print_vec("r_usp", r_usp);
+
+        return TheiaData {
+            timestamps,
+            l_ak,
+            r_ak,
+            b_ak,
+            head,
+            l_sae,
+            l_hle,
+            l_usp,
+            r_sae,
+            r_hle,
+            r_usp,
+            l_hip,
+            l_knee,
+            l_ankle,
+            l_foot,
+            r_hip,
+            r_knee,
+            r_ankle,
+            r_foot,
+            com,
+            com_vel,
+        };
+    }
+};
 
 class QtmRecording {
 public:
@@ -1044,7 +1336,9 @@ class Experiment {
 public:
     Experiment() { }
     QtmRecording qtm_recording;
+    TheiaRecording theia_recording;
     KinectRecording kinect_recording;
+    bool qtm_type = true;
     bool hard_offset;
     double offset;
     std::string name;
@@ -1053,7 +1347,14 @@ public:
     {
         std::ifstream file(experiment_json);
         json data = json::parse(file);
-        std::string qtm_file = data["qtm_file"];
+        if (data.contains("theia_file")) {
+            qtm_type = false;
+            theia_recording = TheiaRecording(data["theia_file"]);
+        } else {
+            std::string qtm_file = data["qtm_file"];
+            qtm_recording = QtmRecording(qtm_file);
+        }
+
         std::string kinect_file = data["kinect_file"];
 
         if (data.contains("offset")) {
@@ -1064,7 +1365,6 @@ public:
             offset = 0;
         }
 
-        qtm_recording = QtmRecording(qtm_file);
         kinect_recording = KinectRecording(kinect_file, refilter, filter_type, measurement_error_factor);
 
         experiment_json.replace(experiment_json.find(".json"), sizeof(".json") - 1, "");
@@ -1277,7 +1577,7 @@ public:
         kinect_max_events.push_back(max_idx);
     }
 
-    double cross_correlation_lag(Data& data, Tensor<double, 3, Eigen::RowMajor>& joints, std::vector<double> kinect_ts, double initial_offset, bool plot = false)
+    double cross_correlation_lag(Data& data, Tensor<double, 3, Eigen::RowMajor>& joints, std::vector<double> kinect_ts, double initial_offset, bool plot = false, bool theia = false)
     {
         // downsample to 15hz
         auto qtm_ts = data.timestamps;
@@ -1285,11 +1585,18 @@ public:
         std::vector<double> qtm_hle_y;
         // std::transform(data.l_hle.cbegin(), data.l_hle.cend(), std::back_inserter(qtm_hle_y), [](auto point) {return point.y;});
 
-        for (int i = 0; i < data.l_usp.size(); ++i) {
-            auto l = data.l_usp.at(i) * .5;
-            auto r = data.r_usp.at(i) * .5;
-            double value = (l + r).z;
-            qtm_hle_y.push_back(value);
+        if (!theia) {
+            for (int i = 0; i < data.l_usp.size(); ++i) {
+                auto value = data.l_usp.at(i).z;
+                qtm_hle_y.push_back(value);
+            }
+        } else {
+            for (int i = 0; i < data.l_usp.size(); ++i) {
+                auto l = data.l_usp.at(i) * .5;
+                auto r = data.r_usp.at(i) * .5;
+                double value = (l + r).z;
+                qtm_hle_y.push_back(value);
+            }
         }
 
         std::vector<double> kinect_hle_y;
@@ -1696,6 +2003,421 @@ public:
             }
         }
         return joints;
+    }
+
+    void write_out_theia(
+        std::vector<double> kinect_ts,
+        Tensor<double, 3, Eigen::RowMajor> joints,
+        Tensor<double, 3, Eigen::RowMajor> unfiltered_joints,
+        Tensor<double, 3, Eigen::RowMajor> velocities,
+        Tensor<double, 3, Eigen::RowMajor> predictions,
+        Data data,
+        ForcePlateData force_data_f1,
+        ForcePlateData force_data_f2,
+        double time_offset,
+        std::string filter_name
+        )
+    {
+        // First check offset
+        //
+        // i is for qtm
+        int i = 0;
+        // q is for kinect
+        int j = 0;
+        int f = 0;
+        if (time_offset < 0) {
+            // QTM events are a bit later then the Kinect events, therefore, skip
+            // a few qtm frames in the beginning
+            while (data.timestamps.at(i) < std::abs(time_offset)) {
+                i++;
+            };
+            while (force_data_f1.timestamps.at(f) < std::abs(time_offset)) {
+                f++;
+            };
+        } else if (time_offset > 0) {
+            // Kinect events are a bit later then the Kinect events, therefore, skip
+            // a few kinect frames in the beginning
+            while ((kinect_ts.at(j) - kinect_ts.front()) < std::abs(time_offset)) {
+                j++;
+            };
+        }
+        std::cout << "write out : i=" << i << ", j=" << j << ", f:" << f << std::endl;
+        double front = kinect_ts.front();
+        std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto element) { return element - front; });
+        assert(kinect_ts.front() == 0);
+
+        // First copy from data into stuff
+        std::vector<double> timestamps(data.timestamps);
+        std::vector<Point<double>> l_sae(data.l_sae);
+        std::vector<Point<double>> l_hle(data.l_hle);
+        std::vector<Point<double>> l_usp(data.l_usp);
+        std::vector<Point<double>> r_hle(data.r_hle);
+        std::vector<Point<double>> r_usp(data.r_usp);
+
+        std::vector<double> short_timestamps;
+        std::vector<Point<double>> short_l_sae;
+        std::vector<Point<double>> short_l_hle;
+        std::vector<Point<double>> short_l_usp;
+        std::vector<Point<double>> short_r_hle;
+        std::vector<Point<double>> short_r_usp;
+
+        // std::vector<Point<double>> l, r, b;
+        std::vector<double> fp_ts_1;
+        std::vector<Point<double>> fp_force_1;
+        std::vector<Point<double>> fp_moment_1;
+        std::vector<Point<double>> fp_cop_1;
+
+        std::vector<double> fp_ts_2;
+        std::vector<Point<double>> fp_force_2;
+        std::vector<Point<double>> fp_moment_2;
+        std::vector<Point<double>> fp_cop_2;
+
+        // Data short_data { timestamps, l, r, b, l_sae, l_hle, short_l_usp, short_r_hle, short_r_usp };
+        // Shorten data based on offset
+        std::cout << "data.timestamps.size(): " << timestamps.size() << std::endl;
+        std::cout << "data.l_hle.size(): " << l_hle.size() << std::endl;
+
+        if (j != 0) {
+            Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
+            Tensor<double, 3, Eigen::RowMajor> shortened_predictions(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
+            Tensor<double, 3, Eigen::RowMajor> shortened_unfiltered_joints(unfiltered_joints.dimension(0) - j, unfiltered_joints.dimension(1), unfiltered_joints.dimension(2));
+            Tensor<double, 3, Eigen::RowMajor> shortened_velocities(velocities.dimension(0) - j, velocities.dimension(1), velocities.dimension(2));
+            std::vector<double> shortened_kinect_ts(kinect_ts.size() - j);
+            for (int k = 0; k < joints.dimension(0) - j; ++k) {
+                for (int q = 0; q < joints.dimension(1); ++q) {
+                    shortened_joints(k, q, 0) = joints(k + j, q, 0);
+                    shortened_joints(k, q, 1) = joints(k + j, q, 1);
+                    shortened_joints(k, q, 2) = joints(k + j, q, 2);
+                    shortened_predictions(k, q, 0) = predictions(k + j, q, 0);
+                    shortened_predictions(k, q, 1) = predictions(k + j, q, 1);
+                    shortened_predictions(k, q, 2) = predictions(k + j, q, 2);
+                    shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + j, q, 0);
+                    shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + j, q, 1);
+                    shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + j, q, 2);
+                    shortened_velocities(k, q, 0) = velocities(k + j, q, 0);
+                    shortened_velocities(k, q, 1) = velocities(k + j, q, 1);
+                    shortened_velocities(k, q, 2) = velocities(k + j, q, 2);
+                }
+            }
+            for (int k = 0; k < kinect_ts.size() - j; ++k) {
+                shortened_kinect_ts.at(k) = kinect_ts.at(k);
+            }
+            kinect_ts = shortened_kinect_ts;
+            joints = shortened_joints;
+            predictions = shortened_predictions;
+            unfiltered_joints = shortened_unfiltered_joints;
+            velocities = shortened_velocities;
+        }
+        if (i != 0) {
+
+            assert(i < timestamps.size());
+            /*
+            for (int k = 0; k < i; ++k) {
+                timestamps.pop_back();
+            }
+            l_sae.erase(l_sae.begin(), l_sae.begin() + i);
+            l_hle.erase(l_hle.begin(), l_hle.begin() + i);
+            l_usp.erase(l_usp.begin(), l_usp.begin() + i);
+            r_hle.erase(r_hle.begin(), r_hle.begin() + i);
+            r_usp.erase(r_usp.begin(), r_usp.begin() + i);
+            */
+            // for (int k = i; k < timestamps.size(); ++k) {
+            for (int k = i; k < timestamps.size(); ++k) {
+                short_timestamps.push_back(timestamps.at(k - i));
+                short_l_sae.push_back(l_sae.at(k));
+                short_l_hle.push_back(l_hle.at(k));
+                short_l_usp.push_back(l_usp.at(k));
+
+                short_r_hle.push_back(r_hle.at(k));
+                short_r_usp.push_back(r_usp.at(k));
+            }
+            /*
+            data.timestamps = timestamps;
+            data.l_sae = l_sae;
+            data.l_hle = l_hle;
+            data.l_usp = short_l_usp;
+            data.r_hle = short_r_hle;
+            data.r_usp = short_r_usp;
+            */
+
+            // data = short_data;
+
+            /*
+            for (int k = 0; k < f; ++k) {
+                force_data_f1.timestamps.pop_back();
+                force_data_f1.force.erase(force_data_f1.force.begin());
+                force_data_f1.cop.erase(force_data_f1.cop.begin());
+                force_data_f1.moment.erase(force_data_f1.moment.begin());
+
+                force_data_f2.timestamps.pop_back();
+                force_data_f2.force.erase(force_data_f2.force.begin());
+                force_data_f2.cop.erase(force_data_f2.cop.begin());
+                force_data_f2.moment.erase(force_data_f2.moment.begin());
+            }
+            */
+
+            for (int k = f; k < force_data_f1.timestamps.size(); ++k) {
+                fp_ts_1.push_back(force_data_f1.timestamps.at(k-f));
+                fp_force_1.push_back(force_data_f1.force.at(k));
+                fp_moment_1.push_back(force_data_f1.moment.at(k));
+                fp_cop_1.push_back(force_data_f1.cop.at(k));
+
+                fp_ts_2.push_back(force_data_f2.timestamps.at(k-f));
+                fp_force_2.push_back(force_data_f2.force.at(k));
+                fp_moment_2.push_back(force_data_f2.moment.at(k));
+                fp_cop_2.push_back(force_data_f2.cop.at(k));
+            }
+
+            force_data_f1.timestamps = fp_ts_1;
+            force_data_f1.force = fp_force_1;
+            force_data_f1.moment = fp_moment_1;
+            force_data_f1.cop = fp_cop_1;
+
+            force_data_f2.timestamps = fp_ts_2;
+            force_data_f2.force = fp_force_2;
+            force_data_f2.moment = fp_moment_2;
+            force_data_f2.cop = fp_cop_2;
+
+        } else {
+            short_l_sae = l_sae;
+            short_l_hle = l_hle;
+            short_r_hle = r_hle;
+            short_l_usp = l_usp;
+            short_r_usp = r_usp;
+            short_timestamps = timestamps;
+        }
+        /*
+        short_l_sae = data.l_sae;
+        l_hle = data.l_hle;
+        short_r_hle = data.r_hle;
+        short_l_usp = data.l_usp;
+        short_r_usp = data.r_usp;
+        timestamps = data.timestamps;
+        */
+        std::cout << "timestamps.size(): " << timestamps.size() << std::endl;
+        std::cout << "l_hle.size(): " << l_hle.size() << std::endl;
+
+        // Calcualte com filtered and unfiltered
+        std::vector<Point<double>> joints_com;
+        std::vector<Point<double>> velocities_com;
+        std::vector<Point<double>> unfiltered_joints_com;
+        for (int j = 0; j < joints.dimension(0); ++j) {
+            std::vector<Point<double>> points;
+            std::vector<Point<double>> pvelocities;
+            std::vector<Point<double>> unfiltered_points;
+            for (int k = 0; k < 32; ++k) {
+                points.push_back(Point<double>(
+                    joints(j, k, 0),
+                    joints(j, k, 1),
+                    joints(j, k, 2)));
+                pvelocities.push_back(Point<double>(
+                    velocities(j, k, 0),
+                    velocities(j, k, 1),
+                    velocities(j, k, 2)));
+                unfiltered_points.push_back(Point<double>(
+                    unfiltered_joints(j, k, 0),
+                    unfiltered_joints(j, k, 1),
+                    unfiltered_joints(j, k, 2)));
+            }
+            joints_com.push_back(com_helper(points, MM));
+            velocities_com.push_back(com_helper(pvelocities, MM));
+            unfiltered_joints_com.push_back(com_helper(unfiltered_points, MM));
+        }
+
+        // Calcualte cop and force
+        std::vector<Point<double>> vcop;
+        std::vector<Point<double>> vforce;
+        for (int k = 0; k < force_data_f1.timestamps.size(); ++k) {
+            auto [cop, force] = get_cop_force(force_data_f1, force_data_f2, k);
+            vcop.push_back(cop);
+            vforce.push_back(force);
+        }
+
+        int frequency = 15;
+
+        // Downsample
+
+        // Kinect Joints
+        std::cout << "Downsampling Kinect Filtered Joints" << std::endl;
+        auto down_joints = downsample(joints, kinect_ts, frequency);
+        std::cout << "Downsampling Kinect Predictions" << std::endl;
+        auto down_predictions = downsample(predictions, kinect_ts, frequency);
+        std::cout << "Downsampling Kinect Unfiltered Joints" << std::endl;
+        auto down_unfiltered_joints = downsample(unfiltered_joints, kinect_ts, frequency);
+        std::cout << "Downsampling Kinect Velocities" << std::endl;
+        auto down_velocities = downsample(velocities, kinect_ts, frequency);
+
+        // Kinect com
+        std::cout << "Downsampling Kinect COM" << std::endl;
+        auto down_joints_com = downsample(joints_com, kinect_ts, frequency);
+        auto down_velocities_com = downsample(velocities_com, kinect_ts, frequency);
+        auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, kinect_ts, frequency);
+
+        std::vector<double> down_kinect_ts;
+        for (int i = 0; i < down_joints.dimension(0); ++i) {
+            down_kinect_ts.push_back((1. / (double)frequency) * i);
+        }
+
+        // QTM Joints
+
+        // Take middle for usp and hle
+        std::vector<Point<double>> hle;
+        for (int i = 0; i < short_l_hle.size(); ++i) {
+            auto middle = short_l_hle.at(i) * 0.5 + short_r_hle.at(i) * 0.5;
+            hle.push_back(middle);
+        }
+
+        std::vector<Point<double>> usp;
+        for (int i = 0; i < short_l_usp.size(); ++i) {
+            auto middle = short_l_usp.at(i) * 0.5 + short_r_usp.at(i) * 0.5;
+            usp.push_back(middle);
+        }
+
+        auto qtm_joints = combine_3_vectors_to_tensor(short_l_sae, hle, usp);
+
+        std::cout << "Downsampling QTM Joints" << std::endl;
+        int qtm_joints_frequency = 75;
+        auto down_qtm_joints = downsample(qtm_joints, short_timestamps, qtm_joints_frequency);
+
+        /*
+        auto down_l_sae = downsample(data.l_sae, data.timestamps, frequency);
+        auto down_l_hle = downsample(data.l_hle, data.timestamps, frequency);
+        auto down_l_usp = downsample(data.l_usp, data.timestamps, frequency);
+        auto down_r_hle = downsample(data.r_hle, data.timestamps, frequency);
+        auto down_r_usp = downsample(data.r_usp, data.timestamps, frequency);
+        */
+
+        std::cout << "create qtm ts" << std::endl;
+        std::vector<double> down_qtm_ts;
+        for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
+            down_qtm_ts.push_back((1. / (double)qtm_joints_frequency) * i);
+        }
+
+        // QTM Force Plate
+        int force_plate_frequency = 450;
+        std::cout << "Downsampling QTM COP" << std::endl;
+        auto down_cop = downsample(vcop, force_data_f1.timestamps, force_plate_frequency);
+        auto down_force = downsample(vforce, force_data_f1.timestamps, force_plate_frequency);
+
+        std::vector<double> down_qtm_cop_ts;
+        for (int i = 0; i < down_cop.size(); ++i) {
+            down_qtm_cop_ts.push_back((1. / (double)force_plate_frequency) * i);
+        }
+
+        int counter = 0;
+        bool collision = false;
+        std::string base_dir;
+        do {
+            std::stringstream output_dir;
+            output_dir << "experiment_result/" << filter_name << "/" << replace_all(fs::path(this->name).filename(), "\"", "") << "/" << counter << "/";
+            base_dir = output_dir.str();
+            if (fs::exists(base_dir)) {
+                collision = true;
+            } else {
+                collision = false;
+            }
+            counter++;
+        } while (collision);
+        fs::create_directories(base_dir);
+
+        // Write out all the stuff:
+        // Kinect joints, ts, com
+        // Downsampled Kinect joints, ts, com
+        // QTM joints, ts, com
+        // Downsampled QTM joints, ts, com
+        // what do i have:
+        // tensor -> can be written out directly
+        // vector<double> -> can be written out directly
+        // vector<Point<double>> -> convert to tensor -> helper function
+        std::stringstream path_kinect_joints, path_kinect_predictions, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_kinect_com, path_kinect_com_velocities, path_kinect_unfiltered_com;
+        std::stringstream down_path_kinect_joints, down_path_kinect_predictions, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_com_velocities, down_path_kinect_unfiltered_com;
+
+        std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop, path_qtm_cop_ts;
+        std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop, down_path_qtm_cop_ts;
+
+        std::stringstream config;
+
+        path_kinect_joints << base_dir << "kinect_joints.npy";
+        path_kinect_predictions << base_dir << "kinect_predictions.npy";
+        path_kinect_unfiltered_joints << base_dir << "kinect_unfiltered_joints.npy";
+        path_kinect_velocities << base_dir << "kinect_velocities.npy";
+        path_kinect_ts << base_dir << "kinect_ts.npy";
+        path_kinect_com << base_dir << "kinect_com.npy";
+        path_kinect_com_velocities << base_dir << "kinect_com_velocities.npy";
+        path_kinect_unfiltered_com << base_dir << "kinect_unfiltered_com.npy";
+        down_path_kinect_joints << base_dir << "down_kinect_joints.npy";
+        down_path_kinect_predictions << base_dir << "down_kinect_predictions.npy";
+        down_path_kinect_unfiltered_joints << base_dir << "down_kinect_unfiltered_joints.npy";
+        down_path_kinect_velocities << base_dir << "down_kinect_velocities.npy";
+        down_path_kinect_ts << base_dir << "down_kinect_ts.npy";
+        down_path_kinect_com << base_dir << "down_kinect_com.npy";
+        down_path_kinect_com_velocities << base_dir << "down_kinect_com_velocities.npy";
+        down_path_kinect_unfiltered_com << base_dir << "down_kinect_unfiltered_com.npy";
+
+        path_qtm_joints << base_dir << "qtm_joints.npy";
+        path_qtm_ts << base_dir << "qtm_ts.npy";
+        path_qtm_cop << base_dir << "qtm_cop.npy";
+        path_qtm_cop_ts << base_dir << "qtm_cop_ts.npy";
+        down_path_qtm_joints << base_dir << "down_qtm_joints.npy";
+        down_path_qtm_ts << base_dir << "down_qtm_ts.npy";
+        down_path_qtm_cop << base_dir << "down_qtm_cop.npy";
+        down_path_qtm_cop_ts << base_dir << "down_qtm_cop_ts.npy";
+
+        config << base_dir << "config.json";
+
+        std::cout << "Writting to: " << base_dir << std::endl;
+
+        cnpy::npy_save(path_kinect_joints.str(), joints.data(), { (unsigned long)joints.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(path_kinect_predictions.str(), predictions.data(), { (unsigned long)predictions.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(path_kinect_unfiltered_joints.str(), unfiltered_joints.data(), { (unsigned long)unfiltered_joints.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(path_kinect_velocities.str(), velocities.data(), { (unsigned long)velocities.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(path_kinect_ts.str(), kinect_ts.data(), { kinect_ts.size() }, "w");
+        cnpy::npy_save(path_kinect_com.str(), convert_point_vector(joints_com).data(), { joints_com.size(), 3 }, "w");
+        cnpy::npy_save(path_kinect_com_velocities.str(), convert_point_vector(velocities_com).data(), { velocities_com.size(), 3 }, "w");
+        cnpy::npy_save(path_kinect_unfiltered_com.str(), convert_point_vector(unfiltered_joints_com).data(), { unfiltered_joints_com.size(), 3 }, "w");
+
+        cnpy::npy_save(down_path_kinect_joints.str(), down_joints.data(), { (unsigned long)down_joints.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(down_path_kinect_predictions.str(), down_predictions.data(), { (unsigned long)down_predictions.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(down_path_kinect_unfiltered_joints.str(), down_unfiltered_joints.data(), { (unsigned long)down_unfiltered_joints.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(down_path_kinect_velocities.str(), down_velocities.data(), { (unsigned long)down_velocities.dimension(0), 32, 3 }, "w");
+        cnpy::npy_save(down_path_kinect_ts.str(), down_kinect_ts.data(), { down_kinect_ts.size() }, "w");
+        cnpy::npy_save(down_path_kinect_com.str(), convert_point_vector(down_joints_com).data(), { down_joints_com.size(), 3 }, "w");
+        cnpy::npy_save(down_path_kinect_com_velocities.str(), convert_point_vector(down_velocities_com).data(), { down_velocities_com.size(), 3 }, "w");
+        cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
+
+        cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
+        cnpy::npy_save(path_qtm_ts.str(), short_timestamps.data(), { short_timestamps.size() }, "w");
+        cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3 }, "w");
+        cnpy::npy_save(path_qtm_cop_ts.str(), force_data_f1.timestamps.data(), { force_data_f1.timestamps.size() }, "w");
+
+        cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
+        cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
+        cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
+        cnpy::npy_save(down_path_qtm_cop_ts.str(), down_qtm_cop_ts.data(), { down_qtm_cop_ts.size() }, "w");
+
+        nlohmann::json config_json;
+        std::ofstream output_file(config.str());
+        config_json["filter_type"] = kinect_recording.json_data["filters"][0]["filter_type"];
+        config_json["measurement_error_factor"] = kinect_recording.json_data["filters"][0]["measurement_error_factor"];
+        config_json["json_file_path"] = kinect_recording.json_file;
+        output_file << std::setw(4) << config_json << std::endl;
+
+        /*
+        std::vector<double> ksl, qsl;
+        for (int i = 0; i < joints.dimension(0); ++i) {
+            ksl.push_back(joints(i, K4ABT_JOINT_SHOULDER_LEFT, 2));
+        }
+        for (int i = 0; i < qtm_joints.dimension(0); ++i) {
+            qsl.push_back(qtm_joints(i, 0, 2));
+        }
+
+        plt::title("Left Shoulder x");
+        plt::named_plot("kinect", kinect_ts, ksl);
+        plt::named_plot("qtm", short_timestamps, qsl);
+        plt::legend();
+        plt::show(true);
+        plt::cla();
+        */
     }
 
     void write_out(
@@ -2111,6 +2833,39 @@ public:
         plt::show(true);
         plt::cla();
         */
+    }
+    void process_theia(TheiaData data, std::string filter_name) {
+        auto ts = kinect_recording.timestamps;
+        auto joints_in_kinect_system = kinect_recording.joints;
+        auto unfiltered_joints_in_kinect_system = kinect_recording.unfiltered_joints;
+
+        Tensor<double, 3, Eigen::RowMajor> unfiltered_out(ts.size(), 3, 3);
+        Tensor<double, 3, Eigen::RowMajor> filtered_out(ts.size(), 3, 3);
+        Tensor<double, 3, Eigen::RowMajor> truth_out(ts.size(), 3, 3);
+
+        auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
+
+        auto joints = translate_and_rotate(joints_in_kinect_system, translation, rotation);
+        auto unfiltered_joints = translate_and_rotate(unfiltered_joints_in_kinect_system, translation, rotation);
+        auto predictions = translate_and_rotate(kinect_recording.predictions, translation, rotation);
+        auto velocities = translate_and_rotate(kinect_recording.velocities, Point<double>(), rotation);
+
+        double time_offset = 0;
+        if (this->hard_offset) {
+            time_offset = this->offset;
+        }
+        Data data_for_cross_corr { data.timestamps, data.l_ak, data.r_ak, data.b_ak, data.l_sae, data.l_hle, data.l_usp, data.r_hle, data.r_usp, };
+
+        time_offset = cross_correlation_lag(data_for_cross_corr, joints, ts, this->offset, false, true);
+        std::cout << "Time offset: " << time_offset << std::endl;
+
+        std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
+        std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
+
+        // Write out
+        // I want to have the downsampled stuff already with the correct offset from the correlation
+        write_out_theia(ts, joints, unfiltered_joints, velocities, predictions, data, time_offset, filter_name);
+
     }
 
     void visualize(bool render, bool plot, bool early_exit, Data data, ForcePlateData force_data_f1, ForcePlateData force_data_f2, std::string filter_name)
@@ -2618,24 +3373,38 @@ int main(int argc, char** argv)
 
     Experiment experiment(experiment_json.getValue(), refilter.getValue(), filter_type.getValue(), measurement_error_factor.getValue());
 
+    if (experiment.qtm_type) {
     // Data data = experiment.qtm_recording.read_marker_file();
-    experiment.qtm_recording.read_force_plate_files();
+        experiment.qtm_recording.read_force_plate_files();
 
-    std::cout << experiment << std::endl;
+        std::cout << experiment << std::endl;
 
-    Data data = experiment.qtm_recording.read_marker_file();
-    auto [force_data_f1, force_data_f2] = experiment.qtm_recording.read_force_plate_files();
+        Data data = experiment.qtm_recording.read_marker_file();
+        auto [force_data_f1, force_data_f2] = experiment.qtm_recording.read_force_plate_files();
 
+        experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2, int_to_filter_name(filter_type.getValue()));
 
-    experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2, int_to_filter_name(filter_type.getValue()));
+        if (refilter.getValue()) {
+            double stop = stop_measurement_error_factor.getValue();
+            double step_size = step_size_arg.getValue();
+            for (double i = measurement_error_factor+step_size; i <= stop; i += step_size) {
+                std::cout << "Refilter: " << i << std::endl;
+                experiment.kinect_recording.refilter(filter_type.getValue(), i);
+                experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2, int_to_filter_name(filter_type.getValue()));
+            }
+        }
+    } else {
+        TheiaData data = experiment.theia_recording.read_joint_file();
+        experiment.process_theia(data, int_to_filter_name(filter_type.getValue()));
 
-    if (refilter.getValue()) {
-        double stop = stop_measurement_error_factor.getValue();
-        double step_size = step_size_arg.getValue();
-        for (double i = measurement_error_factor+step_size; i <= stop; i += step_size) {
-            std::cout << "Refilter: " << i << std::endl;
-            experiment.kinect_recording.refilter(filter_type.getValue(), i);
-            experiment.visualize(render.getValue(), plot.getValue(), early_exit.getValue(), data, force_data_f1, force_data_f2, int_to_filter_name(filter_type.getValue()));
+        if (refilter.getValue()) {
+            double stop = stop_measurement_error_factor.getValue();
+            double step_size = step_size_arg.getValue();
+            for (double i = measurement_error_factor+step_size; i <= stop; i += step_size) {
+                std::cout << "Refilter: " << i << std::endl;
+                experiment.kinect_recording.refilter(filter_type.getValue(), i);
+                experiment.process_theia(data, int_to_filter_name(filter_type.getValue()));
+            }
         }
     }
 }
