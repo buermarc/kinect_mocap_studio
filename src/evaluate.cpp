@@ -791,6 +791,12 @@ struct ForcePlateData {
     std::vector<Point<double>> cop;
 };
 
+class TheiaRecording {
+public:
+    TheiaRecording(std::string file) {
+    }
+}
+
 class QtmRecording {
 public:
     QtmRecording() { }
