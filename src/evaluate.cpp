@@ -40,6 +40,7 @@
 #include <k4abttypes.h>
 
 #include <matplotlibcpp/matplotlibcpp.h>
+using namespace std::chrono_literals;
 
 namespace plt = matplotlibcpp;
 
@@ -153,9 +154,6 @@ Tensor<double, 3, Eigen::RowMajor> combine_3_vectors_to_tensor(
 
 struct TheiaData {
     std::vector<double> timestamps;
-    std::vector<Point<double>> l_ak;
-    std::vector<Point<double>> r_ak;
-    std::vector<Point<double>> b_ak;
 
     std::vector<Point<double>> head;
 
@@ -181,6 +179,108 @@ struct TheiaData {
     std::vector<Point<double>> com;
     std::vector<Point<double>> com_vel;
 };
+
+Tensor<double, 3, Eigen::RowMajor> combine_theia_data_to_tensor(TheiaData data)
+{
+    Tensor<double, 3, Eigen::RowMajor> combination(data.timestamps.size(), 17, 3);
+    for (int i = 0; i < data.timestamps.size(); ++i) {
+        int k = 0;
+        // Head
+        combination(i, k, 0) = data.head.at(i).x;
+        combination(i, k, 1) = data.head.at(i).y;
+        combination(i, k, 2) = data.head.at(i).z;
+
+        // Left torso segment
+        k++;
+        combination(i, k, 0) = data.l_sae.at(i).x;
+        combination(i, k, 1) = data.l_sae.at(i).y;
+        combination(i, k, 2) = data.l_sae.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.l_hle.at(i).x;
+        combination(i, k, 1) = data.l_hle.at(i).y;
+        combination(i, k, 2) = data.l_hle.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.l_usp.at(i).x;
+        combination(i, k, 1) = data.l_usp.at(i).y;
+        combination(i, k, 2) = data.l_usp.at(i).z;
+
+
+        // Right torso segment
+        k++;
+        combination(i, k, 0) = data.r_sae.at(i).x;
+        combination(i, k, 1) = data.r_sae.at(i).y;
+        combination(i, k, 2) = data.r_sae.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.r_hle.at(i).x;
+        combination(i, k, 1) = data.r_hle.at(i).y;
+        combination(i, k, 2) = data.r_hle.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.r_usp.at(i).x;
+        combination(i, k, 1) = data.r_usp.at(i).y;
+        combination(i, k, 2) = data.r_usp.at(i).z;
+
+
+        // Left lower segment
+        k++;
+        combination(i, k, 0) = data.l_hip.at(i).x;
+        combination(i, k, 1) = data.l_hip.at(i).y;
+        combination(i, k, 2) = data.l_hip.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.l_knee.at(i).x;
+        combination(i, k, 1) = data.l_knee.at(i).y;
+        combination(i, k, 2) = data.l_knee.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.l_ankle.at(i).x;
+        combination(i, k, 1) = data.l_ankle.at(i).y;
+        combination(i, k, 2) = data.l_ankle.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.l_foot.at(i).x;
+        combination(i, k, 1) = data.l_foot.at(i).y;
+        combination(i, k, 2) = data.l_foot.at(i).z;
+
+
+        // Right lower segment<
+        k++;
+        combination(i, k, 0) = data.r_hip.at(i).x;
+        combination(i, k, 1) = data.r_hip.at(i).y;
+        combination(i, k, 2) = data.r_hip.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.r_knee.at(i).x;
+        combination(i, k, 1) = data.r_knee.at(i).y;
+        combination(i, k, 2) = data.r_knee.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.r_ankle.at(i).x;
+        combination(i, k, 1) = data.r_ankle.at(i).y;
+        combination(i, k, 2) = data.r_ankle.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.r_foot.at(i).x;
+        combination(i, k, 1) = data.r_foot.at(i).y;
+        combination(i, k, 2) = data.r_foot.at(i).z;
+
+        // Right lower segment<
+        k++;
+        combination(i, k, 0) = data.com.at(i).x;
+        combination(i, k, 1) = data.com.at(i).y;
+        combination(i, k, 2) = data.com.at(i).z;
+
+        k++;
+        combination(i, k, 0) = data.com_vel.at(i).x;
+        combination(i, k, 1) = data.com_vel.at(i).y;
+        combination(i, k, 2) = data.com_vel.at(i).z;
+    }
+    return combination;
+}
+
 
 struct Data {
     std::vector<double> timestamps;
@@ -478,6 +578,45 @@ Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor>
     }
     std::cout << "down_i: " << down_i << ", downsampled_values_length: " << downsampled_values_length << std::endl;
     return downsampled_values;
+}
+
+std::tuple<Point<double>, MatrixXd> translation_and_rotation_theia()
+{
+    // Point<double> translation = Point<double>(-2.6, -0.07, 0.83);
+    Point<double> translation = Point<double>(-2.5, 0.00, 0.90);
+    MatrixXd rotation_matrix(3, 3);
+
+    auto x = Point<double>(0, -1, 0);
+    auto y = Point<double>(0, 0, -1);
+    auto z = Point<double>(1, 0, 0);
+
+    double deg = (M_PI / 180.) * 6.;
+    double z_norm = z.norm();
+    auto w = x.cross_product(z);
+    w = w * (-1);
+
+    auto rotated_z = ((z * (std::cos(deg) / z_norm)) + (w * (std::sin(deg) / w.norm()))) * z_norm;
+    auto rotated_y = (x.cross_product(rotated_z));
+
+    rotated_y = rotated_y * (-1);
+
+    x = x.normalized();
+    y = rotated_y.normalized();
+    z = rotated_z.normalized();
+
+    rotation_matrix(0, 0) = x.x;
+    rotation_matrix(1, 0) = x.y;
+    rotation_matrix(2, 0) = x.z;
+
+    rotation_matrix(0, 1) = y.x;
+    rotation_matrix(1, 1) = y.y;
+    rotation_matrix(2, 1) = y.z;
+
+    rotation_matrix(0, 2) = z.x;
+    rotation_matrix(1, 2) = z.y;
+    rotation_matrix(2, 2) = z.z;
+
+    return std::make_tuple(translation, rotation_matrix);
 }
 
 std::tuple<Point<double>, MatrixXd> translation_and_rotation(
@@ -861,9 +1000,6 @@ public:
         } while (key != "ITEM");
 
         std::vector<double> timestamps;
-        std::vector<Point<double>> l_ak;
-        std::vector<Point<double>> r_ak;
-        std::vector<Point<double>> b_ak;
 
         std::vector<Point<double>> head;
 
@@ -894,140 +1030,252 @@ public:
             if (results.size() == 1) {
                 break;
             }
-            timestamps.push_back((std::stod(results.at(0))- 1) * (1./60.));
+            timestamps.push_back((std::stod(results.at(0))- 1) * (1./120.));
             int i;
 
             // Head
             i = 1;
-            head.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                head.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                head.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left Ankle
             i += 3;
-            l_ankle.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_ankle.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_ankle.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left Elbow
             i += 3;
-            l_hle.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_hle.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_hle.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left Wrist
             i += 3;
-            l_usp.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_usp.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_usp.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left Knee
             i += 3;
-            l_knee.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_knee.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_knee.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left Hip
             i += 3;
-            l_hip.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_hip.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_hip.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left Foot
             i += 3;
-            l_foot.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_foot.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_foot.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Left shoulder
             i += 3;
-            l_sae.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                l_sae.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                l_sae.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Pelvis
             i += 3;
 
             // Right Ankle
             i += 3;
-            r_ankle.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
-
-            // Right Ankle
-            i += 3;
-            r_ankle.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                r_ankle.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_ankle.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Right Elbow
             i += 3;
-            r_hle.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                r_hle.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_hle.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Right Wrist
             i += 3;
-            r_usp.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                r_usp.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_usp.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Right Knee
             i += 3;
-            r_knee.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                r_knee.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_knee.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Right Hip
             i += 3;
-            r_hip.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                r_hip.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_hip.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Right Foot
             i += 3;
-            r_foot.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) == "") {
+                r_foot.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_foot.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
 
             // Right shoulder
             i += 3;
-            r_sae.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
-        }
+            if (results.at(i) == "") {
+                r_sae.push_back(
+                    Point<double>(
+                        0,
+                        0,
+                        0));
+            } else {
+                r_sae.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            }
+            }
 
         while (!com_csv_file.eof()) {
             auto results = getNextLineAndSplitIntoTokens(com_csv_file);
@@ -1038,19 +1286,27 @@ public:
 
             // com
             i = 1;
-            com.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) != "") {
+                com.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            } else {
+                com.push_back(Point<double>(0, 0, 0));
+            }
 
             // com vel
             i += 3;
-            com_vel.push_back(
-                Point<double>(
-                    std::stod(results.at(i + 0)),
-                    std::stod(results.at(i + 1)),
-                    std::stod(results.at(i + 2))));
+            if (results.at(i) != "") {
+                com_vel.push_back(
+                    Point<double>(
+                        std::stod(results.at(i + 0)),
+                        std::stod(results.at(i + 1)),
+                        std::stod(results.at(i + 2))));
+            } else {
+                com_vel.push_back(Point<double>(0, 0, 0));
+            }
         }
 
         // print_vec("timestamps", timestamps);
@@ -1065,9 +1321,6 @@ public:
 
         return TheiaData {
             timestamps,
-            l_ak,
-            r_ak,
-            b_ak,
             head,
             l_sae,
             l_hle,
@@ -2011,9 +2264,7 @@ public:
         Tensor<double, 3, Eigen::RowMajor> unfiltered_joints,
         Tensor<double, 3, Eigen::RowMajor> velocities,
         Tensor<double, 3, Eigen::RowMajor> predictions,
-        Data data,
-        ForcePlateData force_data_f1,
-        ForcePlateData force_data_f2,
+        TheiaData data,
         double time_offset,
         std::string filter_name
         )
@@ -2024,15 +2275,11 @@ public:
         int i = 0;
         // q is for kinect
         int j = 0;
-        int f = 0;
         if (time_offset < 0) {
             // QTM events are a bit later then the Kinect events, therefore, skip
             // a few qtm frames in the beginning
             while (data.timestamps.at(i) < std::abs(time_offset)) {
                 i++;
-            };
-            while (force_data_f1.timestamps.at(f) < std::abs(time_offset)) {
-                f++;
             };
         } else if (time_offset > 0) {
             // Kinect events are a bit later then the Kinect events, therefore, skip
@@ -2041,25 +2288,37 @@ public:
                 j++;
             };
         }
-        std::cout << "write out : i=" << i << ", j=" << j << ", f:" << f << std::endl;
+        std::cout << "write out : i=" << i << ", j=" << j << std::endl;
         double front = kinect_ts.front();
         std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto element) { return element - front; });
         assert(kinect_ts.front() == 0);
 
         // First copy from data into stuff
-        std::vector<double> timestamps(data.timestamps);
-        std::vector<Point<double>> l_sae(data.l_sae);
-        std::vector<Point<double>> l_hle(data.l_hle);
-        std::vector<Point<double>> l_usp(data.l_usp);
-        std::vector<Point<double>> r_hle(data.r_hle);
-        std::vector<Point<double>> r_usp(data.r_usp);
-
         std::vector<double> short_timestamps;
+
+        std::vector<Point<double>> short_head;
+
         std::vector<Point<double>> short_l_sae;
         std::vector<Point<double>> short_l_hle;
         std::vector<Point<double>> short_l_usp;
+
+        std::vector<Point<double>> short_r_sae;
         std::vector<Point<double>> short_r_hle;
         std::vector<Point<double>> short_r_usp;
+
+        std::vector<Point<double>> short_l_hip;
+        std::vector<Point<double>> short_l_knee;
+        std::vector<Point<double>> short_l_ankle;
+        std::vector<Point<double>> short_l_foot;
+
+        std::vector<Point<double>> short_r_hip;
+        std::vector<Point<double>> short_r_knee;
+        std::vector<Point<double>> short_r_ankle;
+        std::vector<Point<double>> short_r_foot;
+
+        std::vector<Point<double>> short_com;
+        std::vector<Point<double>> short_com_vel;
+
 
         // std::vector<Point<double>> l, r, b;
         std::vector<double> fp_ts_1;
@@ -2074,8 +2333,8 @@ public:
 
         // Data short_data { timestamps, l, r, b, l_sae, l_hle, short_l_usp, short_r_hle, short_r_usp };
         // Shorten data based on offset
-        std::cout << "data.timestamps.size(): " << timestamps.size() << std::endl;
-        std::cout << "data.l_hle.size(): " << l_hle.size() << std::endl;
+        std::cout << "data.timestamps.size(): " << data.timestamps.size() << std::endl;
+        std::cout << "data.l_hle.size(): " << data.l_hle.size() << std::endl;
 
         if (j != 0) {
             Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
@@ -2110,7 +2369,7 @@ public:
         }
         if (i != 0) {
 
-            assert(i < timestamps.size());
+            assert(i < data.timestamps.size());
             /*
             for (int k = 0; k < i; ++k) {
                 timestamps.pop_back();
@@ -2122,14 +2381,31 @@ public:
             r_usp.erase(r_usp.begin(), r_usp.begin() + i);
             */
             // for (int k = i; k < timestamps.size(); ++k) {
-            for (int k = i; k < timestamps.size(); ++k) {
-                short_timestamps.push_back(timestamps.at(k - i));
-                short_l_sae.push_back(l_sae.at(k));
-                short_l_hle.push_back(l_hle.at(k));
-                short_l_usp.push_back(l_usp.at(k));
+            for (int k = i; k < data.timestamps.size(); ++k) {
+                short_timestamps.push_back(data.timestamps.at(k - i));
+                short_head.push_back(data.head.at(k));
+                short_l_sae.push_back(data.l_sae.at(k));
+                short_l_hle.push_back(data.l_hle.at(k));
+                short_l_usp.push_back(data.l_usp.at(k));
 
-                short_r_hle.push_back(r_hle.at(k));
-                short_r_usp.push_back(r_usp.at(k));
+                short_r_sae.push_back(data.r_sae.at(k));
+                short_r_hle.push_back(data.r_hle.at(k));
+                short_r_usp.push_back(data.r_usp.at(k));
+
+
+                short_l_hip.push_back(data.l_hip.at(k));
+                short_l_knee.push_back(data.l_knee.at(k));
+                short_l_ankle.push_back(data.l_ankle.at(k));
+                short_l_foot.push_back(data.l_foot.at(k));
+
+                short_r_hip.push_back(data.r_hip.at(k));
+                short_r_knee.push_back(data.r_knee.at(k));
+                short_r_ankle.push_back(data.r_ankle.at(k));
+                short_r_foot.push_back(data.r_foot.at(k));
+
+                short_com.push_back(data.com.at(k));
+                short_com_vel.push_back(data.com_vel.at(k));
+
             }
             /*
             data.timestamps = timestamps;
@@ -2156,35 +2432,33 @@ public:
             }
             */
 
-            for (int k = f; k < force_data_f1.timestamps.size(); ++k) {
-                fp_ts_1.push_back(force_data_f1.timestamps.at(k-f));
-                fp_force_1.push_back(force_data_f1.force.at(k));
-                fp_moment_1.push_back(force_data_f1.moment.at(k));
-                fp_cop_1.push_back(force_data_f1.cop.at(k));
-
-                fp_ts_2.push_back(force_data_f2.timestamps.at(k-f));
-                fp_force_2.push_back(force_data_f2.force.at(k));
-                fp_moment_2.push_back(force_data_f2.moment.at(k));
-                fp_cop_2.push_back(force_data_f2.cop.at(k));
-            }
-
-            force_data_f1.timestamps = fp_ts_1;
-            force_data_f1.force = fp_force_1;
-            force_data_f1.moment = fp_moment_1;
-            force_data_f1.cop = fp_cop_1;
-
-            force_data_f2.timestamps = fp_ts_2;
-            force_data_f2.force = fp_force_2;
-            force_data_f2.moment = fp_moment_2;
-            force_data_f2.cop = fp_cop_2;
-
         } else {
-            short_l_sae = l_sae;
-            short_l_hle = l_hle;
-            short_r_hle = r_hle;
-            short_l_usp = l_usp;
-            short_r_usp = r_usp;
-            short_timestamps = timestamps;
+            short_timestamps = data.timestamps;
+
+            short_head = data.head;
+
+            short_l_sae = data.l_sae;
+            short_l_hle = data.l_hle;
+            short_l_usp = data.l_usp;
+
+            short_r_sae = data.r_sae;
+            short_r_hle = data.r_hle;
+            short_r_usp = data.r_usp;
+
+
+            short_l_hip = data.l_hip;
+            short_l_knee = data.l_knee;
+            short_l_ankle = data.l_ankle;
+            short_l_foot = data.l_foot;
+
+            short_r_hip = data.r_hip;
+            short_r_knee = data.r_knee;
+            short_r_ankle = data.r_ankle;
+            short_r_foot = data.r_foot;
+
+            short_com = data.com;
+            short_com_vel = data.com_vel;
+
         }
         /*
         short_l_sae = data.l_sae;
@@ -2194,8 +2468,8 @@ public:
         short_r_usp = data.r_usp;
         timestamps = data.timestamps;
         */
-        std::cout << "timestamps.size(): " << timestamps.size() << std::endl;
-        std::cout << "l_hle.size(): " << l_hle.size() << std::endl;
+        std::cout << "timestamps.size(): " << data.timestamps.size() << std::endl;
+        std::cout << "l_hle.size(): " << data.l_hle.size() << std::endl;
 
         // Calcualte com filtered and unfiltered
         std::vector<Point<double>> joints_com;
@@ -2225,14 +2499,6 @@ public:
         }
 
         // Calcualte cop and force
-        std::vector<Point<double>> vcop;
-        std::vector<Point<double>> vforce;
-        for (int k = 0; k < force_data_f1.timestamps.size(); ++k) {
-            auto [cop, force] = get_cop_force(force_data_f1, force_data_f2, k);
-            vcop.push_back(cop);
-            vforce.push_back(force);
-        }
-
         int frequency = 15;
 
         // Downsample
@@ -2258,26 +2524,33 @@ public:
             down_kinect_ts.push_back((1. / (double)frequency) * i);
         }
 
-        // QTM Joints
-
-        // Take middle for usp and hle
-        std::vector<Point<double>> hle;
-        for (int i = 0; i < short_l_hle.size(); ++i) {
-            auto middle = short_l_hle.at(i) * 0.5 + short_r_hle.at(i) * 0.5;
-            hle.push_back(middle);
-        }
-
-        std::vector<Point<double>> usp;
-        for (int i = 0; i < short_l_usp.size(); ++i) {
-            auto middle = short_l_usp.at(i) * 0.5 + short_r_usp.at(i) * 0.5;
-            usp.push_back(middle);
-        }
-
-        auto qtm_joints = combine_3_vectors_to_tensor(short_l_sae, hle, usp);
+        TheiaData short_data {
+            short_timestamps,
+            short_head,
+            short_l_sae,
+            short_l_hle,
+            short_l_usp,
+            short_r_sae,
+            short_r_hle,
+            short_r_usp,
+            short_l_hip,
+            short_l_knee,
+            short_l_ankle,
+            short_l_foot ,
+            short_r_hip,
+            short_r_knee,
+            short_r_ankle,
+            short_r_foot,
+            short_com,
+            short_com_vel
+        };
+        auto theia_tensor = combine_theia_data_to_tensor(short_data);
 
         std::cout << "Downsampling QTM Joints" << std::endl;
-        int qtm_joints_frequency = 75;
-        auto down_qtm_joints = downsample(qtm_joints, short_timestamps, qtm_joints_frequency);
+        int theia_tensor_frequency = 30;
+        auto down_theia_tensor = downsample(theia_tensor, short_timestamps, theia_tensor_frequency);
+
+        auto down_down_theia_tensor = downsample(theia_tensor, short_timestamps, 15);
 
         /*
         auto down_l_sae = downsample(data.l_sae, data.timestamps, frequency);
@@ -2289,19 +2562,8 @@ public:
 
         std::cout << "create qtm ts" << std::endl;
         std::vector<double> down_qtm_ts;
-        for (int i = 0; i < down_qtm_joints.dimension(0); ++i) {
-            down_qtm_ts.push_back((1. / (double)qtm_joints_frequency) * i);
-        }
-
-        // QTM Force Plate
-        int force_plate_frequency = 450;
-        std::cout << "Downsampling QTM COP" << std::endl;
-        auto down_cop = downsample(vcop, force_data_f1.timestamps, force_plate_frequency);
-        auto down_force = downsample(vforce, force_data_f1.timestamps, force_plate_frequency);
-
-        std::vector<double> down_qtm_cop_ts;
-        for (int i = 0; i < down_cop.size(); ++i) {
-            down_qtm_cop_ts.push_back((1. / (double)force_plate_frequency) * i);
+        for (int i = 0; i < down_theia_tensor.dimension(0); ++i) {
+            down_qtm_ts.push_back((1. / (double)theia_tensor_frequency) * i);
         }
 
         int counter = 0;
@@ -2323,8 +2585,8 @@ public:
         // Write out all the stuff:
         // Kinect joints, ts, com
         // Downsampled Kinect joints, ts, com
-        // QTM joints, ts, com
-        // Downsampled QTM joints, ts, com
+        // theia_tensor, ts, com
+        // Downsampled theia_tensor, ts, com
         // what do i have:
         // tensor -> can be written out directly
         // vector<double> -> can be written out directly
@@ -2332,8 +2594,8 @@ public:
         std::stringstream path_kinect_joints, path_kinect_predictions, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_kinect_com, path_kinect_com_velocities, path_kinect_unfiltered_com;
         std::stringstream down_path_kinect_joints, down_path_kinect_predictions, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_com_velocities, down_path_kinect_unfiltered_com;
 
-        std::stringstream path_qtm_joints, path_qtm_ts, path_qtm_cop, path_qtm_cop_ts;
-        std::stringstream down_path_qtm_joints, down_path_qtm_ts, down_path_qtm_cop, down_path_qtm_cop_ts;
+        std::stringstream path_theia_tensor;
+        std::stringstream down_path_theia_tensor;
 
         std::stringstream config;
 
@@ -2354,14 +2616,8 @@ public:
         down_path_kinect_com_velocities << base_dir << "down_kinect_com_velocities.npy";
         down_path_kinect_unfiltered_com << base_dir << "down_kinect_unfiltered_com.npy";
 
-        path_qtm_joints << base_dir << "qtm_joints.npy";
-        path_qtm_ts << base_dir << "qtm_ts.npy";
-        path_qtm_cop << base_dir << "qtm_cop.npy";
-        path_qtm_cop_ts << base_dir << "qtm_cop_ts.npy";
-        down_path_qtm_joints << base_dir << "down_qtm_joints.npy";
-        down_path_qtm_ts << base_dir << "down_qtm_ts.npy";
-        down_path_qtm_cop << base_dir << "down_qtm_cop.npy";
-        down_path_qtm_cop_ts << base_dir << "down_qtm_cop_ts.npy";
+        path_theia_tensor << base_dir << "theia_tensor.npy";
+        down_path_theia_tensor << base_dir << "down_theia_tensor.npy";
 
         config << base_dir << "config.json";
 
@@ -2385,15 +2641,9 @@ public:
         cnpy::npy_save(down_path_kinect_com_velocities.str(), convert_point_vector(down_velocities_com).data(), { down_velocities_com.size(), 3 }, "w");
         cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
 
-        cnpy::npy_save(path_qtm_joints.str(), qtm_joints.data(), { (unsigned long)qtm_joints.dimension(0), 3, 3 }, "w");
-        cnpy::npy_save(path_qtm_ts.str(), short_timestamps.data(), { short_timestamps.size() }, "w");
-        cnpy::npy_save(path_qtm_cop.str(), convert_point_vector(vcop).data(), { vcop.size(), 3 }, "w");
-        cnpy::npy_save(path_qtm_cop_ts.str(), force_data_f1.timestamps.data(), { force_data_f1.timestamps.size() }, "w");
+        cnpy::npy_save(path_theia_tensor.str(), theia_tensor.data(), { (unsigned long)theia_tensor.dimension(0), (unsigned long)theia_tensor.dimension(1), 3 }, "w");
 
-        cnpy::npy_save(down_path_qtm_joints.str(), down_qtm_joints.data(), { (unsigned long)down_qtm_joints.dimension(0), 3, 3 }, "w");
-        cnpy::npy_save(down_path_qtm_ts.str(), down_qtm_ts.data(), { down_qtm_ts.size() }, "w");
-        cnpy::npy_save(down_path_qtm_cop.str(), convert_point_vector(down_cop).data(), { down_cop.size(), 3 }, "w");
-        cnpy::npy_save(down_path_qtm_cop_ts.str(), down_qtm_cop_ts.data(), { down_qtm_cop_ts.size() }, "w");
+        cnpy::npy_save(down_path_theia_tensor.str(), down_theia_tensor.data(), { (unsigned long)down_theia_tensor.dimension(0), (unsigned long)theia_tensor.dimension(1), 3 }, "w");
 
         nlohmann::json config_json;
         std::ofstream output_file(config.str());
@@ -2407,8 +2657,8 @@ public:
         for (int i = 0; i < joints.dimension(0); ++i) {
             ksl.push_back(joints(i, K4ABT_JOINT_SHOULDER_LEFT, 2));
         }
-        for (int i = 0; i < qtm_joints.dimension(0); ++i) {
-            qsl.push_back(qtm_joints(i, 0, 2));
+        for (int i = 0; i < theia_tensor.dimension(0); ++i) {
+            qsl.push_back(theia_tensor(i, 0, 2));
         }
 
         plt::title("Left Shoulder x");
@@ -2418,6 +2668,73 @@ public:
         plt::show(true);
         plt::cla();
         */
+
+        Window3dWrapper window3d;
+        k4a_calibration_t sensor_calibration;
+        sensor_calibration.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
+        window3d.Create("3D Visualization", sensor_calibration);
+        window3d.SetCloseCallback(closeCallback);
+        window3d.SetKeyCallback(processKey);
+        window3d.SetTopViewPoint();
+        window3d.Scroll(10);
+
+        int k = 0;
+        while (k < down_down_theia_tensor.dimension(0) or k < down_kinect_ts.size()) {
+            /*
+            auto theia_wrist = Point<double>(
+                down_down_theia_tensor(k, 4, 0),
+                down_down_theia_tensor(k, 4, 1),
+                down_down_theia_tensor(k, 4, 2)
+            );
+            add_theia_point(window3d, theia_wrist, Color {1, 0, 0});
+            */
+            for (int j = 0; j < down_down_theia_tensor.dimension(1)-2; ++j) {
+                auto theia_joint = Point<double>(
+                    down_down_theia_tensor(k, j, 0),
+                    down_down_theia_tensor(k, j, 1),
+                    down_down_theia_tensor(k, j, 2)
+                );
+                add_theia_point(window3d, theia_joint, Color {1, 0, 0});
+            }
+            for (int j = down_down_theia_tensor.dimension(1)-2; j < down_down_theia_tensor.dimension(1); ++j) {
+                auto theia_joint = Point<double>(
+                    down_down_theia_tensor(k, j, 0),
+                    down_down_theia_tensor(k, j, 1),
+                    down_down_theia_tensor(k, j, 2)
+                );
+                add_theia_point(window3d, theia_joint, Color {0, 1, 0});
+            }
+
+            /*
+            auto kinect_wrist = Point<double>(
+                down_joints(k, K4ABT_JOINT_WRIST_LEFT, 0),
+                down_joints(k, K4ABT_JOINT_WRIST_LEFT, 1),
+                down_joints(k, K4ABT_JOINT_WRIST_LEFT, 2)
+            );
+            add_theia_point(window3d, kinect_wrist, Color {0, 0, 1});
+            */
+            std::vector<Point<double>> points;
+            for (int j = 0; j < down_joints.dimension(1); ++j) {
+                auto kinect_joint = Point<double>(
+                    down_joints(k, j, 0),
+                    down_joints(k, j, 1),
+                    down_joints(k, j, 2)
+                );
+                add_theia_point(window3d, kinect_joint, Color {0, 0, 1});
+                points.push_back(kinect_joint);
+            }
+            add_theia_point(window3d, com_helper(points, MM), Color {1, 0.65, 0});
+
+            window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
+            window3d.SetJointFrameVisualization(s_visualizeJointFrame);
+            window3d.Render();
+            window3d.CleanJointsAndBones();
+            std::this_thread::sleep_for((1./15.) * 1000ms);
+            if (!s_isRunning) {
+                break;
+            }
+            k++;
+        }
     }
 
     void write_out(
@@ -2843,7 +3160,7 @@ public:
         Tensor<double, 3, Eigen::RowMajor> filtered_out(ts.size(), 3, 3);
         Tensor<double, 3, Eigen::RowMajor> truth_out(ts.size(), 3, 3);
 
-        auto [translation, rotation] = translation_and_rotation(data.l_ak, data.r_ak, data.b_ak);
+        auto [translation, rotation] = translation_and_rotation_theia();
 
         auto joints = translate_and_rotate(joints_in_kinect_system, translation, rotation);
         auto unfiltered_joints = translate_and_rotate(unfiltered_joints_in_kinect_system, translation, rotation);
@@ -2854,7 +3171,7 @@ public:
         if (this->hard_offset) {
             time_offset = this->offset;
         }
-        Data data_for_cross_corr { data.timestamps, data.l_ak, data.r_ak, data.b_ak, data.l_sae, data.l_hle, data.l_usp, data.r_hle, data.r_usp, };
+        Data data_for_cross_corr { data.timestamps, std::vector<Point<double>>(), std::vector<Point<double>>(), std::vector<Point<double>>(), data.l_sae, data.l_hle, data.l_usp, data.r_hle, data.r_usp, };
 
         time_offset = cross_correlation_lag(data_for_cross_corr, joints, ts, this->offset, false, true);
         std::cout << "Time offset: " << time_offset << std::endl;

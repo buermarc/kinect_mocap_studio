@@ -1,0 +1,16 @@
+142 jane b2 (constrained fast) 11
+
+143 marc b2 (constrained fast) 12
+144 marc b1 (constrained slow) 13
+
+
+147 marko b1 (constrained slow) 14
+148 marko b2 (constrained fast) 15
+
+
+149 marko c1 (com new) -> 16
+    c1 synch, tpose, circling, forward, backward, left, right,
+    step foward left, step foward rigth, step backward left, step backward right
+
+
+180 marc c1 (com new) (17) 18?
