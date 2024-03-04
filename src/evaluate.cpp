@@ -1830,6 +1830,259 @@ public:
         kinect_max_events.push_back(max_idx);
     }
 
+    double cross_correlation_lag_unfiltered(Data& data, Tensor<double, 3, Eigen::RowMajor>& unfiltered_joints, std::vector<double> kinect_ts, double initial_offset, bool plot = false, bool theia = false)
+    {
+        // downsample to 15hz
+        auto qtm_ts = data.timestamps;
+
+        std::vector<double> qtm_hle_y;
+        // std::transform(data.l_hle.cbegin(), data.l_hle.cend(), std::back_inserter(qtm_hle_y), [](auto point) {return point.y;});
+
+        if (!theia) {
+            for (int i = 0; i < data.l_usp.size(); ++i) {
+                auto value = data.l_usp.at(i).z;
+                qtm_hle_y.push_back(value);
+            }
+        } else {
+            for (int i = 0; i < data.l_usp.size(); ++i) {
+                auto l = data.l_usp.at(i) * .5;
+                auto r = data.r_usp.at(i) * .5;
+                double value = (l + r).z;
+                qtm_hle_y.push_back(value);
+            }
+        }
+
+        std::vector<double> kinect_hle_y;
+        for (int i = 0; i < unfiltered_joints.dimension(0); ++i) {
+            kinect_hle_y.push_back(unfiltered_joints(i, K4ABT_JOINT_WRIST_LEFT, 2));
+        }
+
+        std::vector<double> downsampled_qtm_hle_y;
+
+        double frame_duration = 1. / 15.;
+
+        std::cout << "initial_offset: " << initial_offset << std::endl;
+        int qtm_begin_idx = 0;
+        if (initial_offset < 0) {
+            qtm_begin_idx = (std::abs(initial_offset) / frame_duration);
+        }
+        std::cout << "qtm_begin_idx: " << qtm_begin_idx << std::endl;
+
+        for (int i = qtm_begin_idx, down_i = qtm_begin_idx; i < qtm_ts.size(); ++i) {
+            auto time = qtm_ts.at(i);
+            if (time >= frame_duration * down_i && time < frame_duration * (down_i + 1)) {
+                downsampled_qtm_hle_y.push_back(qtm_hle_y.at(i));
+                down_i++;
+            }
+        }
+
+        int kinect_begin_idx = 0;
+        if (initial_offset > 0) {
+            for (int k = 0; k < kinect_ts.size(); ++k) {
+                auto time = kinect_ts.at(k) - kinect_ts.front();
+                if (time >= initial_offset) {
+                    kinect_begin_idx = k;
+                    break;
+                }
+            }
+            int kinect_begin_idx = (initial_offset / frame_duration);
+            std::cout << "kinect_begin_idx: " << kinect_begin_idx << std::endl;
+        }
+
+        std::vector<double> downsampled_kinect_hle_y;
+
+        for (int i = kinect_begin_idx, down_i = kinect_begin_idx; i < kinect_ts.size(); ++i) {
+            auto time = kinect_ts.at(i) - kinect_ts.front();
+            double value;
+            if (time >= frame_duration * down_i) {
+                if (time != frame_duration * down_i) {
+                    auto before_time = kinect_ts.at(i - 1) - kinect_ts.front();
+                    auto before_value = kinect_hle_y.at(i - 1);
+                    auto current_value = kinect_hle_y.at(i);
+                    value = before_value + ((current_value - before_value) * ((frame_duration * down_i - before_time) / (time - before_time)));
+                } else {
+                    value = kinect_hle_y.at(i);
+                }
+                downsampled_kinect_hle_y.push_back(value);
+                down_i++;
+            }
+        }
+
+        // downsampled_qtm_hle_y = {0., 0., 0., 1., 2., 1., 0., 0., 0., 0., 0.};
+        //  downsampled_kinect_hle_y = {0., 0., 0., 0., 0., 1., 3., 1., 0.};
+        // downsampled_kinect_hle_y = {0., 1., 3., 1., 0.};
+
+        auto orig_downsampled_kinect_hle_y = downsampled_kinect_hle_y;
+        auto orig_downsampled_qtm_hle_y = downsampled_qtm_hle_y;
+
+        // downsampled_kinect_hle_y = smooth(downsampled_kinect_hle_y, 7);
+        // downsampled_qtm_hle_y = smooth(downsampled_qtm_hle_y, 7);
+
+        /*
+        double mean_qtm = std::accumulate(downsampled_qtm_hle_y.cbegin(), downsampled_qtm_hle_y.cend(), 0.0) / downsampled_qtm_hle_y.size();
+        double mean_kinect = std::accumulate(downsampled_kinect_hle_y.cbegin(), downsampled_kinect_hle_y.cend(), 0.0) / downsampled_kinect_hle_y.size();
+
+        double diff = mean_qtm - mean_kinect;
+        std::cout << "diff: " << diff << std::endl;
+
+        std::transform(downsampled_kinect_hle_y.cbegin(), downsampled_kinect_hle_y.cend(), downsampled_kinect_hle_y.begin(), [=](auto element) {return element + diff;});
+
+        */
+        std::cout << "qtm down size: " << downsampled_qtm_hle_y.size() << std::endl;
+        std::cout << "kinect down size: " << downsampled_kinect_hle_y.size() << std::endl;
+
+        /*
+        downsampled_qtm_hle_y.clear();
+        for (int i = 0; i < 150; ++i) {
+            downsampled_qtm_hle_y.push_back(i);
+        }
+
+        downsampled_kinect_hle_y.clear();
+        for (int i = 10; i < 160; ++i) {
+            downsampled_kinect_hle_y.push_back(i);
+        }
+        */
+
+        alglib_impl::ae_state state;
+        ae_state_init(&state);
+
+        alglib_impl::ae_vector qtm;
+        memset(&qtm, 0, sizeof(qtm));
+
+        alglib_impl::ae_vector kinect;
+        memset(&kinect, 0, sizeof(kinect));
+
+        alglib_impl::ae_vector result;
+        memset(&result, 0, sizeof(result));
+
+        ae_vector_init(&qtm, 0, alglib_impl::DT_REAL, &state, ae_true);
+        ae_vector_init(&kinect, 0, alglib_impl::DT_REAL, &state, ae_true);
+        ae_vector_init(&result, 0, alglib_impl::DT_REAL, &state, ae_true);
+
+        ae_vector_set_length(&qtm, downsampled_qtm_hle_y.size(), &state);
+
+        //std::cout << "signal = [";
+        for (int i = 0; i < downsampled_qtm_hle_y.size(); ++i) {
+            qtm.ptr.p_double[i] = downsampled_qtm_hle_y.at(i);
+            //std::cout << downsampled_qtm_hle_y.at(i) << ",";
+        }
+        // std::cout << "]" << std::endl;
+
+        ae_vector_set_length(&kinect, downsampled_kinect_hle_y.size(), &state);
+        // std::cout << "sample = [";
+        for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
+            kinect.ptr.p_double[i] = downsampled_kinect_hle_y.at(i);
+            // std::cout << downsampled_kinect_hle_y.at(i) << ",";
+        }
+        // std::cout << "]" << std::endl;
+
+        ae_vector_set_length(&result, downsampled_kinect_hle_y.size() + downsampled_qtm_hle_y.size(), &state);
+        corrr1d(&qtm, downsampled_qtm_hle_y.size(), &kinect, downsampled_kinect_hle_y.size(), &result, &state);
+
+        double tmp = 0.0;
+        int arg_max = 0;
+        for (int i = 0; i < (downsampled_kinect_hle_y.size() + downsampled_qtm_hle_y.size()) - 1; ++i) {
+            if (tmp < result.ptr.p_double[i]) {
+                tmp = result.ptr.p_double[i];
+                arg_max = i;
+                // std::cout << "Max : " << tmp;
+            }
+        }
+
+        // std::cout << "Initial arg max: " << arg_max << std::endl;
+        if (arg_max >= downsampled_qtm_hle_y.size()) {
+            arg_max = arg_max - (downsampled_qtm_hle_y.size() + downsampled_kinect_hle_y.size() - 1);
+        }
+        // std::cout << "N" << downsampled_qtm_hle_y.size() << std::endl;
+        // std::cout << "M" << downsampled_kinect_hle_y.size() << std::endl;
+        // std::cout << "Arg max: " << arg_max << std::endl;
+
+        /*
+        std::cout << "Other way" << std::endl;
+        double signalData[14] = { 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9};
+        //                                    0  1  2  3  4  5
+        double patternData[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        alglib::real_1d_array signal;
+        alglib::real_1d_array pattern;
+        alglib::real_1d_array corrResult;
+
+        signal.setcontent(14, signalData);
+        pattern.setcontent(10, patternData);
+
+        corrr1d(signal, 14, pattern, 10, corrResult);
+
+        for (int i = 0; i < 24; ++i) {
+            std::cout << corrResult[i]<< std::endl;
+        }
+        */
+
+        if (plot) {
+            std::vector<double> qtm_timestamp;
+            for (int i = 0; i < downsampled_qtm_hle_y.size(); ++i) {
+                qtm_timestamp.push_back((1. / 15.) * i);
+            }
+            std::vector<double> kinect_timestamp;
+            for (int i = 0; i < downsampled_kinect_hle_y.size(); ++i) {
+                kinect_timestamp.push_back((1. / 15.) * i);
+            }
+
+            auto front = kinect_ts.front();
+            std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto e) { return e - front; });
+
+            plt::title("Smooth QTM");
+            plt::named_plot("normal qtm", data.timestamps, qtm_hle_y);
+            plt::named_plot("downsampled qtm", qtm_timestamp, orig_downsampled_qtm_hle_y);
+            plt::named_plot("normal kinect", kinect_ts, kinect_hle_y);
+            plt::named_plot("downsampled kinect", kinect_timestamp, orig_downsampled_kinect_hle_y);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+
+            plt::title("Downsampled Wrist Z");
+            plt::named_plot("QTM", qtm_timestamp, downsampled_qtm_hle_y);
+            plt::named_plot("Kinect", kinect_timestamp, downsampled_kinect_hle_y);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+
+            /*
+            std::vector<double> shifted_downsampled_kinect_hle_y;
+            std::vector<double> orig_shifted_downsampled_kinect_hle_y;
+            for (int i = arg_max; i < downsampled_kinect_hle_y.size(); ++i) {
+                shifted_downsampled_kinect_hle_y.push_back(downsampled_kinect_hle_y.at(i));
+                orig_shifted_downsampled_kinect_hle_y.push_back(orig_downsampled_kinect_hle_y.at(i));
+            }
+            */
+
+            int before_size = qtm_timestamp.size();
+
+            std::vector<double> shifted_kinect_timestamp;
+            // std::cout << "downsampled size :" << downsampled_kinect_hle_y.size() << std::endl;
+            for (int i = arg_max; i < (arg_max + (int)downsampled_kinect_hle_y.size()); ++i) {
+                shifted_kinect_timestamp.push_back((1. / 15.) * (i));
+            }
+
+            plt::title("Shifted Downsampled Wrist Z");
+            plt::named_plot("QTM", qtm_timestamp, orig_downsampled_qtm_hle_y);
+            plt::named_plot("Shifted Kinect", shifted_kinect_timestamp, downsampled_kinect_hle_y);
+            plt::named_plot("Normal Kinect", kinect_timestamp, downsampled_kinect_hle_y, "r--");
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+
+            /*
+            plt::title("Smooth Shifted Downsampled Wrist Z");
+            plt::named_plot("Shifted QTM", qtm_timestamp, smooth(downsampled_qtm_hle_y));
+            plt::named_plot("Shifted Kinect", kinect_timestamp, shifted_downsampled_kinect_hle_y);
+            plt::legend();
+            plt::show(true);
+            plt::cla();
+            */
+        }
+
+        return initial_offset + (-(1. / 15.) * arg_max);
+    }
+
     double cross_correlation_lag(Data& data, Tensor<double, 3, Eigen::RowMajor>& joints, std::vector<double> kinect_ts, double initial_offset, bool plot = false, bool theia = false)
     {
         // downsample to 15hz
@@ -2266,32 +2519,47 @@ public:
         Tensor<double, 3, Eigen::RowMajor> predictions,
         TheiaData data,
         double time_offset,
-        std::string filter_name
+        double time_offset_unfiltered,
+        std::string filter_name,
+        bool render = false
         )
     {
         // First check offset
         //
         // i is for qtm
         int i = 0;
-        // q is for kinect
+        // j is for kinect filtered
         int j = 0;
+        // v is for kinect unfiltered
+        int v = 0;
         if (time_offset < 0) {
             // QTM events are a bit later then the Kinect events, therefore, skip
             // a few qtm frames in the beginning
-            while (data.timestamps.at(i) < std::abs(time_offset)) {
+            while (data.timestamps.at(i) < std::abs(time_offset_unfiltered)) {
                 i++;
             };
+            assert(time_offset_unfiltered <= time_offset);
+            auto diff = time_offset_unfiltered - time_offset;
+            if (diff != 0) {
+                while ((kinect_ts.at(j) - kinect_ts.front()) < std::abs(diff)) {
+                    j++;
+                };
+            }
         } else if (time_offset > 0) {
             // Kinect events are a bit later then the Kinect events, therefore, skip
             // a few kinect frames in the beginning
             while ((kinect_ts.at(j) - kinect_ts.front()) < std::abs(time_offset)) {
                 j++;
             };
+            while ((kinect_ts.at(v) - kinect_ts.front()) < std::abs(time_offset_unfiltered)) {
+                v++;
+            };
         }
-        std::cout << "write out : i=" << i << ", j=" << j << std::endl;
+        std::cout << "write out : i=" << i << ", j=" << j << ", v=" << v << std::endl;
         double front = kinect_ts.front();
         std::transform(kinect_ts.cbegin(), kinect_ts.cend(), kinect_ts.begin(), [front](auto element) { return element - front; });
         assert(kinect_ts.front() == 0);
+        std::vector<double> unfiltered_kinect_ts(kinect_ts);
 
         // First copy from data into stuff
         std::vector<double> short_timestamps;
@@ -2339,7 +2607,6 @@ public:
         if (j != 0) {
             Tensor<double, 3, Eigen::RowMajor> shortened_joints(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
             Tensor<double, 3, Eigen::RowMajor> shortened_predictions(joints.dimension(0) - j, joints.dimension(1), joints.dimension(2));
-            Tensor<double, 3, Eigen::RowMajor> shortened_unfiltered_joints(unfiltered_joints.dimension(0) - j, unfiltered_joints.dimension(1), unfiltered_joints.dimension(2));
             Tensor<double, 3, Eigen::RowMajor> shortened_velocities(velocities.dimension(0) - j, velocities.dimension(1), velocities.dimension(2));
             std::vector<double> shortened_kinect_ts(kinect_ts.size() - j);
             for (int k = 0; k < joints.dimension(0) - j; ++k) {
@@ -2350,9 +2617,6 @@ public:
                     shortened_predictions(k, q, 0) = predictions(k + j, q, 0);
                     shortened_predictions(k, q, 1) = predictions(k + j, q, 1);
                     shortened_predictions(k, q, 2) = predictions(k + j, q, 2);
-                    shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + j, q, 0);
-                    shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + j, q, 1);
-                    shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + j, q, 2);
                     shortened_velocities(k, q, 0) = velocities(k + j, q, 0);
                     shortened_velocities(k, q, 1) = velocities(k + j, q, 1);
                     shortened_velocities(k, q, 2) = velocities(k + j, q, 2);
@@ -2364,8 +2628,23 @@ public:
             kinect_ts = shortened_kinect_ts;
             joints = shortened_joints;
             predictions = shortened_predictions;
-            unfiltered_joints = shortened_unfiltered_joints;
             velocities = shortened_velocities;
+        }
+        if (v != 0) {
+            std::vector<double> shortened_unfiltered_kinect_ts(kinect_ts.size() - v);
+            Tensor<double, 3, Eigen::RowMajor> shortened_unfiltered_joints(unfiltered_joints.dimension(0) - v, unfiltered_joints.dimension(1), unfiltered_joints.dimension(2));
+            for (int k = 0; k < joints.dimension(0) - v; ++k) {
+                for (int q = 0; q < joints.dimension(1); ++q) {
+                    shortened_unfiltered_joints(k, q, 0) = unfiltered_joints(k + v, q, 0);
+                    shortened_unfiltered_joints(k, q, 1) = unfiltered_joints(k + v, q, 1);
+                    shortened_unfiltered_joints(k, q, 2) = unfiltered_joints(k + v, q, 2);
+                }
+            }
+            unfiltered_joints = shortened_unfiltered_joints;
+            for (int k = 0; k < kinect_ts.size() - v; ++k) {
+                shortened_unfiltered_kinect_ts.at(k) = kinect_ts.at(k);
+            }
+            unfiltered_kinect_ts = shortened_unfiltered_kinect_ts;
         }
         if (i != 0) {
 
@@ -2478,7 +2757,6 @@ public:
         for (int j = 0; j < joints.dimension(0); ++j) {
             std::vector<Point<double>> points;
             std::vector<Point<double>> pvelocities;
-            std::vector<Point<double>> unfiltered_points;
             for (int k = 0; k < 32; ++k) {
                 points.push_back(Point<double>(
                     joints(j, k, 0),
@@ -2488,13 +2766,19 @@ public:
                     velocities(j, k, 0),
                     velocities(j, k, 1),
                     velocities(j, k, 2)));
+            }
+            joints_com.push_back(com_helper(points, MM));
+            velocities_com.push_back(com_helper(pvelocities, MM));
+        }
+
+        for (int j = 0; j < unfiltered_joints.dimension(0); ++j) {
+            std::vector<Point<double>> unfiltered_points;
+            for (int k = 0; k < 32; ++k) {
                 unfiltered_points.push_back(Point<double>(
                     unfiltered_joints(j, k, 0),
                     unfiltered_joints(j, k, 1),
                     unfiltered_joints(j, k, 2)));
             }
-            joints_com.push_back(com_helper(points, MM));
-            velocities_com.push_back(com_helper(pvelocities, MM));
             unfiltered_joints_com.push_back(com_helper(unfiltered_points, MM));
         }
 
@@ -2509,7 +2793,7 @@ public:
         std::cout << "Downsampling Kinect Predictions" << std::endl;
         auto down_predictions = downsample(predictions, kinect_ts, frequency);
         std::cout << "Downsampling Kinect Unfiltered Joints" << std::endl;
-        auto down_unfiltered_joints = downsample(unfiltered_joints, kinect_ts, frequency);
+        auto down_unfiltered_joints = downsample(unfiltered_joints, unfiltered_kinect_ts, frequency);
         std::cout << "Downsampling Kinect Velocities" << std::endl;
         auto down_velocities = downsample(velocities, kinect_ts, frequency);
 
@@ -2517,11 +2801,16 @@ public:
         std::cout << "Downsampling Kinect COM" << std::endl;
         auto down_joints_com = downsample(joints_com, kinect_ts, frequency);
         auto down_velocities_com = downsample(velocities_com, kinect_ts, frequency);
-        auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, kinect_ts, frequency);
+        auto down_unfiltered_joints_com = downsample(unfiltered_joints_com, unfiltered_kinect_ts, frequency);
 
         std::vector<double> down_kinect_ts;
         for (int i = 0; i < down_joints.dimension(0); ++i) {
             down_kinect_ts.push_back((1. / (double)frequency) * i);
+        }
+
+        std::vector<double> down_unfiltered_kinect_ts;
+        for (int i = 0; i < down_unfiltered_joints.dimension(0); ++i) {
+            down_unfiltered_kinect_ts.push_back((1. / (double)frequency) * i);
         }
 
         TheiaData short_data {
@@ -2591,8 +2880,8 @@ public:
         // tensor -> can be written out directly
         // vector<double> -> can be written out directly
         // vector<Point<double>> -> convert to tensor -> helper function
-        std::stringstream path_kinect_joints, path_kinect_predictions, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_kinect_com, path_kinect_com_velocities, path_kinect_unfiltered_com;
-        std::stringstream down_path_kinect_joints, down_path_kinect_predictions, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_kinect_com, down_path_kinect_com_velocities, down_path_kinect_unfiltered_com;
+        std::stringstream path_kinect_joints, path_kinect_predictions, path_kinect_unfiltered_joints, path_kinect_velocities, path_kinect_ts, path_unfiltered_kinect_ts, path_kinect_com, path_kinect_com_velocities, path_kinect_unfiltered_com;
+        std::stringstream down_path_kinect_joints, down_path_kinect_predictions, down_path_kinect_unfiltered_joints, down_path_kinect_velocities, down_path_kinect_ts, down_path_unfiltered_kinect_ts, down_path_kinect_com, down_path_kinect_com_velocities, down_path_kinect_unfiltered_com;
 
         std::stringstream path_theia_tensor;
         std::stringstream down_path_theia_tensor;
@@ -2604,6 +2893,7 @@ public:
         path_kinect_unfiltered_joints << base_dir << "kinect_unfiltered_joints.npy";
         path_kinect_velocities << base_dir << "kinect_velocities.npy";
         path_kinect_ts << base_dir << "kinect_ts.npy";
+        path_unfiltered_kinect_ts << base_dir << "unfiltered_kinect_ts.npy";
         path_kinect_com << base_dir << "kinect_com.npy";
         path_kinect_com_velocities << base_dir << "kinect_com_velocities.npy";
         path_kinect_unfiltered_com << base_dir << "kinect_unfiltered_com.npy";
@@ -2612,6 +2902,7 @@ public:
         down_path_kinect_unfiltered_joints << base_dir << "down_kinect_unfiltered_joints.npy";
         down_path_kinect_velocities << base_dir << "down_kinect_velocities.npy";
         down_path_kinect_ts << base_dir << "down_kinect_ts.npy";
+        down_path_unfiltered_kinect_ts << base_dir << "down_unfiltered_kinect_ts.npy";
         down_path_kinect_com << base_dir << "down_kinect_com.npy";
         down_path_kinect_com_velocities << base_dir << "down_kinect_com_velocities.npy";
         down_path_kinect_unfiltered_com << base_dir << "down_kinect_unfiltered_com.npy";
@@ -2628,6 +2919,7 @@ public:
         cnpy::npy_save(path_kinect_unfiltered_joints.str(), unfiltered_joints.data(), { (unsigned long)unfiltered_joints.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(path_kinect_velocities.str(), velocities.data(), { (unsigned long)velocities.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(path_kinect_ts.str(), kinect_ts.data(), { kinect_ts.size() }, "w");
+        cnpy::npy_save(path_unfiltered_kinect_ts.str(), unfiltered_kinect_ts.data(), { unfiltered_kinect_ts.size() }, "w");
         cnpy::npy_save(path_kinect_com.str(), convert_point_vector(joints_com).data(), { joints_com.size(), 3 }, "w");
         cnpy::npy_save(path_kinect_com_velocities.str(), convert_point_vector(velocities_com).data(), { velocities_com.size(), 3 }, "w");
         cnpy::npy_save(path_kinect_unfiltered_com.str(), convert_point_vector(unfiltered_joints_com).data(), { unfiltered_joints_com.size(), 3 }, "w");
@@ -2637,6 +2929,7 @@ public:
         cnpy::npy_save(down_path_kinect_unfiltered_joints.str(), down_unfiltered_joints.data(), { (unsigned long)down_unfiltered_joints.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(down_path_kinect_velocities.str(), down_velocities.data(), { (unsigned long)down_velocities.dimension(0), 32, 3 }, "w");
         cnpy::npy_save(down_path_kinect_ts.str(), down_kinect_ts.data(), { down_kinect_ts.size() }, "w");
+        cnpy::npy_save(down_path_unfiltered_kinect_ts.str(), down_unfiltered_kinect_ts.data(), { down_unfiltered_kinect_ts.size() }, "w");
         cnpy::npy_save(down_path_kinect_com.str(), convert_point_vector(down_joints_com).data(), { down_joints_com.size(), 3 }, "w");
         cnpy::npy_save(down_path_kinect_com_velocities.str(), convert_point_vector(down_velocities_com).data(), { down_velocities_com.size(), 3 }, "w");
         cnpy::npy_save(down_path_kinect_unfiltered_com.str(), convert_point_vector(down_unfiltered_joints_com).data(), { down_unfiltered_joints_com.size(), 3 }, "w");
@@ -2669,71 +2962,73 @@ public:
         plt::cla();
         */
 
-        Window3dWrapper window3d;
-        k4a_calibration_t sensor_calibration;
-        sensor_calibration.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
-        window3d.Create("3D Visualization", sensor_calibration);
-        window3d.SetCloseCallback(closeCallback);
-        window3d.SetKeyCallback(processKey);
-        window3d.SetTopViewPoint();
-        window3d.Scroll(10);
+        if (render) {
+            Window3dWrapper window3d;
+            k4a_calibration_t sensor_calibration;
+            sensor_calibration.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
+            window3d.Create("3D Visualization", sensor_calibration);
+            window3d.SetCloseCallback(closeCallback);
+            window3d.SetKeyCallback(processKey);
+            window3d.SetTopViewPoint();
+            window3d.Scroll(10);
 
-        int k = 0;
-        while (k < down_down_theia_tensor.dimension(0) or k < down_kinect_ts.size()) {
-            /*
-            auto theia_wrist = Point<double>(
-                down_down_theia_tensor(k, 4, 0),
-                down_down_theia_tensor(k, 4, 1),
-                down_down_theia_tensor(k, 4, 2)
-            );
-            add_theia_point(window3d, theia_wrist, Color {1, 0, 0});
-            */
-            for (int j = 0; j < down_down_theia_tensor.dimension(1)-2; ++j) {
-                auto theia_joint = Point<double>(
-                    down_down_theia_tensor(k, j, 0),
-                    down_down_theia_tensor(k, j, 1),
-                    down_down_theia_tensor(k, j, 2)
+            int k = 0;
+            while (k < down_down_theia_tensor.dimension(0) or k < down_kinect_ts.size()) {
+                /*
+                auto theia_wrist = Point<double>(
+                    down_down_theia_tensor(k, 4, 0),
+                    down_down_theia_tensor(k, 4, 1),
+                    down_down_theia_tensor(k, 4, 2)
                 );
-                add_theia_point(window3d, theia_joint, Color {1, 0, 0});
-            }
-            for (int j = down_down_theia_tensor.dimension(1)-2; j < down_down_theia_tensor.dimension(1); ++j) {
-                auto theia_joint = Point<double>(
-                    down_down_theia_tensor(k, j, 0),
-                    down_down_theia_tensor(k, j, 1),
-                    down_down_theia_tensor(k, j, 2)
-                );
-                add_theia_point(window3d, theia_joint, Color {0, 1, 0});
-            }
+                add_theia_point(window3d, theia_wrist, Color {1, 0, 0});
+                */
+                for (int j = 0; j < down_down_theia_tensor.dimension(1)-2; ++j) {
+                    auto theia_joint = Point<double>(
+                        down_down_theia_tensor(k, j, 0),
+                        down_down_theia_tensor(k, j, 1),
+                        down_down_theia_tensor(k, j, 2)
+                    );
+                    add_theia_point(window3d, theia_joint, Color {1, 0, 0});
+                }
+                for (int j = down_down_theia_tensor.dimension(1)-2; j < down_down_theia_tensor.dimension(1); ++j) {
+                    auto theia_joint = Point<double>(
+                        down_down_theia_tensor(k, j, 0),
+                        down_down_theia_tensor(k, j, 1),
+                        down_down_theia_tensor(k, j, 2)
+                    );
+                    add_theia_point(window3d, theia_joint, Color {0, 1, 0});
+                }
 
-            /*
-            auto kinect_wrist = Point<double>(
-                down_joints(k, K4ABT_JOINT_WRIST_LEFT, 0),
-                down_joints(k, K4ABT_JOINT_WRIST_LEFT, 1),
-                down_joints(k, K4ABT_JOINT_WRIST_LEFT, 2)
-            );
-            add_theia_point(window3d, kinect_wrist, Color {0, 0, 1});
-            */
-            std::vector<Point<double>> points;
-            for (int j = 0; j < down_joints.dimension(1); ++j) {
-                auto kinect_joint = Point<double>(
-                    down_joints(k, j, 0),
-                    down_joints(k, j, 1),
-                    down_joints(k, j, 2)
+                /*
+                auto kinect_wrist = Point<double>(
+                    down_joints(k, K4ABT_JOINT_WRIST_LEFT, 0),
+                    down_joints(k, K4ABT_JOINT_WRIST_LEFT, 1),
+                    down_joints(k, K4ABT_JOINT_WRIST_LEFT, 2)
                 );
-                add_theia_point(window3d, kinect_joint, Color {0, 0, 1});
-                points.push_back(kinect_joint);
-            }
-            add_theia_point(window3d, com_helper(points, MM), Color {1, 0.65, 0});
+                add_theia_point(window3d, kinect_wrist, Color {0, 0, 1});
+                */
+                std::vector<Point<double>> points;
+                for (int j = 0; j < down_joints.dimension(1); ++j) {
+                    auto kinect_joint = Point<double>(
+                        down_joints(k, j, 0),
+                        down_joints(k, j, 1),
+                        down_joints(k, j, 2)
+                    );
+                    add_theia_point(window3d, kinect_joint, Color {0, 0, 1});
+                    points.push_back(kinect_joint);
+                }
+                add_theia_point(window3d, com_helper(points, MM), Color {1, 0.65, 0});
 
-            window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
-            window3d.SetJointFrameVisualization(s_visualizeJointFrame);
-            window3d.Render();
-            window3d.CleanJointsAndBones();
-            std::this_thread::sleep_for((1./15.) * 1000ms);
-            if (!s_isRunning) {
-                break;
+                window3d.SetLayout3d((Visualization::Layout3d)((int)s_layoutMode));
+                window3d.SetJointFrameVisualization(s_visualizeJointFrame);
+                window3d.Render();
+                window3d.CleanJointsAndBones();
+                std::this_thread::sleep_for((1./15.) * 1000ms);
+                if (!s_isRunning) {
+                    break;
+                }
+                k++;
             }
-            k++;
         }
     }
 
@@ -3151,7 +3446,7 @@ public:
         plt::cla();
         */
     }
-    void process_theia(TheiaData data, std::string filter_name) {
+    void process_theia(TheiaData data, std::string filter_name, bool render = false) {
         auto ts = kinect_recording.timestamps;
         auto joints_in_kinect_system = kinect_recording.joints;
         auto unfiltered_joints_in_kinect_system = kinect_recording.unfiltered_joints;
@@ -3174,14 +3469,16 @@ public:
         Data data_for_cross_corr { data.timestamps, std::vector<Point<double>>(), std::vector<Point<double>>(), std::vector<Point<double>>(), data.l_sae, data.l_hle, data.l_usp, data.r_hle, data.r_usp, };
 
         time_offset = cross_correlation_lag(data_for_cross_corr, joints, ts, this->offset, false, true);
+        double time_offset_unfiltered = cross_correlation_lag_unfiltered(data_for_cross_corr, unfiltered_joints, ts, this->offset, false, true);
         std::cout << "Time offset: " << time_offset << std::endl;
+        std::cout << "Time offset unfiltered: " << time_offset_unfiltered << std::endl;
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
         std::cout << "Qualisys duration: " << data.timestamps.back() << std::endl;
 
         // Write out
         // I want to have the downsampled stuff already with the correct offset from the correlation
-        write_out_theia(ts, joints, unfiltered_joints, velocities, predictions, data, time_offset, filter_name);
+        write_out_theia(ts, joints, unfiltered_joints, velocities, predictions, data, time_offset, time_offset_unfiltered, filter_name, render);
 
     }
 
@@ -3712,7 +4009,7 @@ int main(int argc, char** argv)
         }
     } else {
         TheiaData data = experiment.theia_recording.read_joint_file();
-        experiment.process_theia(data, int_to_filter_name(filter_type.getValue()));
+        experiment.process_theia(data, int_to_filter_name(filter_type.getValue()), render.getValue());
 
         if (refilter.getValue()) {
             double stop = stop_measurement_error_factor.getValue();
@@ -3720,7 +4017,7 @@ int main(int argc, char** argv)
             for (double i = measurement_error_factor+step_size; i <= stop; i += step_size) {
                 std::cout << "Refilter: " << i << std::endl;
                 experiment.kinect_recording.refilter(filter_type.getValue(), i);
-                experiment.process_theia(data, int_to_filter_name(filter_type.getValue()));
+                experiment.process_theia(data, int_to_filter_name(filter_type.getValue()), render.getValue());
             }
         }
     }
