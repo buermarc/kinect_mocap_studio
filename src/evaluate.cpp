@@ -583,7 +583,7 @@ Tensor<double, 3, Eigen::RowMajor> downsample(Tensor<double, 3, Eigen::RowMajor>
 std::tuple<Point<double>, MatrixXd> translation_and_rotation_theia()
 {
     // Point<double> translation = Point<double>(-2.6, -0.07, 0.83);
-    Point<double> translation = Point<double>(-2.5, 0.00, 0.90);
+    Point<double> translation = Point<double>(-2.5, 0.00, 0.915);
     MatrixXd rotation_matrix(3, 3);
 
     auto x = Point<double>(0, -1, 0);
@@ -2943,6 +2943,8 @@ public:
         config_json["filter_type"] = kinect_recording.json_data["filters"][0]["filter_type"];
         config_json["measurement_error_factor"] = kinect_recording.json_data["filters"][0]["measurement_error_factor"];
         config_json["json_file_path"] = kinect_recording.json_file;
+        config_json["time_offset"] = time_offset;
+        config_json["time_offset_unfiltered"] = time_offset_unfiltered;
         output_file << std::setw(4) << config_json << std::endl;
 
         /*
