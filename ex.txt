@@ -13,4 +13,4 @@
     step foward left, step foward rigth, step backward left, step backward right
 
 
-180 marc c1 (com new) (17) 18?
+151 marc c1 (com new) (17) 18? 

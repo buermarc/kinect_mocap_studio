@@ -2524,6 +2524,8 @@ public:
         bool render = false
         )
     {
+        double bup_time_offset = time_offset;
+        time_offset = time_offset_unfiltered;
         // First check offset
         //
         // i is for qtm
@@ -2943,7 +2945,7 @@ public:
         config_json["filter_type"] = kinect_recording.json_data["filters"][0]["filter_type"];
         config_json["measurement_error_factor"] = kinect_recording.json_data["filters"][0]["measurement_error_factor"];
         config_json["json_file_path"] = kinect_recording.json_file;
-        config_json["time_offset"] = time_offset;
+        config_json["time_offset"] = bup_time_offset;
         config_json["time_offset_unfiltered"] = time_offset_unfiltered;
         output_file << std::setw(4) << config_json << std::endl;
 
@@ -3464,13 +3466,13 @@ public:
         auto predictions = translate_and_rotate(kinect_recording.predictions, translation, rotation);
         auto velocities = translate_and_rotate(kinect_recording.velocities, Point<double>(), rotation);
 
-        // double time_offset = 0;
-        // if (this->hard_offset) {
-        //     time_offset = this->offset;
-        // }
+        double time_offset = 0;
+        if (this->hard_offset) {
+            time_offset = this->offset;
+        }
         Data data_for_cross_corr { data.timestamps, std::vector<Point<double>>(), std::vector<Point<double>>(), std::vector<Point<double>>(), data.l_sae, data.l_hle, data.l_usp, data.r_hle, data.r_usp, };
 
-        // time_offset = cross_correlation_lag(data_for_cross_corr, joints, ts, this->offset, false, true);
+        time_offset = cross_correlation_lag(data_for_cross_corr, joints, ts, this->offset, false, true);
         double time_offset_unfiltered = cross_correlation_lag_unfiltered(data_for_cross_corr, unfiltered_joints, ts, this->offset, false, true);
         // std::cout << "Time offset: " << time_offset << std::endl;
         std::cout << "Time offset unfiltered: " << time_offset_unfiltered << std::endl;
@@ -3480,7 +3482,7 @@ public:
 
         // Write out
         // I want to have the downsampled stuff already with the correct offset from the correlation
-        write_out_theia(ts, joints, unfiltered_joints, velocities, predictions, data, time_offset_unfiltered, time_offset_unfiltered, filter_name, render);
+        write_out_theia(ts, joints, unfiltered_joints, velocities, predictions, data, time_offset, time_offset_unfiltered, filter_name, render);
 
     }
 
