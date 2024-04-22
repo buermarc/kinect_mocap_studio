@@ -3507,7 +3507,7 @@ public:
         if (this->hard_offset) {
             time_offset = this->offset;
         }
-        time_offset = cross_correlation_lag(data, joints, ts, this->offset, plot);
+        time_offset = cross_correlation_lag_unfiltered(data, unfiltered_joints, ts, this->offset, plot);
         std::cout << "Time offset: " << time_offset << std::endl;
 
         std::cout << "Kinect duration: " << ts.back() - ts.at(0) << std::endl;
